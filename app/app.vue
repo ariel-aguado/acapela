@@ -20,4 +20,5 @@ const showFirstRunOverlay = computed(
   <AppSongbookSelector v-if="showFirstRunOverlay" mode="overlay" />
   <AppInstallBanner />
   <AppUpdateToast />
+  <AppMovedDialog />
 </template>

@@ -1,0 +1,14 @@
+{
+  "cleanUrls": false,
+  "trailingSlash": false,
+  "headers": [
+    { "source": "/(.*)", "headers": [
+      { "key": "Cache-Control", "value": "no-store" },
+      { "key": "X-Robots-Tag", "value": "noindex" },
+      { "key": "X-Content-Type-Options", "value": "nosniff" }
+    ] }
+  ],
+  "rewrites": [
+    { "source": "/((?!sw\\.js$).*)", "destination": "/index.html" }
+  ]
+}
