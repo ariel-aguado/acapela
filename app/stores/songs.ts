@@ -18,12 +18,16 @@ export const useSongStore = defineStore("useSongStore", () => {
   const favoriteSongs = computed<number[]>({
     get: () => favoritesBySongbook.value[songbookId.value] ?? [],
     set: (ids) => {
+      if (!songbookId.value)
+        return;
       favoritesBySongbook.value = { ...favoritesBySongbook.value, [songbookId.value]: ids };
     },
   });
   const songId = computed<number>({
     get: () => songIdBySongbook.value[songbookId.value] ?? 1,
     set: (id) => {
+      if (!songbookId.value)
+        return;
       songIdBySongbook.value = { ...songIdBySongbook.value, [songbookId.value]: id };
     },
   });
