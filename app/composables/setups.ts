@@ -24,6 +24,6 @@ export function setupPageHeader() {
       content: () => `width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0, viewport-fit=cover`,
       // content: () => `width=device-width,initial-scale=1${enablePinchToZoom.value ? '' : ',maximum-scale=1,user-scalable=0'},viewport-fit=cover`,
     }],
-    titleTemplate: c => c ? `${c} - Acappella` : "Acappella",
+    titleTemplate: c => c ? `${c} - Acapela` : "Acapela",
   });
 }

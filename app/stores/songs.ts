@@ -7,8 +7,30 @@ export const useSongStore = defineStore("useSongStore", () => {
   const filteredSongIdsByNumber = ref<number[]>([]);
   const filteredSongIdsByTitle = ref<string[]>([]);
 
-  const favoriteSongs = useLocalStorage<number[]>("favoriteSongs", []);
-  const songId = useLocalStorage<number>("songId", 1);
+  // Favorites and the last opened song are kept per songbook: the same number
+  // is a different song in each songbook, so sharing them would mix lists up
+  // when the user switches songbooks.
+  const { currentId: songbookId } = storeToRefs(useSongbookStore());
+  const favoritesBySongbook = useLocalStorage<Record<string, number[]>>("favoritesBySongbook", {});
+  const songIdBySongbook = useLocalStorage<Record<string, number>>("songIdBySongbook", {});
+
+  // Always replaced (never mutated in place) so watchers see every change.
+  const favoriteSongs = computed<number[]>({
+    get: () => favoritesBySongbook.value[songbookId.value] ?? [],
+    set: (ids) => {
+      if (!songbookId.value)
+        return;
+      favoritesBySongbook.value = { ...favoritesBySongbook.value, [songbookId.value]: ids };
+    },
+  });
+  const songId = computed<number>({
+    get: () => songIdBySongbook.value[songbookId.value] ?? 1,
+    set: (id) => {
+      if (!songbookId.value)
+        return;
+      songIdBySongbook.value = { ...songIdBySongbook.value, [songbookId.value]: id };
+    },
+  });
   const searchHistory = useLocalStorage<string[]>("searchHistory", []);
 
   const { status: workerStatus, songs: workerSongs, setFavoriteIds } = useSongbookWorker();
@@ -50,8 +72,9 @@ export const useSongStore = defineStore("useSongStore", () => {
     },
   );
 
+  // Fires on every toggle and on a songbook switch (different list).
   watch(
-    () => favoriteSongs.value.length,
+    favoriteSongs,
     () => {
       if (songs.value.length > 0) {
         songs.value = applyFavorites(songs.value);
@@ -194,14 +217,11 @@ export const useSongStore = defineStore("useSongStore", () => {
 
       if (newFavoriteState) {
         if (!favoriteSongs.value.includes(song.songId)) {
-          favoriteSongs.value.push(song.songId);
+          favoriteSongs.value = [...favoriteSongs.value, song.songId];
         }
       }
       else {
-        const favoriteIndex = favoriteSongs.value.indexOf(song.songId);
-        if (favoriteIndex !== -1) {
-          favoriteSongs.value.splice(favoriteIndex, 1);
-        }
+        favoriteSongs.value = favoriteSongs.value.filter(id => id !== song.songId);
       }
     }
   }

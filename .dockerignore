@@ -1,0 +1,24 @@
+# Salidas y dependencias locales (se generan dentro de la imagen)
+node_modules
+.output
+.nuxt
+.nitro
+.cache
+.data
+dist
+coverage
+
+# Material local, herramientas y metadatos
+.git
+.github
+.husky
+.agents
+.claude
+.vscode
+.idea
+*.log
+
+# Secretos
+.env
+.env.*
+!.env.example

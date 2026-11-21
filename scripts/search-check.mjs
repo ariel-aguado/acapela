@@ -181,7 +181,7 @@ try {
   console.log("\n=== Test 2: Bundle split (Fuse only in worker) ===")
   const fs = await import("node:fs")
   const path = await import("node:path")
-  const dir = "/home/tati/Documents/dev/node/acappella/.output/public/_nuxt"
+  const dir = `${process.cwd()}/.output/public/_nuxt`
   const files = fs.readdirSync(dir).filter(f => f.endsWith(".js"))
   const mainFiles = files.filter(f => !f.includes("songbook.worker") && !f.includes("workbox"))
   const workerFiles = files.filter(f => f.includes("songbook.worker"))
