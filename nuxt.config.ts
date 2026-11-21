@@ -23,11 +23,11 @@ export default defineNuxtConfig({
         { name: "apple-mobile-web-app-title", content: "Acappella" },
         { name: "format-detection", content: "telephone=no" },
         // open graph social image
-        { property: "og:url", content: "https://acappella-montevideo.vercel.app" },
+        { property: "og:url", content: "https://acapela.app" },
         { property: "og:title", content: "Acappella" },
         { property: "og:description", content: "Himnos y cánticos espirituales para la adoración" },
         { property: "og:type", content: "website" },
-        { property: "og:image", content: "https://acappella-montevideo.vercel.app/acappella-og-optimized.png" },
+        { property: "og:image", content: "https://acapela.app/acappella-og-optimized.png" },
         { property: "og:image:type", content: "image/png" },
         { property: "og:image:width", content: "1200" },
         { property: "og:image:height", content: "600" },
@@ -38,7 +38,7 @@ export default defineNuxtConfig({
         { name: "twitter:card", content: "summary_large_image" },
         { name: "twitter:title", content: "Acappella" },
         { name: "twitter:description", content: "Himnos y cánticos espirituales para la adoración" },
-        { name: "twitter:image", content: "https://acappella-montevideo.vercel.app/acappella-og-optimized.png" },
+        { name: "twitter:image", content: "https://acapela.app/acappella-og-optimized.png" },
       ],
     },
     pageTransition: {
