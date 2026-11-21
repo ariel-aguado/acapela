@@ -1,8 +1,8 @@
 <div align="center">
 
-# ACAPPELLA
+# ACAPELA
 
-<img src="public/acappella-og-optimized.png" alt="ACAPPELLA" width="800" />
+<img src="public/acappella-og-optimized.png" alt="ACAPELA" width="800" />
 
 ## Himnario Digital para la alabanza
 
@@ -91,7 +91,7 @@ No te detengas; ven.
 2. Modifica el archivo `public/songs/songbook.txt` con tus himnos
 3. Ve a [Vercel](https://vercel.com) e inicia sesión con GitHub
 4. Haz clic en "New Project"
-5. Importa tu copia de ACAPPELLA
+5. Importa tu copia de ACAPELA
 6. Haz clic en "Deploy"
 7. ¡Listo! Tu himnario estará disponible en una URL pública
 
@@ -99,8 +99,8 @@ No te detengas; ven.
 
 ```bash
 # Clona el repositorio
-git clone https://github.com/ariel-aguado/acappella.git
-cd acappella
+git clone https://github.com/ariel-aguado/acapela.git
+cd acapela
 
 # Instala las dependencias
 pnpm install

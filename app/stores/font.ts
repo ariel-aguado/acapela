@@ -3,6 +3,7 @@ const MAX_FONT_SIZE = 40;
 const DEFAULT_FONT_SIZE = 18;
 
 export const useFontStore = defineStore("font", () => {
+  // Key kept from the old name so saved font sizes are not lost.
   const fontSize = useLocalStorage<number>("acappellaFontSize", DEFAULT_FONT_SIZE);
 
   function increaseFont() {

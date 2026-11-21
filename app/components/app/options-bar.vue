@@ -12,7 +12,7 @@ const emit = defineEmits(["update:open"]);
         <Icon name="tabler:brand-netease-music" size="44" />
         <div class="flex flex-col items-start">
           <span class="leading-6 font-bold">
-            Acappella
+            Acapela
           </span>
           <span class="text-xs font-normal whitespace-nowrap">Cánticos Espirituales</span>
         </div>

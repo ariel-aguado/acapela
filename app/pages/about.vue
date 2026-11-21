@@ -14,7 +14,7 @@
         <Icon name="tabler:brand-netease-music" size="128" class="min-h-32" />
         <div class="flex flex-col items-center gap-4 p-4">
           <span class="leading-6 font-bold text-5xl">
-            Acappella
+            Acapela
           </span>
           <ShinyText
             text="Cánticos Espirituales"
@@ -27,15 +27,15 @@
     </div>
     <div>
       <h2 class="text-3xl font-bold text-left md:text-center mt-8">
-        Acerca de Acappella
+        Acerca de Acapela
       </h2>
       <p class="md:max-w-2xl md:mx-auto text-left md:text-center mt-4 leading-8">
-        "Acappella" nace con una misión clara: poner la tecnología al servicio de la alabanza. Es una herramienta diseñada para que la Iglesia pueda exaltar el nombre del Señor, a quien sea toda la honra y la gloria. Amén.
+        "Acapela" nace con una misión clara: poner la tecnología al servicio de la alabanza. Es una herramienta diseñada para que la Iglesia pueda exaltar el nombre del Señor, a quien sea toda la honra y la gloria. Amén.
       </p>
       <p class="md:max-w-2xl md:mx-auto text-left md:text-center mt-4 leading-8">
         Esta aplicación es completamente gratuita y de código abierto. Puedes encontrar el código fuente en <a
           class="text-blue-500 underline underline-offset-2"
-          href="https://github.com/ariel-aguado/acappella"
+          href="https://github.com/ariel-aguado/acapela"
           target="_blank"
           rel="noopener noreferrer"
         >GitHub</a>.
@@ -45,7 +45,7 @@
         <a
           class="text-blue-500 underline underline-offset-2"
           href="mailto:ariel.841207@gmail.com"
-        >Desarrollador de Acappella</a>.
+        >Desarrollador de Acapela</a>.
       </p>
     </div>
   </div>

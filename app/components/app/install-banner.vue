@@ -15,7 +15,7 @@ const { showBanner, install, dismiss } = usePwaInstall();
       </div>
       <div class="install-banner__text">
         <p class="install-banner__title">
-          Instala Acappella
+          Instala Acapela
         </p>
         <p class="install-banner__subtitle">
           Accede al himnario sin conexión a internet
