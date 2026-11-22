@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Acapela se mudó a acapela.app</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center; font-family: system-ui, sans-serif; background: #f5f5f7; color: #1f2937; }
+  @media (prefers-color-scheme: dark) { body { background: #111827; color: #e5e7eb; } }
+  main { max-width: 28rem; padding: 2rem 1.5rem; text-align: center; }
+  h1 { font-size: 1.5rem; margin: 0 0 .75rem; }
+  a.btn { display: inline-block; margin-top: 1.25rem; padding: .75rem 1.5rem; border-radius: .75rem; background: #422ad5; color: #fff; text-decoration: none; font-weight: 600; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Acapela tiene nueva dirección</h1>
+  <p>Te llevamos a <strong>acapela.app</strong> con tu himnario y tus favoritos…</p>
+  <a class="btn" id="go" href="https://acapela.app/">Ir a acapela.app</a>
+</main>
+<script>
+// Página de mudanza para las direcciones viejas (acappella-*.vercel.app).
+// 1. Lee lo que la app vieja guardó en este navegador (cada dominio tiene su
+//    propio localStorage, así que es la única forma de llevárselo).
+// 2. Desinstala el service worker viejo y borra su caché.
+// 3. Redirige a https://acapela.app/#import=<datos>, que los importa.
+(function () {
+  var DEFAULTS = { montevideo: "songbook-montevideo", nogales: "songbook-nogales", lavilla: "songbook-lavilla" };
+  var host = location.hostname;
+  var fallback = "songbook-montevideo";
+  Object.keys(DEFAULTS).forEach(function (k) { if (host.indexOf(k) !== -1) fallback = DEFAULTS[k]; });
+
+  function json(key, def) { try { var v = localStorage.getItem(key); return v === null ? def : JSON.parse(v); } catch (e) { return def; } }
+  function num(key) { try { var n = parseInt(localStorage.getItem(key), 10); return isFinite(n) && n > 0 ? n : undefined; } catch (e) { return undefined; } }
+  function raw(key) { try { return localStorage.getItem(key) || ""; } catch (e) { return ""; } }
+
+  var fav = json("favoriteSongs", []);
+  var hist = json("searchHistory", []);
+  var payload = {
+    v: 1,
+    sb: raw("songbookId") || fallback,
+    fav: Array.isArray(fav) ? fav.filter(function (n) { return Number.isInteger(n) && n > 0; }).slice(0, 2000) : [],
+    song: num("songId"),
+    font: num("acappellaFontSize"),
+    hist: Array.isArray(hist) ? hist.filter(function (s) { return typeof s === "string" && s.length <= 200; }).slice(0, 50) : []
+  };
+  var bytes = new TextEncoder().encode(JSON.stringify(payload));
+  var bin = ""; bytes.forEach(function (b) { bin += String.fromCharCode(b); });
+  var b64 = btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  var target = "https://acapela.app/#import=" + b64;
+  document.getElementById("go").href = target;
+
+  var cleanup = [];
+  if ("serviceWorker" in navigator)
+    cleanup.push(navigator.serviceWorker.getRegistrations().then(function (rs) { return Promise.all(rs.map(function (r) { return r.unregister(); })); }));
+  if (window.caches)
+    cleanup.push(caches.keys().then(function (ks) { return Promise.all(ks.map(function (k) { return caches.delete(k); })); }));
+
+  var done = false;
+  function go() { if (!done) { done = true; location.replace(target); } }
+  Promise.all(cleanup).then(go, go);
+  setTimeout(go, 2500);
+})();
+</script>
+</body>
+</html>
