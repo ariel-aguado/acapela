@@ -205,7 +205,7 @@ async function screenshots(cdp) {
   // Wide: the projection console, 1280×720 at 1.5× = 1920×1080.
   const consoleShot = await capture(cdp, "/fullscreen", { width: 1280, height: 720, scale: 1.5, mobile: false })
   const wide = `<div style="width:1280px;height:720px;background:${BRAND};color:#fff;display:flex;flex-direction:column;align-items:center;overflow:hidden">
-    <div style="padding:34px 0 26px;font:700 36px/1.2 Literata,Georgia,serif">Proyecta la letra para toda la congregación</div>
+    <div style="padding:34px 0 26px;font:700 36px/1.2 Literata,Georgia,serif">Proyecta la letra en la pantalla</div>
     <img src="${consoleShot}" style="width:1040px;border-radius:18px;box-shadow:0 30px 60px -30px rgb(0 0 0/.6)">
   </div>`
   writeFileSync("public/screenshots/wide.png", await render(cdp, wide, 1280, 720, { scale: 1.5 }))

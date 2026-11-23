@@ -2,6 +2,7 @@
 // on the matching text in the results.
 
 import { spawn } from "node:child_process"
+import { rmSync } from "node:fs"
 import { setTimeout as sleep } from "node:timers/promises"
 
 const PORT = 3700
@@ -29,6 +30,11 @@ server.stdout.on("data", (d) => {
 })
 server.stderr.on("data", (d) => process.stderr.write(`[server] ${d}`))
 
+// Fresh Chrome profile on every run: data left in localStorage or the
+// service worker by a previous run must not change what is checked.
+const PROFILE = "/tmp/pwa-chrome-validation-p5"
+rmSync(PROFILE, { recursive: true, force: true })
+
 const chrome = spawn("/usr/bin/google-chrome", [
   "--headless=new",
   "--disable-gpu",
@@ -36,7 +42,7 @@ const chrome = spawn("/usr/bin/google-chrome", [
   "--disable-setuid-sandbox",
   "--disable-dev-shm-usage",
   "--window-size=800,600",
-  "--user-data-dir=/tmp/pwa-chrome-validation-p5",
+  `--user-data-dir=${PROFILE}`,
   `--remote-debugging-port=${PORT + 1}`,
   "--remote-allow-origins=*",
   URL,

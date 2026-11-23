@@ -5,6 +5,7 @@
 // Run: pnpm pwa:check
 
 import { spawn } from "node:child_process"
+import { rmSync } from "node:fs"
 import { setTimeout as sleep } from "node:timers/promises"
 import process from "node:process"
 
@@ -35,13 +36,18 @@ server.stdout.on("data", (d) => {
 })
 server.stderr.on("data", (d) => process.stderr.write(`[server] ${d}`))
 
+// Fresh Chrome profile on every run: data left in localStorage or the
+// service worker by a previous run must not change what is checked.
+const PROFILE = "/tmp/pwa-chrome-validation"
+rmSync(PROFILE, { recursive: true, force: true })
+
 const chrome = spawn("/usr/bin/google-chrome", [
   "--headless=new",
   "--disable-gpu",
   "--no-sandbox",
   "--disable-setuid-sandbox",
   "--disable-dev-shm-usage",
-  "--user-data-dir=/tmp/pwa-chrome-validation",
+  `--user-data-dir=${PROFILE}`,
   `--remote-debugging-port=${PORT + 1}`,
   "--remote-allow-origins=*",
   URL,
@@ -119,10 +125,22 @@ try {
     `localStorage.setItem('songbookId', 'songbook-montevideo'); location.reload();`)
   await sleep(3000)
 
-  const swInfo = (await cdpEval(page.webSocketDebuggerUrl,
-    "navigator.serviceWorker.ready.then(r => JSON.stringify({scope: r.scope, active: r.active && r.active.scriptURL, state: r.active && r.active.state}))",
-    true)).result.value
-  const sw = JSON.parse(swInfo)
+  // Wait until the worker is really activated (not a fixed time): with the
+  // fonts the precache is larger and installing can take a few seconds.
+  // `ready` resolves while it may still be "activating".
+  let sw = {}
+  for (let i = 0; i < 60; i++) {
+    try {
+      const swInfo = (await cdpEval(page.webSocketDebuggerUrl,
+        "navigator.serviceWorker.ready.then(r => JSON.stringify({scope: r.scope, active: r.active && r.active.scriptURL, state: r.active && r.active.state}))",
+        true)).result.value
+      sw = JSON.parse(swInfo)
+      if (sw.state === "activated")
+        break
+    }
+    catch { /* page reloading */ }
+    await sleep(500)
+  }
   log("SW scope:", sw.scope)
   log("SW script:", sw.active)
   log("SW state:", sw.state)

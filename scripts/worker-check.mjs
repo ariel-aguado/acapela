@@ -5,6 +5,7 @@
 // Run: pnpm pwa:check:phase2
 
 import { spawn } from "node:child_process"
+import { rmSync } from "node:fs"
 import { setTimeout as sleep } from "node:timers/promises"
 import process from "node:process"
 
@@ -34,13 +35,18 @@ server.stdout.on("data", (d) => {
 })
 server.stderr.on("data", (d) => process.stderr.write(`[server] ${d}`))
 
+// Fresh Chrome profile on every run: data left in localStorage or the
+// service worker by a previous run must not change what is checked.
+const PROFILE = "/tmp/pwa-chrome-validation-p2"
+rmSync(PROFILE, { recursive: true, force: true })
+
 const chrome = spawn("/usr/bin/google-chrome", [
   "--headless=new",
   "--disable-gpu",
   "--no-sandbox",
   "--disable-setuid-sandbox",
   "--disable-dev-shm-usage",
-  "--user-data-dir=/tmp/pwa-chrome-validation-p2",
+  `--user-data-dir=${PROFILE}`,
   `--remote-debugging-port=${PORT + 1}`,
   "--remote-allow-origins=*",
   URL,

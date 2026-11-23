@@ -225,7 +225,7 @@ export default defineNuxtConfig({
           sizes: "1920x1080",
           type: "image/png",
           form_factor: "wide",
-          label: "Proyecta la letra para toda la congregación",
+          label: "Proyecta la letra en la pantalla",
         },
       ],
       // The installed app opens the home page; "Cantar" goes straight back

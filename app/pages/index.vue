@@ -1,10 +1,9 @@
 <script lang="ts" setup>
 // Home, reached from the logo (as in Superbiblia), never from the bottom
 // menu. Top: what Acapela is and one big way back to singing. Then your
-// recent hymns and songbook, what the app can do, how it is used in a
-// service, the install invitation and the footer. On a first visit (no
-// songbook chosen yet) the songbooks are offered right here, instead of
-// the first-run window.
+// recent hymns and songbook, what the app can do, the install invitation
+// and the footer. On a first visit (no songbook chosen yet) the songbooks
+// are offered right here, instead of the first-run window.
 const songStore = useSongStore();
 const songbookStore = useSongbookStore();
 const { songs, songId, currentSong, recentSongIds } = storeToRefs(songStore);
@@ -81,12 +80,6 @@ const FEATURES = [
     to: "/favorites",
   },
 ] as const;
-
-const STEPS = [
-  { title: "Toca # y escribe el número", text: "Ves el título antes de ir, para no equivocarte." },
-  { title: "Desliza para el siguiente", text: "O usa las flechas del teclado." },
-  { title: "Agranda la letra con Aa", text: "Para cantar sin forzar la vista." },
-];
 </script>
 
 <template>
@@ -137,10 +130,10 @@ const STEPS = [
             Himnos y cánticos espirituales
           </p>
           <h2 id="home-title" class="hero__title mt-3">
-            Cantemos juntos, <em>a una voz.</em>
+            Cantemos juntos, <em>a capela.</em>
           </h2>
           <p class="mt-3 max-w-md text-base/relaxed opacity-90">
-            El himnario de tu iglesia: letra grande y clara, sin conexión y gratis.
+            Sin instrumentos y a una voz: el himnario de tu iglesia con letra grande y clara, sin conexión y gratis.
           </p>
 
           <!-- Back to singing: the main action. -->
@@ -286,7 +279,7 @@ const STEPS = [
             class="feature feature--project col-span-2"
           >
             <span class="feature__icon"><UIcon name="i-tabler-presentation" class="size-5" /></span>
-            <b class="text-sm/tight">Proyecta para la congregación</b>
+            <b class="text-sm/tight">Proyecta en la pantalla</b>
             <span class="text-xs/snug opacity-80">Desde la computadora: estrofa por estrofa, con la siguiente a la vista y el control remoto.</span>
             <span class="mt-1 flex gap-1.5" aria-hidden="true">
               <i class="feature__slide" /><i class="feature__slide" /><i class="feature__slide" />
@@ -301,22 +294,6 @@ const STEPS = [
             </span>
           </NuxtLink>
         </div>
-      </section>
-
-      <!-- ===================== In a service ===================== -->
-      <section class="pt-10" aria-labelledby="home-steps">
-        <h3 id="home-steps" class="home__heading">
-          En el culto, en tres pasos
-        </h3>
-        <ol class="grid gap-3 lg:grid-cols-3">
-          <li v-for="(step, i) in STEPS" :key="step.title" class="flex gap-3">
-            <span class="step__n">{{ i + 1 }}</span>
-            <span>
-              <b class="block text-sm">{{ step.title }}</b>
-              <span class="text-sm text-muted">{{ step.text }}</span>
-            </span>
-          </li>
-        </ol>
       </section>
 
       <!-- ===================== Install ===================== -->
@@ -348,7 +325,6 @@ const STEPS = [
           Himnos y cánticos espirituales
         </p>
         <p class="mt-1">
-          Gratis y de código abierto ·
           <NuxtLink to="/about" class="text-primary underline underline-offset-2">
             Acerca de
           </NuxtLink>
@@ -543,18 +519,6 @@ const STEPS = [
   height: 2.25rem;
   border-radius: 0.5rem;
   background: linear-gradient(135deg, #6b5326, #2b2218);
-}
-.step__n {
-  display: grid;
-  place-items: center;
-  flex: none;
-  width: 2rem;
-  height: 2rem;
-  border-radius: 999px;
-  border: 2px solid var(--ui-primary);
-  color: var(--ui-primary);
-  font-size: 0.85rem;
-  font-weight: 800;
 }
 .hero__note {
   transform-box: fill-box;

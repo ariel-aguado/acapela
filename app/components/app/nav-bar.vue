@@ -61,14 +61,18 @@ function goTo(id: number) {
       <span>{{ item.label }}</span>
     </NuxtLink>
 
+    <!-- "Ir al himno": same layout as its neighbours (an icon-high slot,
+      then the label), so the labels line up; the round # button is larger
+      and rises above the bar on purpose. -->
     <button
       type="button"
-      class="flex-1 my-1 rounded-full flex flex-col items-center justify-center gap-0.5 text-[11px] leading-none font-semibold text-primary"
+      class="nav-item nav-item--center"
       @click="showGoTo"
     >
-      <span class="grid place-items-center h-8 w-12 rounded-full bg-primary text-inverted shadow-[0_6px_16px_-6px_var(--brand-shadow)]">
-        <Icon name="tabler:hash" size="22" aria-hidden="true" />
+      <span class="nav-fab" aria-hidden="true">
+        <Icon name="tabler:hash" size="28" />
       </span>
+      <span class="nav-fab__slot" aria-hidden="true" />
       <span>Ir al himno</span>
     </button>
 
@@ -108,6 +112,54 @@ function goTo(id: number) {
 .nav-item:hover {
   color: var(--ui-text);
   background: color-mix(in oklab, var(--ui-text) 5%, transparent);
+}
+/* The raised "Ir al himno" button. */
+.nav-item--center {
+  position: relative;
+  color: var(--ui-primary);
+  font-weight: 700;
+}
+.nav-item--center:hover {
+  background: transparent;
+  color: var(--ui-primary);
+}
+.nav-fab__slot {
+  height: 22px;
+}
+.nav-fab {
+  position: absolute;
+  left: 50%;
+  top: -1.75rem;
+  translate: -50% 0;
+  display: grid;
+  place-items: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 9999px;
+  background: var(--ui-primary);
+  color: var(--ui-text-inverted);
+  /* A ring of the page colour detaches it from the bar. */
+  border: 4px solid var(--ui-bg);
+  box-shadow: 0 10px 22px -8px var(--brand-shadow);
+  transition: scale 0.15s ease;
+}
+.nav-item--center:hover .nav-fab {
+  scale: 1.04;
+}
+.nav-item--center:active .nav-fab {
+  scale: 0.96;
+}
+.nav-item--center:focus-visible {
+  outline: none;
+}
+.nav-item--center:focus-visible .nav-fab {
+  outline: 2px solid var(--ui-primary);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .nav-fab {
+    transition: none;
+  }
 }
 .nav-item--on,
 .nav-item--on:hover {
