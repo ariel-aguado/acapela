@@ -78,12 +78,7 @@ function favCount(id: string) {
         </h2>
         <div class="rounded-box border border-base-300 divide-y divide-base-300 overflow-hidden">
           <div class="flex items-center gap-3 px-4 min-h-16 py-3">
-            <Icon
-              name="tabler:download"
-              size="22"
-              class="opacity-70 shrink-0"
-              aria-hidden="true"
-            />
+            <AppIcon class="size-10" />
             <div class="flex-1 flex flex-col">
               <span class="font-semibold">Instalar en este dispositivo</span>
               <span class="text-sm opacity-70">

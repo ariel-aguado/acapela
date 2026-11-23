@@ -70,7 +70,7 @@ const bottomOffset = computed(() => {
   width: 2.25rem;
   height: 2.25rem;
   border-radius: 0.625rem;
-  background: var(--color-primary, #422ad5);
+  background: var(--color-primary, #4f34b4);
   color: var(--color-primary-content, #fff);
 }
 

@@ -4,10 +4,13 @@ const props = defineProps<{
   error?: unknown;
 }>();
 
+// The songbook being prepared, by name (the manifest loads before it).
+const { currentSongbook } = storeToRefs(useSongbookStore());
+
 const message = computed(() => {
   switch (props.status) {
     case "loading":
-      return "Cargando himnario…";
+      return "Preparando el himnario";
     case "error":
       return "No se pudo cargar el himnario";
     case "idle":
@@ -29,34 +32,10 @@ const shouldRender = computed(() => props.status === "loading" || props.status =
       aria-live="polite"
     >
       <div class="boot-loader__inner">
-        <div class="boot-loader__logo">
-          <svg
-            width="64"
-            height="64"
-            viewBox="0 0 64 64"
-            fill="none"
-            aria-hidden="true"
-          >
-            <circle
-              cx="32"
-              cy="32"
-              r="28"
-              stroke="currentColor"
-              stroke-width="3"
-              opacity="0.2"
-            />
-            <path
-              d="M32 4 a28 28 0 0 1 0 56"
-              stroke="currentColor"
-              stroke-width="3"
-              stroke-linecap="round"
-              fill="none"
-              class="boot-loader__arc"
-            />
-          </svg>
-        </div>
+        <AppBrandMark class="boot-loader__mark" :class="{ 'boot-loader__mark--pulse': status === 'loading' }" />
         <p class="boot-loader__text">
           {{ message }}
+          <b v-if="status === 'loading' && currentSongbook" class="boot-loader__name">{{ currentSongbook.name }}</b>
         </p>
         <p v-if="status === 'error'" class="boot-loader__hint">
           Revisa tu conexión y vuelve a cargar la página.
@@ -74,7 +53,7 @@ const shouldRender = computed(() => props.status === "loading" || props.status =
   display: grid;
   place-items: center;
   background: var(--color-base-100, #ffffff);
-  color: var(--color-primary, #422ad5);
+  color: var(--color-primary, #4f34b4);
 }
 
 .boot-loader__inner {
@@ -86,32 +65,48 @@ const shouldRender = computed(() => props.status === "loading" || props.status =
   text-align: center;
 }
 
-.boot-loader__logo {
-  display: inline-flex;
+.boot-loader__mark {
+  width: 4.5rem;
+  height: 4.5rem;
 }
 
-.boot-loader__arc {
-  transform-origin: 50% 50%;
-  animation: boot-spin 1.1s linear infinite;
+/* A soft breath while loading; still when the user asks for less motion. */
+.boot-loader__mark--pulse {
+  animation: boot-breathe 1.6s ease-in-out infinite;
 }
 
 .boot-loader__text {
   font-size: 1rem;
   font-weight: 500;
   letter-spacing: 0.01em;
-  color: currentColor;
+  color: var(--color-base-content, #1b1830);
+  opacity: 0.8;
   margin: 0;
+}
+
+.boot-loader__name {
+  display: block;
+  font-weight: 700;
+  opacity: 1;
 }
 
 .boot-loader__hint {
   font-size: 0.875rem;
+  color: var(--color-base-content, #1b1830);
   opacity: 0.7;
   margin: 0;
 }
 
-@keyframes boot-spin {
-  to {
-    transform: rotate(360deg);
+@keyframes boot-breathe {
+  50% {
+    opacity: 0.55;
+    transform: scale(0.94);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .boot-loader__mark--pulse {
+    animation: none;
   }
 }
 

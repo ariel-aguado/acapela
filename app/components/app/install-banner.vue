@@ -31,15 +31,14 @@ const bottomOffset = computed(() => {
       role="region"
       aria-label="Instalar aplicación"
     >
-      <div class="install-banner__icon">
-        <Icon name="tabler:download" size="24" />
-      </div>
+      <!-- The real app icon: what will appear on the home screen. -->
+      <AppIcon class="size-11" />
       <div class="install-banner__text">
         <p class="install-banner__title">
           Instala Acapela
         </p>
         <p class="install-banner__subtitle">
-          Accede al himnario sin conexión a internet
+          Ábrela desde tu pantalla de inicio, también sin conexión
         </p>
       </div>
       <div class="install-banner__actions">
@@ -77,18 +76,6 @@ const bottomOffset = computed(() => {
     0 0 0 1px rgba(0, 0, 0, 0.05);
   max-width: 32rem;
   margin: 0 auto;
-}
-
-.install-banner__icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  width: 2.25rem;
-  height: 2.25rem;
-  border-radius: 0.625rem;
-  background: var(--color-primary, #422ad5);
-  color: var(--color-primary-content, #fff);
 }
 
 .install-banner__text {

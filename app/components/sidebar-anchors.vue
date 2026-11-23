@@ -296,7 +296,7 @@ onBeforeUnmount(() => {
   font-weight: 700;
   line-height: 1;
   font-variant-numeric: tabular-nums;
-  box-shadow: 0 1px 4px rgb(30 15 90 / 0.3);
+  box-shadow: 0 1px 4px var(--brand-shadow);
   transform: translateY(-50%);
   opacity: 0.8;
   pointer-events: none;

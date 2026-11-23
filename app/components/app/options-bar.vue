@@ -45,18 +45,18 @@ const isLarge = useMediaQuery("(min-width: 1024px)");
     <!-- Reading: the open hymn -->
     <div
       v-if="isReading && current"
-      class="pointer-events-auto h-12 inline-flex items-center rounded-full bg-primary text-primary-content px-1 shadow-[0_10px_28px_-10px_rgb(40_20_150/0.65)]"
+      class="pointer-events-auto h-12 inline-flex items-center rounded-full bg-primary text-primary-content px-1 shadow-[0_10px_28px_-10px_var(--brand-shadow)]"
     >
       <!-- Brand + hymn number; the title is already at the top of the lyric. -->
       <button
         type="button"
-        class="h-10 pl-1.5 pr-1.5 inline-flex items-center gap-1.5 rounded-full hover:bg-white/10"
+        class="h-10 pl-1.5 pr-1.5 inline-flex items-center gap-1.5 rounded-full hover:bg-primary-content/10"
         :aria-label="`Acapela, himno ${number} de ${total}: ${current.title}. Ir a otro himno`"
         @click="showGoTo"
       >
-        <Icon name="tabler:brand-netease-music" size="26" aria-hidden="true" />
-        <span class="text-lg font-bold leading-none">Acapela</span>
-        <span class="ml-0.5 min-w-8 h-7 px-2 inline-flex items-center justify-center rounded-full bg-white/20 text-base font-bold tabular-nums">
+        <AppBrandMark class="size-7" />
+        <span class="wordmark text-[1.2rem] leading-none">Acapela</span>
+        <span class="ml-0.5 min-w-8 h-7 px-2 inline-flex items-center justify-center rounded-full bg-primary-content/15 text-base font-bold tabular-nums">
           {{ number }}
         </span>
       </button>
@@ -66,11 +66,11 @@ const isLarge = useMediaQuery("(min-width: 1024px)");
     <NuxtLink
       v-else
       to="/"
-      class="pointer-events-auto h-12 inline-flex items-center gap-2 rounded-full bg-primary text-primary-content pl-2.5 pr-4 shadow-[0_10px_28px_-10px_rgb(40_20_150/0.65)]"
+      class="pointer-events-auto h-12 inline-flex items-center gap-2 rounded-full bg-primary text-primary-content pl-2.5 pr-4 shadow-[0_10px_28px_-10px_var(--brand-shadow)]"
       aria-label="Acapela, ir a la lectura"
     >
-      <Icon name="tabler:brand-netease-music" size="30" aria-hidden="true" />
-      <span class="text-lg font-bold leading-none">Acapela</span>
+      <AppBrandMark class="size-8" />
+      <span class="wordmark text-[1.2rem] leading-none">Acapela</span>
     </NuxtLink>
 
     <!-- Actions -->

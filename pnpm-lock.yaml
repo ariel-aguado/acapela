@@ -56,9 +56,6 @@ importers:
       nuxt:
         specifier: ^4.5.2
         version: 4.5.2(@babel/plugin-syntax-jsx@7.27.1(@babel/core@7.29.7))(@babel/plugin-syntax-typescript@7.29.7(@babel/core@7.29.7))(@libsql/client@0.15.10)(@netlify/blobs@9.1.2)(@oxc-project/types@0.143.0)(@rollup/plugin-babel@6.1.0(@babel/core@7.29.7)(rollup@4.62.4))(@types/node@24.1.0)(@vue/compiler-sfc@3.5.41)(cac@7.0.0)(commander@14.0.2)(db0@0.3.4(@libsql/client@0.15.10)(drizzle-orm@0.44.4(@libsql/client@0.15.10)))(drizzle-orm@0.44.4(@libsql/client@0.15.10))(esbuild@0.28.1)(eslint@10.8.0(jiti@2.7.0))(ioredis@5.11.1)(lightningcss@1.33.0)(magicast@0.5.4)(optionator@0.9.4)(pinia@4.0.2(@vue/devtools-api@8.2.1)(typescript@5.9.2)(vue@3.5.41(typescript@5.9.2)))(rolldown@1.2.3)(rollup-plugin-visualizer@7.0.1(rolldown@1.2.3)(rollup@4.62.4))(rollup@4.62.4)(srvx@0.11.22)(terser@5.43.1)(typescript@5.9.2)(vite@8.2.1(@types/node@24.1.0)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.43.1)(yaml@2.9.0))(vue-tsc@3.3.10(typescript@5.9.2))(yaml@2.9.0)
-      ogl:
-        specifier: ^1.0.11
-        version: 1.0.11
       pinia:
         specifier: ^4.0.2
         version: 4.0.2(@vue/devtools-api@8.2.1)(typescript@5.9.2)(vue@3.5.41(typescript@5.9.2))
@@ -4871,9 +4868,6 @@ packages:
 
   ofetch@2.0.0-alpha.3:
     resolution: {integrity: sha512-zpYTCs2byOuft65vI3z43Dd6iSdFbOZZLb9/d21aCpx2rGastVU9dOCv0lu4ykc1Ur1anAYjDi3SUvR0vq50JA==}
-
-  ogl@1.0.11:
-    resolution: {integrity: sha512-kUpC154AFfxi16pmZUK4jk3J+8zxwTWGPo03EoYA8QPbzikHoaC82n6pNTbd+oEaJonaE8aPWBlX7ad9zrqLsA==}
 
   ohash@2.0.11:
     resolution: {integrity: sha512-RdR9FQrFwNBNXAr4GixM8YaRZRJ5PUWbKYbE5eOsrwAjJW0q2REGcf79oYPsLyskQCZG1PLN+S/K1V00joZAoQ==}
@@ -12059,8 +12053,6 @@ snapshots:
       ufo: 1.6.4
 
   ofetch@2.0.0-alpha.3: {}
-
-  ogl@1.0.11: {}
 
   ohash@2.0.11: {}
 

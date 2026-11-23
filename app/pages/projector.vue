@@ -2,7 +2,7 @@
 // Audience window: only the slide. Opened from the console ("Abrir ventana
 // del proyector"), dragged to the projector, double-click for full screen.
 definePageMeta({ bare: true });
-useHead({ title: "Proyector · Acapela" });
+useHead({ title: "Proyector" });
 
 const { state } = useProjectorReceiver();
 const rootRef = shallowRef<HTMLElement | null>(null);
@@ -41,7 +41,7 @@ onMounted(pokeHint);
       />
       <div v-else class="aspect-video grid place-items-center text-white/80 text-center px-6">
         <div class="flex flex-col items-center gap-3">
-          <Icon name="tabler:device-desktop-share" size="48" aria-hidden="true" />
+          <AppBrandMark class="size-16 text-[#a9a6fa]" />
           <p class="text-xl font-semibold">
             Esperando a la consola de Acapela…
           </p>

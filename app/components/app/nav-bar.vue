@@ -46,7 +46,7 @@ function goTo(id: number) {
       class="flex-1 my-1 rounded-full flex flex-col items-center justify-center gap-0.5 text-[11px] leading-none font-semibold text-primary"
       @click="showGoTo"
     >
-      <span class="grid place-items-center h-8 w-12 rounded-full bg-primary text-primary-content shadow-[0_6px_16px_-6px_rgb(40_20_150/0.7)]">
+      <span class="grid place-items-center h-8 w-12 rounded-full bg-primary text-primary-content shadow-[0_6px_16px_-6px_var(--brand-shadow)]">
         <Icon name="tabler:hash" size="22" aria-hidden="true" />
       </span>
       <span>Ir al himno</span>

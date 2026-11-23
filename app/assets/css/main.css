@@ -13,6 +13,38 @@
   --radius-field: 2rem;
 }
 
+/* Brand colour: "Índigo Acapela". Light: deep indigo-violet with light
+   text. Dark: a light violet with dark text (a saturated purple on a dark
+   background reads poorly: daisyUI's #605dff gives 3.4:1 as text there).
+   Text in primary on the page background: 8.5:1 light, 7.2:1 dark.
+   Same specificity trick as above to beat the built-in themes. */
+:root:root,
+:root:root[data-theme="light"] {
+  --color-primary: oklch(44% 0.19 285);
+  --color-primary-content: oklch(98% 0.01 285);
+  --brand-shadow: rgb(40 22 120 / 0.6);
+}
+:root:root[data-theme="dark"] {
+  --color-primary: oklch(76% 0.12 285);
+  --color-primary-content: oklch(22% 0.05 285);
+  --brand-shadow: rgb(0 0 0 / 0.55);
+}
+@media (prefers-color-scheme: dark) {
+  :root:root:not([data-theme]) {
+    --color-primary: oklch(76% 0.12 285);
+    --color-primary-content: oklch(22% 0.05 285);
+    --brand-shadow: rgb(0 0 0 / 0.55);
+  }
+}
+
+/* The name "Acapela" is set in the lyric face (Literata): the brand reads
+   like a hymnal while the interface stays in Inter. */
+.wordmark {
+  font-family: var(--font-lyric);
+  font-weight: 600;
+  letter-spacing: -0.005em;
+}
+
 @theme {
   --font-display: "Inter", "sans-serif";
   --font-lyric: "Literata", Georgia, "Times New Roman", serif;
@@ -39,7 +71,7 @@
   backdrop-filter: blur(18px) saturate(1.5);
   border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   box-shadow:
-    0 12px 32px -12px rgb(20 12 60 / 0.45),
+    0 12px 32px -12px var(--brand-shadow),
     0 2px 6px rgb(20 12 60 / 0.08);
 }
 

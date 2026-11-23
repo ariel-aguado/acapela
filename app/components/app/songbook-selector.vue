@@ -124,41 +124,37 @@ watch(status, (s) => {
     aria-modal="true"
     aria-labelledby="songbook-overlay-title"
   >
-    <div class="songbook-overlay__box w-full max-w-md rounded-2xl bg-base-100 shadow-2xl border border-base-300 p-6 flex flex-col items-stretch gap-4">
-      <div class="flex items-center gap-3">
-        <Icon name="tabler:brand-netease-music" size="40" class="text-primary" />
-        <div class="flex flex-col">
-          <h2 id="songbook-overlay-title" class="text-xl font-bold leading-tight">
-            Elige tu himnario
-          </h2>
-          <p class="text-sm opacity-70">
-            Selecciona la colección que usarás en este dispositivo.
-          </p>
-        </div>
+    <div class="songbook-overlay__box w-full max-w-md rounded-3xl bg-base-100 shadow-2xl border border-base-300 overflow-hidden flex flex-col">
+      <!-- Brand header: the first thing a new person sees. -->
+      <div class="bg-primary text-primary-content px-6 pt-6 pb-5 flex flex-col gap-2">
+        <AppBrandMark class="size-11" />
+        <h2 id="songbook-overlay-title" class="wordmark text-2xl leading-tight">
+          Te damos la bienvenida a Acapela
+        </h2>
+        <p class="text-sm opacity-85">
+          Elige el himnario de tu iglesia.
+        </p>
       </div>
 
-      <ul class="menu menu-md bg-base-200 rounded-box w-full p-2">
+      <ul class="p-4 flex flex-col gap-2">
         <li v-for="sb in manifest" :key="sb.id">
           <button
             type="button"
-            class="flex items-center gap-3 py-3"
-            :class="{ 'menu-active': sb.id === currentId }"
+            class="w-full flex items-center gap-3 rounded-2xl border border-base-300 px-4 min-h-16 text-start hover:bg-base-200 disabled:opacity-60"
+            :class="{ 'border-primary bg-primary/5': sb.id === currentId }"
             :disabled="status === 'loading'"
             @click="onSelect(sb)"
           >
             <Icon
-              v-if="sb.id === currentId"
-              name="tabler:check"
-              size="20"
-              class="text-primary shrink-0"
+              :name="sb.id === currentId ? 'tabler:circle-check-filled' : 'tabler:book'"
+              size="22"
+              class="shrink-0"
+              :class="sb.id === currentId ? 'text-primary' : 'opacity-60'"
             />
-            <Icon
-              v-else
-              name="tabler:book"
-              size="20"
-              class="opacity-60 shrink-0"
-            />
-            <span class="flex-1 text-left font-medium">{{ sb.name }}</span>
+            <span class="flex-1 flex flex-col">
+              <span class="font-semibold">{{ sb.name }}</span>
+              <span v-if="sb.count" class="text-sm opacity-70">{{ sb.count }} himnos</span>
+            </span>
             <Icon
               v-if="status === 'loading' && sb.id === currentId"
               name="tabler:loader-2"
@@ -169,8 +165,8 @@ watch(status, (s) => {
         </li>
       </ul>
 
-      <p class="text-xs opacity-60 text-center">
-        Puedes cambiar de himnario más tarde desde el menú superior.
+      <p class="px-6 pb-5 text-sm opacity-70 text-center">
+        Lo puedes cambiar cuando quieras en Ajustes.
       </p>
     </div>
   </div>

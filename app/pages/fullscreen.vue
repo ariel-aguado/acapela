@@ -10,7 +10,7 @@ import { SCALE_MAX, SCALE_MIN, SCALE_STEP } from "~/stores/presentation";
 // separate projector window (synced over BroadcastChannel) or on this screen
 // in full screen.
 definePageMeta({ bare: true });
-useHead({ title: "Proyección · Acapela" });
+useHead({ title: "Proyección" });
 
 const songStore = useSongStore();
 const presentation = usePresentationStore();
