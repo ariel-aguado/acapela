@@ -3,6 +3,7 @@
 // favorites round-trip correctly, and reload re-applies favorites from localStorage.
 
 import { spawn } from "node:child_process"
+import { rmSync } from "node:fs"
 import { setTimeout as sleep } from "node:timers/promises"
 import process from "node:process"
 
@@ -32,13 +33,18 @@ server.stdout.on("data", (d) => {
 })
 server.stderr.on("data", (d) => process.stderr.write(`[server] ${d}`))
 
+// Fresh Chrome profile on every run: favorites left in localStorage by a
+// previous run would change what the toggles below do.
+const PROFILE = "/tmp/pwa-chrome-validation-p3"
+rmSync(PROFILE, { recursive: true, force: true })
+
 const chrome = spawn("/usr/bin/google-chrome", [
   "--headless=new",
   "--disable-gpu",
   "--no-sandbox",
   "--disable-setuid-sandbox",
   "--disable-dev-shm-usage",
-  "--user-data-dir=/tmp/pwa-chrome-validation-p3",
+  `--user-data-dir=${PROFILE}`,
   `--remote-debugging-port=${PORT + 1}`,
   "--remote-allow-origins=*",
   URL,
@@ -183,7 +189,7 @@ try {
       song7Favorite: store.songs.find(s => s.songId === 7)?.favorite,
       favoriteSongsLen: store.favoriteSongs.length,
       favoriteSongsArr: [...store.favoriteSongs],
-      lsFavoriteSongs: localStorage.getItem("favoriteSongs"),
+      lsFavorites: (JSON.parse(localStorage.getItem("favoritesBySongbook") || "{}")["songbook-montevideo"] ?? null),
     };
     // Toggle another: song 42
     store.toggleFavorite(store.songs[41]);
@@ -192,7 +198,7 @@ try {
       song42Favorite: store.songs.find(s => s.songId === 42)?.favorite,
       favoriteSongsLen: store.favoriteSongs.length,
       favoriteSongsArr: [...store.favoriteSongs],
-      lsFavoriteSongs: localStorage.getItem("favoriteSongs"),
+      lsFavorites: (JSON.parse(localStorage.getItem("favoritesBySongbook") || "{}")["songbook-montevideo"] ?? null),
     };
     return JSON.stringify({ before, after, after2 });
   })()`)
@@ -214,11 +220,14 @@ try {
     fail(`favoriteSongs array not updated: ${JSON.stringify(toggleResult.after2)}`)
   }
 
-  if (toggleResult.after2.lsFavoriteSongs && toggleResult.after2.lsFavoriteSongs.includes("7") && toggleResult.after2.lsFavoriteSongs.includes("42")) {
-    pass("localStorage('favoriteSongs') persists")
+  // Favorites are stored per songbook (the same number is a different hymn
+  // in each songbook): localStorage("favoritesBySongbook")[songbookId].
+  const lsAfter2 = toggleResult.after2.lsFavorites
+  if (Array.isArray(lsAfter2) && lsAfter2.includes(7) && lsAfter2.includes(42)) {
+    pass("localStorage('favoritesBySongbook') persists [7, 42] for the songbook")
   }
   else {
-    fail(`localStorage('favoriteSongs') missing entries: ${toggleResult.after2.lsFavoriteSongs}`)
+    fail(`localStorage('favoritesBySongbook') missing entries: ${JSON.stringify(lsAfter2)}`)
   }
 
   // 4. Verify localStorage('songs') is still NOT being written
@@ -278,14 +287,14 @@ try {
       song7Favorite: store.songs.find(s => s.songId === 7)?.favorite,
       song42Favorite: store.songs.find(s => s.songId === 42)?.favorite,
       favoriteSongsArr: [...store.favoriteSongs],
-      lsFavoriteSongs: localStorage.getItem("favoriteSongs"),
+      lsFavorites: (JSON.parse(localStorage.getItem("favoritesBySongbook") || "{}")["songbook-montevideo"] ?? null),
     });
   })()`)
   log("After reload song count:", afterReload.storeSongsLen)
   log("Song 7 favorite:", afterReload.song7Favorite)
   log("Song 42 favorite:", afterReload.song42Favorite)
   log("favoriteSongs in memory:", afterReload.favoriteSongsArr)
-  log("favoriteSongs in localStorage:", afterReload.lsFavoriteSongs)
+  log("favorites in localStorage:", afterReload.lsFavorites)
 
   if (afterReload.storeSongsLen === 380) pass("Songs re-hydrated from worker after reload")
   else fail(`After reload: ${afterReload.storeSongsLen} songs`)

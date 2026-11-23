@@ -7,6 +7,7 @@
 //   5. Untoggled songs stay unfavorited after reload
 
 import { spawn } from "node:child_process"
+import { rmSync } from "node:fs"
 import { setTimeout as sleep } from "node:timers/promises"
 
 const PORT = 3800
@@ -34,6 +35,11 @@ server.stdout.on("data", (d) => {
 })
 server.stderr.on("data", (d) => process.stderr.write(`[server] ${d}`))
 
+// Fresh Chrome profile on every run: favorites left in localStorage by a
+// previous run would change what the toggles below do.
+const PROFILE = "/tmp/pwa-chrome-validation-p4-fav"
+rmSync(PROFILE, { recursive: true, force: true })
+
 const chrome = spawn("/usr/bin/google-chrome", [
   "--headless=new",
   "--disable-gpu",
@@ -41,7 +47,7 @@ const chrome = spawn("/usr/bin/google-chrome", [
   "--disable-setuid-sandbox",
   "--disable-dev-shm-usage",
   "--window-size=800,600",
-  "--user-data-dir=/tmp/pwa-chrome-validation-p4-fav",
+  `--user-data-dir=${PROFILE}`,
   `--remote-debugging-port=${PORT + 1}`,
   "--remote-allow-origins=*",
   URL,
@@ -124,7 +130,9 @@ try {
   await sleep(8000)
 
   console.log("=== Test 1: Toggle favorite ===")
-  await cdpEval(page.webSocketDebuggerUrl, `(() => { localStorage.clear(); })()`)
+  // Start from no favorites, keeping the songbook choice (without it the app
+  // shows the first-run picker and no hymns are loaded).
+  await cdpEval(page.webSocketDebuggerUrl, `(() => { localStorage.clear(); localStorage.setItem("songbookId", "songbook-montevideo"); })()`)
   await cdpEval(page.webSocketDebuggerUrl, `(() => { window.location.assign("/"); })()`)
   await sleep(8000)
 
@@ -140,18 +148,18 @@ try {
     return JSON.stringify({
       storeFavorites: [...store.favoriteSongs],
       song7Favorite: store.songs.find(s => s.songId === 7)?.favorite,
-      lsFavoriteSongs: localStorage.getItem("favoriteSongs"),
+      lsFavorites: (JSON.parse(localStorage.getItem("favoritesBySongbook") || "{}")["songbook-montevideo"] ?? null),
     });
   })()`)
   log("storeFavorites:", t1.storeFavorites)
   log("song 7 fav (in store):", t1.song7Favorite)
-  log("localStorage:", t1.lsFavoriteSongs)
+  log("localStorage:", JSON.stringify(t1.lsFavorites))
   if (t1.storeFavorites?.length === 3) pass("3 favorites persisted to store")
   else fail("Expected 3 favorites")
   if (t1.song7Favorite === true) pass("song 7 has favorite: true in store.songs")
   else fail("song 7 should be favorited in store")
-  if (t1.lsFavoriteSongs === "[7,42,100]") pass("localStorage('favoriteSongs') = [7,42,100]")
-  else fail(`localStorage wrong: ${t1.lsFavoriteSongs}`)
+  if (JSON.stringify(t1.lsFavorites) === "[7,42,100]") pass("localStorage('favoritesBySongbook') = [7,42,100] for the songbook")
+  else fail(`localStorage wrong: ${JSON.stringify(t1.lsFavorites)}`)
 
   console.log("\n=== Test 2: Search results show correct favorite flag (the bug) ===")
   await cdpEval(page.webSocketDebuggerUrl, `(() => { window.location.assign("/search"); })()`)
@@ -220,14 +228,14 @@ try {
       song7Favorite: store.filteredSongsByNumber.find(s => s.songId === 7)?.favorite,
       song42Favorite: store.filteredSongsByNumber.find(s => s.songId === 42)?.favorite,
       song100Favorite: store.filteredSongsByNumber.find(s => s.songId === 100)?.favorite,
-      lsFavoriteSongs: localStorage.getItem("favoriteSongs"),
+      lsFavorites: (JSON.parse(localStorage.getItem("favoritesBySongbook") || "{}")["songbook-montevideo"] ?? null),
     });
   })()`)
   log("storeFavorites after reload:", t4.storeFavorites)
   log("song 7 fav:", t4.song7Favorite)
   log("song 42 fav:", t4.song42Favorite)
   log("song 100 fav:", t4.song100Favorite)
-  log("localStorage:", t4.lsFavoriteSongs)
+  log("localStorage:", JSON.stringify(t4.lsFavorites))
   if (JSON.stringify(t4.storeFavorites) === "[7,100]") pass("Favorites persisted [7, 100]")
   else fail(`Expected [7,100], got ${JSON.stringify(t4.storeFavorites)}`)
   if (t4.song7Favorite === true && t4.song100Favorite === true) pass("Search results show favorited songs after reload")
