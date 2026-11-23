@@ -5,9 +5,14 @@
 // while the list scrolls or the index is used, and a handle on the anchor
 // where the list is. Drag to scrub (like the iOS Contacts index), with a
 // bubble next to the finger; arrows / Home / End from the keyboard.
+//
+// With `steps` (every hymn number of the list), the labels stay as sections
+// but the finger lands on each hymn, one by one, like Superbiblia's verse
+// index (VerseIndexRail): each label sits at the height of its own hymn.
 type Props = {
   ids: number[] | string[];
   sections?: number;
+  steps?: number[];
 };
 
 const props = defineProps<Props>();
@@ -41,6 +46,27 @@ watch(
   },
   { immediate: true, deep: true },
 );
+
+// What the finger and the keyboard go through: every hymn when `steps` is
+// given (numbers), otherwise the anchors themselves (letters).
+const stops = computed<Array<number | string>>(() =>
+  currentTab.value !== "byTitle" && props.steps?.length
+    ? props.steps
+    : anchors.value,
+);
+const stopIndexOf = computed(() => new Map(stops.value.map((id, i) => [id, i] as const)));
+const fine = computed(() => stops.value !== anchors.value);
+
+/** Height of stop `i` on the rail, as in the handle (0.5rem of padding). */
+function stopTop(i: number) {
+  return `calc(0.5rem + (100% - 1rem) * ${(i + 0.5) / Math.max(1, stops.value.length)})`;
+}
+const labels = computed(() => anchors.value.map(a => ({
+  id: a,
+  top: fine.value
+    ? stopTop(stopIndexOf.value.get(a) ?? 0)
+    : null,
+})));
 
 // ------------------------------------------------------ faint / active
 const scrolling = ref(false);
@@ -85,8 +111,12 @@ function updateCurrent() {
       : null;
     return;
   }
-  // Numbers: the last anchor at or before the first visible hymn.
   const n = Number(key);
+  if (fine.value) {
+    currentIndex.value = stopIndexOf.value.get(n) ?? null;
+    return;
+  }
+  // Numbers: the last anchor at or before the first visible hymn.
   let found = 0;
   (anchors.value as number[]).forEach((a, i) => {
     if (a <= n)
@@ -120,7 +150,7 @@ const bubble = ref<{ top: number; right: number } | null>(null);
 
 function handleAt(clientY: number) {
   const el = railEl.value;
-  if (!el || anchors.value.length === 0)
+  if (!el || stops.value.length === 0)
     return;
   const rect = el.getBoundingClientRect();
   bubble.value = {
@@ -128,11 +158,11 @@ function handleAt(clientY: number) {
     right: window.innerWidth - rect.left + 24,
   };
   const ratio = clamp((clientY - rect.top) / rect.height, 0, 1);
-  const i = clamp(Math.floor(ratio * anchors.value.length), 0, anchors.value.length - 1);
+  const i = clamp(Math.floor(ratio * stops.value.length), 0, stops.value.length - 1);
   if (i !== activeIndex.value) {
     activeIndex.value = i;
     keyboardIndex.value = i;
-    const id = anchors.value[i];
+    const id = stops.value[i];
     if (id != null)
       emit("jump", id);
   }
@@ -168,21 +198,25 @@ function onPointerUp(ev: PointerEvent) {
 
 // ------------------------------------------------------ keyboard
 function jumpTo(i: number) {
-  const index = clamp(i, 0, anchors.value.length - 1);
+  const index = clamp(i, 0, stops.value.length - 1);
   keyboardIndex.value = index;
-  const id = anchors.value[index];
+  const id = stops.value[index];
   if (id != null)
     emit("jump", id);
 }
 
 function onKeydown(e: KeyboardEvent) {
-  if (anchors.value.length === 0)
+  if (stops.value.length === 0)
     return;
+  // Page keys move a whole section when the arrows go hymn by hymn.
+  const page = Math.max(1, Math.round(stops.value.length / Math.max(1, anchors.value.length)));
   const map: Record<string, () => void> = {
     ArrowUp: () => jumpTo(keyboardIndex.value - 1),
     ArrowDown: () => jumpTo(keyboardIndex.value + 1),
+    PageUp: () => jumpTo(keyboardIndex.value - page),
+    PageDown: () => jumpTo(keyboardIndex.value + page),
     Home: () => jumpTo(0),
-    End: () => jumpTo(anchors.value.length - 1),
+    End: () => jumpTo(stops.value.length - 1),
   };
   const run = map[e.key];
   if (run) {
@@ -227,27 +261,39 @@ onBeforeUnmount(() => {
     role="slider"
     :aria-label="currentTab === 'byTitle' ? 'Ir a una letra' : 'Ir a un número'"
     :aria-valuemin="1"
-    :aria-valuemax="anchors.length"
+    :aria-valuemax="stops.length"
     :aria-valuenow="keyboardIndex + 1"
-    :aria-valuetext="String(anchors[keyboardIndex] ?? '')"
+    :aria-valuetext="String(stops[keyboardIndex] ?? '')"
     @keydown="onKeydown"
     @focus="focused = true"
     @blur="focused = false"
   >
     <span aria-hidden="true" class="anchor-rail__line" />
-    <div
-      v-for="a in anchors"
-      :key="a"
-      class="flex w-full flex-1 select-none items-center justify-end pr-2.5 text-[10px] font-semibold leading-none tabular-nums"
-    >
-      <span class="anchor-rail__label">{{ a }}</span>
-    </div>
+    <template v-if="fine">
+      <!-- Each label at the height of its own hymn, so the finger finds
+           hymn 28 right where "28" is. -->
+      <span
+        v-for="l in labels"
+        :key="l.id"
+        class="anchor-rail__label absolute right-2.5 -translate-y-1/2 select-none text-[10px] font-semibold leading-none tabular-nums"
+        :style="{ top: l.top! }"
+      >{{ l.id }}</span>
+    </template>
+    <template v-else>
+      <div
+        v-for="l in labels"
+        :key="l.id"
+        class="flex w-full flex-1 select-none items-center justify-end pr-2.5 text-[10px] font-semibold leading-none tabular-nums"
+      >
+        <span class="anchor-rail__label">{{ l.id }}</span>
+      </div>
+    </template>
     <span
       v-if="handleIndex !== null"
       aria-hidden="true"
       class="anchor-rail__handle"
-      :style="{ top: `calc(0.5rem + (100% - 1rem) * ${(handleIndex + 0.5) / Math.max(1, anchors.length)})` }"
-    >{{ anchors[handleIndex] }}</span>
+      :style="{ top: stopTop(handleIndex) }"
+    >{{ stops[handleIndex] }}</span>
   </div>
 
   <Transition name="rail-bubble">
@@ -257,7 +303,7 @@ onBeforeUnmount(() => {
       :style="{ right: `${bubble.right}px`, transform: `translate3d(0, calc(${bubble.top}px - 50%), 0)` }"
       aria-hidden="true"
     >
-      {{ anchors[activeIndex] }}
+      {{ stops[activeIndex] }}
     </div>
   </Transition>
 </template>
