@@ -47,7 +47,10 @@ export const useSongStore = defineStore("useSongStore", () => {
 
   function applyFavorites(parsedSongs: Song[]): Song[] {
     const favSet = new Set(favoriteSongs.value);
-    return parsedSongs.map(s => ({ ...s, favorite: favSet.has(s.songId) }));
+    return parsedSongs.map(s => ({
+      ...s,
+      favorite: favSet.has(s.songId),
+    }));
   }
 
   watch(
@@ -124,7 +127,9 @@ export const useSongStore = defineStore("useSongStore", () => {
     if (!Number.isFinite(n) || Number.isNaN(n))
       return 1;
     const i = Math.floor(n);
-    return i >= 1 ? i : 1;
+    return i >= 1
+      ? i
+      : 1;
   }
 
   try {
@@ -151,19 +156,26 @@ export const useSongStore = defineStore("useSongStore", () => {
   }
 
   function getSongById(id: number) {
-    return songs.value ? songs.value[id - 1] : songs.value[0];
+    return songs.value
+      ? songs.value[id - 1]
+      : songs.value[0];
   }
 
   async function navigateToSong(id: number, blockIndex = -1) {
     songId.value = id;
-    pendingBlock.value = blockIndex >= 0 ? { songId: id, blockIndex } : null;
+    pendingBlock.value = blockIndex >= 0
+      ? { songId: id, blockIndex }
+      : null;
     await navigateTo("/");
   }
 
   function pushRecent(id: number, max = 8) {
     if (!songbookId.value || !id)
       return;
-    const next = [id, ...recentSongIds.value.filter(r => r !== id)].slice(0, max);
+    const next = [
+      id,
+      ...recentSongIds.value.filter(r => r !== id),
+    ].slice(0, max);
     recentBySongbook.value = { ...recentBySongbook.value, [songbookId.value]: next };
   }
 
@@ -171,7 +183,10 @@ export const useSongStore = defineStore("useSongStore", () => {
     const q = query.trim();
     if (!q)
       return;
-    searchHistory.value = [q, ...searchHistory.value.filter(h => h.toLowerCase() !== q.toLowerCase())].slice(0, max);
+    searchHistory.value = [
+      q,
+      ...searchHistory.value.filter(h => h.toLowerCase() !== q.toLowerCase()),
+    ].slice(0, max);
   }
 
   function jumpToSong(id: number | string) {

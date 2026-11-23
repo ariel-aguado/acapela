@@ -31,7 +31,9 @@ const number = computed(() => Number(songId.value) || 1);
 // Only two actions, so each is its own button instead of a "⋯" menu (no
 // hidden options): Apariencia (Aa) everywhere and, on large screens where
 // a projector is plugged in, Proyectar with its label.
-const currentIsFavorite = computed(() => (current.value ? isFavorite(current.value.songId) : false));
+const currentIsFavorite = computed(() => (current.value
+  ? isFavorite(current.value.songId)
+  : false));
 const isLarge = useMediaQuery("(min-width: 1024px)");
 </script>
 

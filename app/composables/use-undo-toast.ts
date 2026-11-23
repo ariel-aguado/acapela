@@ -27,7 +27,11 @@ export function useUndoToast() {
     if (timer)
       clearTimeout(timer);
     pendingAction = action?.run ?? null;
-    toast.value = { id: Date.now(), message, actionLabel: action?.label };
+    toast.value = {
+      id: Date.now(),
+      message,
+      actionLabel: action?.label,
+    };
     timer = setTimeout(hide, ms);
   }
 

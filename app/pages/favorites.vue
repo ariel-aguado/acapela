@@ -15,7 +15,12 @@ const favorites = computed<FilteredSong[]>(() =>
     .filter(s => !!s)
     .map((s) => {
       const block = s!.blocks?.find(b => b.kind !== "citation");
-      return { songId: s!.songId, title: s!.title, firstLine: lyricExcerpt(block?.text[0] ?? ""), favorite: true };
+      return {
+        songId: s!.songId,
+        title: s!.title,
+        firstLine: lyricExcerpt(block?.text[0] ?? ""),
+        favorite: true,
+      };
     }),
 );
 </script>

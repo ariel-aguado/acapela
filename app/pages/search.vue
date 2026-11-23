@@ -36,7 +36,9 @@ const {
 const { currentSongbook } = storeToRefs(songbookStore);
 const { search: workerSearch } = useSongbookWorker();
 
-const query = ref(typeof route.query.q === "string" ? route.query.q : "");
+const query = ref(typeof route.query.q === "string"
+  ? route.query.q
+  : "");
 const scope = ref<Scope>("all");
 const inputRef = shallowRef<HTMLInputElement | null>(null);
 const resultsRef = shallowRef<HTMLElement | null>(null);
@@ -52,7 +54,12 @@ function firstLine(song: Song | undefined): string {
 }
 
 function toFiltered(song: Song): FilteredSong {
-  return { songId: song.songId, title: song.title, firstLine: firstLine(song), favorite: song.favorite };
+  return {
+    songId: song.songId,
+    title: song.title,
+    firstLine: firstLine(song),
+    favorite: song.favorite,
+  };
 }
 
 // ---------------------------------------------------------------- results
@@ -60,7 +67,9 @@ const numberMatch = computed<FilteredSong | null>(() => {
   if (!isNumberQuery.value)
     return null;
   const song = songs.value[Number(trimmed.value) - 1];
-  return song ? toFiltered(song) : null;
+  return song
+    ? toFiltered(song)
+    : null;
 });
 
 const titleHits = ref<FilteredSong[]>([]);
@@ -96,7 +105,12 @@ async function runSearch(text: string) {
     .filter(t => t.songId !== numberMatch.value?.songId)
     .map((t) => {
       const song = songs.value[t.songId - 1];
-      return song ? { ...t, firstLine: firstLine(song) } : t;
+      return song
+        ? {
+            ...t,
+            firstLine: firstLine(song),
+          }
+        : t;
     });
   lyricHits.value = full
     .filter(r => !inTitles.has(r.songId) && r.matchedLines.length > 0)
@@ -106,7 +120,12 @@ async function runSearch(text: string) {
       const line = lyricExcerpt(rawLine);
       const blockIndex = findBlockIndex(song, rawLine.replace(/\*+/g, ""));
       return {
-        song: { songId: r.songId, title: r.title, firstLine: r.firstLine, favorite: r.favorite },
+        song: {
+          songId: r.songId,
+          title: r.title,
+          firstLine: r.firstLine,
+          favorite: r.favorite,
+        },
         line,
         blockIndex,
         tag: blockLabel(song?.blocks?.[blockIndex]),
@@ -116,8 +135,12 @@ async function runSearch(text: string) {
   searching.value = false;
 }
 
-const visibleTitles = computed(() => (scope.value === "lyrics" ? [] : titleHits.value));
-const visibleLyrics = computed(() => (scope.value === "titles" ? [] : lyricHits.value));
+const visibleTitles = computed(() => (scope.value === "lyrics"
+  ? []
+  : titleHits.value));
+const visibleLyrics = computed(() => (scope.value === "titles"
+  ? []
+  : lyricHits.value));
 const nothingFound = computed(() =>
   hasQuery.value
   && !searching.value
@@ -178,8 +201,13 @@ function performMark() {
   const marker = new Mark(el);
   marker.unmark({
     done() {
-      if (hasQuery.value && !isNumberQuery.value)
-        marker.mark(trimmed.value, { diacritics: true, separateWordSearch: false, exclude: [".no-mark", ".no-mark *"] });
+      if (hasQuery.value && !isNumberQuery.value) {
+        marker.mark(trimmed.value, {
+          diacritics: true,
+          separateWordSearch: false,
+          exclude: [".no-mark", ".no-mark *"],
+        });
+      }
     },
   });
 }
@@ -188,12 +216,25 @@ function performMark() {
 const debouncedSearch = useDebounceFn(async (q: string) => {
   await runSearch(q);
   // Keep the query in the URL so "back" from a hymn restores the results.
-  router.replace({ query: q.trim() ? { q: q.trim() } : {} });
+  router.replace({
+    query: q.trim()
+      ? {
+          q: q.trim(),
+        }
+      : {},
+  });
 }, 150);
 
 watch(query, q => debouncedSearch(q));
 
-watch([titleHits, lyricHits, scope, titleLimit, lyricLimit, hasQuery], () => {
+watch([
+  titleHits,
+  lyricHits,
+  scope,
+  titleLimit,
+  lyricLimit,
+  hasQuery,
+], () => {
   nextTick().then(performMark);
 });
 

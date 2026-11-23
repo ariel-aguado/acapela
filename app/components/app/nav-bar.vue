@@ -7,12 +7,32 @@ const { open: goToOpen, show: showGoTo } = useGoToHymn();
 // frequent task of a service, sits in the middle, in the thumb zone, on
 // every screen.
 const left = [
-  { to: "/", label: "Cantar", icon: "tabler:music", match: ["/", "/fullscreen"] },
-  { to: "/search", label: "Buscar", icon: "tabler:search", match: ["/search", "/fully-search"] },
+  {
+    to: "/",
+    label: "Cantar",
+    icon: "tabler:music",
+    match: ["/", "/fullscreen"],
+  },
+  {
+    to: "/search",
+    label: "Buscar",
+    icon: "tabler:search",
+    match: ["/search", "/fully-search"],
+  },
 ];
 const right = [
-  { to: "/favorites", label: "Favoritos", icon: "tabler:heart", match: ["/favorites"] },
-  { to: "/settings", label: "Ajustes", icon: "tabler:settings", match: ["/settings", "/about"] },
+  {
+    to: "/favorites",
+    label: "Favoritos",
+    icon: "tabler:heart",
+    match: ["/favorites"],
+  },
+  {
+    to: "/settings",
+    label: "Ajustes",
+    icon: "tabler:settings",
+    match: ["/settings", "/about"],
+  },
 ];
 
 function isActive(match: string[]) {

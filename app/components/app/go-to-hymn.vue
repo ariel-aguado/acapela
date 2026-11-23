@@ -29,7 +29,9 @@ const value = ref("");
 
 const total = computed(() => songs.value.length);
 const songbookName = computed(() => currentSongbook.value?.name ?? "este himnario");
-const number = computed(() => (value.value ? Number(value.value) : null));
+const number = computed(() => (value.value
+  ? Number(value.value)
+  : null));
 
 const error = computed(() => {
   const n = number.value;

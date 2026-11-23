@@ -19,11 +19,15 @@ export function setupPageHeader() {
       // dir: () => localeMap[locale.value] ?? 'ltr',
       // class: () => enablePinchToZoom.value ? ['enable-pinch-to-zoom'] : [],
     },
-    meta: [{
-      name: "viewport",
-      content: () => `width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0, viewport-fit=cover`,
+    meta: [
+      {
+        name: "viewport",
+        content: () => `width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0, viewport-fit=cover`,
       // content: () => `width=device-width,initial-scale=1${enablePinchToZoom.value ? '' : ',maximum-scale=1,user-scalable=0'},viewport-fit=cover`,
-    }],
-    titleTemplate: c => c ? `${c} · Acapela` : "Acapela",
+      },
+    ],
+    titleTemplate: c => c
+      ? `${c} · Acapela`
+      : "Acapela",
   });
 }

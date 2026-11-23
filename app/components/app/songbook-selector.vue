@@ -47,7 +47,9 @@ async function onSelect(sb: Songbook) {
 function truncate(name: string, max = 12) {
   if (!name)
     return "";
-  return name.length > max ? `${name.slice(0, max - 1)}…` : name;
+  return name.length > max
+    ? `${name.slice(0, max - 1)}…`
+    : name;
 }
 
 function onDetailsToggle() {

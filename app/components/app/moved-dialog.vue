@@ -9,7 +9,9 @@ const songbookName = computed(() =>
   songbookStore.manifest.find(s => s.id === moved.value?.songbookId)?.name ?? "",
 );
 const broughtText = computed(() => {
-  const name = songbookName.value ? ` (${songbookName.value})` : "";
+  const name = songbookName.value
+    ? ` (${songbookName.value})`
+    : "";
   const favs = moved.value?.favorites ?? 0;
   return favs > 0
     ? `Trajimos tu himnario${name} y tus ${favs} favoritos.`

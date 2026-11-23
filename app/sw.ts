@@ -23,7 +23,9 @@ registerRoute(
   new StaleWhileRevalidate({
     cacheName: "songbook-cache-v1",
     plugins: [
-      new CacheableResponsePlugin({ statuses: [0, 200] }),
+      new CacheableResponsePlugin({
+        statuses: [0, 200],
+      }),
       new ExpirationPlugin({
         maxEntries: 32,
         maxAgeSeconds: 60 * 60 * 24 * 30,
@@ -39,7 +41,9 @@ registerRoute(
   new StaleWhileRevalidate({
     cacheName: "songbook-manifest-cache-v1",
     plugins: [
-      new CacheableResponsePlugin({ statuses: [0, 200] }),
+      new CacheableResponsePlugin({
+        statuses: [0, 200],
+      }),
       new ExpirationPlugin({
         maxEntries: 1,
         maxAgeSeconds: 60 * 60 * 24 * 30,
@@ -67,7 +71,9 @@ registerRoute(
     cacheName: "google-fonts-webfonts-v1",
     plugins: [
       new ExpirationPlugin({ maxEntries: 30, maxAgeSeconds: 60 * 60 * 24 * 365 }),
-      new CacheableResponsePlugin({ statuses: [0, 200] }),
+      new CacheableResponsePlugin({
+        statuses: [0, 200],
+      }),
     ],
   }),
   "GET",
@@ -80,7 +86,9 @@ registerRoute(
     cacheName: "images-cache-v1",
     plugins: [
       new ExpirationPlugin({ maxEntries: 30, maxAgeSeconds: 60 * 60 * 24 * 30 }),
-      new CacheableResponsePlugin({ statuses: [0, 200] }),
+      new CacheableResponsePlugin({
+        statuses: [0, 200],
+      }),
     ],
   }),
 );

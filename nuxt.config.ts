@@ -103,9 +103,10 @@ export default defineNuxtConfig({
   pwa: {
     registerType: "autoUpdate",
     injectRegister: "auto",
-    strategies: "injectManifest",
-    srcDir: ".",
-    filename: "sw.ts",
+    // @vite-pwa/nuxt 2: our own TypeScript worker is built with "buildSW"
+    // (injectManifest is only for an existing, already-built worker).
+    strategies: "buildSW",
+    filename: "sw.js",
     manifest: {
       id: "/",
       name: "Acapela",
@@ -126,14 +127,48 @@ export default defineNuxtConfig({
       icons: [
         { src: "pwa-64x64.png", sizes: "64x64", type: "image/png" },
         { src: "pwa-192x192.png", sizes: "192x192", type: "image/png" },
-        { src: "pwa-512x512.png", sizes: "512x512", type: "image/png", purpose: "any" },
-        { src: "maskable-icon-512x512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+        {
+          src: "pwa-512x512.png",
+          sizes: "512x512",
+          type: "image/png",
+          purpose: "any",
+        },
+        {
+          src: "maskable-icon-512x512.png",
+          sizes: "512x512",
+          type: "image/png",
+          purpose: "maskable",
+        },
       ],
       screenshots: [
-        { src: "screenshots/reading.png", sizes: "1080x1920", type: "image/png", form_factor: "narrow", label: "Lee y canta cada himno con letra grande y clara" },
-        { src: "screenshots/search.png", sizes: "1080x1920", type: "image/png", form_factor: "narrow", label: "Encuentra un himno por número, título o una frase" },
-        { src: "screenshots/dark.png", sizes: "1080x1920", type: "image/png", form_factor: "narrow", label: "Tamaño de letra y tema oscuro a tu medida" },
-        { src: "screenshots/wide.png", sizes: "1920x1080", type: "image/png", form_factor: "wide", label: "Proyecta la letra para toda la congregación" },
+        {
+          src: "screenshots/reading.png",
+          sizes: "1080x1920",
+          type: "image/png",
+          form_factor: "narrow",
+          label: "Lee y canta cada himno con letra grande y clara",
+        },
+        {
+          src: "screenshots/search.png",
+          sizes: "1080x1920",
+          type: "image/png",
+          form_factor: "narrow",
+          label: "Encuentra un himno por número, título o una frase",
+        },
+        {
+          src: "screenshots/dark.png",
+          sizes: "1080x1920",
+          type: "image/png",
+          form_factor: "narrow",
+          label: "Tamaño de letra y tema oscuro a tu medida",
+        },
+        {
+          src: "screenshots/wide.png",
+          sizes: "1920x1080",
+          type: "image/png",
+          form_factor: "wide",
+          label: "Proyecta la letra para toda la congregación",
+        },
       ],
       shortcuts: [
         {
@@ -141,18 +176,23 @@ export default defineNuxtConfig({
           short_name: "Buscar",
           description: "Buscar por número, título o una frase de la letra",
           url: "/search?source=shortcut",
-          icons: [{ src: "shortcut-search.png", sizes: "96x96", type: "image/png" }],
+          icons: [
+            { src: "shortcut-search.png", sizes: "96x96", type: "image/png" },
+          ],
         },
         {
           name: "Favoritos",
           short_name: "Favoritos",
           description: "Tus himnos guardados",
           url: "/favorites?source=shortcut",
-          icons: [{ src: "shortcut-favorites.png", sizes: "96x96", type: "image/png" }],
+          icons: [
+            { src: "shortcut-favorites.png", sizes: "96x96", type: "image/png" },
+          ],
         },
       ],
     },
-    injectManifest: {
+    buildSW: {
+      swSrc: "app/sw.ts",
       globPatterns: ["**/*.{js,css,html,ico,png,svg,webp,woff,woff2}"],
       // Install-time images (store screenshots, link preview) are not
       // needed offline.

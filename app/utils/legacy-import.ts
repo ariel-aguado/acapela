@@ -29,7 +29,9 @@ function decodeBase64Url(value: string): string {
 function readJson<T>(key: string, fallback: T): T {
   try {
     const raw = localStorage.getItem(key);
-    return raw === null ? fallback : (JSON.parse(raw) as T);
+    return raw === null
+      ? fallback
+      : (JSON.parse(raw) as T);
   }
   catch {
     return fallback;
@@ -62,7 +64,9 @@ export function applyLegacyImport(hash: string, knownSongbookIds: string[]): Leg
 
   // useLocalStorage keeps strings raw (not JSON-encoded).
   const currentId = localStorage.getItem("songbookId") ?? "";
-  const songbookId = data.sb && knownSongbookIds.includes(data.sb) ? data.sb : "";
+  const songbookId = data.sb && knownSongbookIds.includes(data.sb)
+    ? data.sb
+    : "";
   if (!songbookId)
     return null;
 
@@ -70,7 +74,10 @@ export function applyLegacyImport(hash: string, knownSongbookIds: string[]): Leg
     localStorage.setItem("songbookId", songbookId);
 
   const favs = readJson<Record<string, number[]>>("favoritesBySongbook", {});
-  const merged = Array.from(new Set([...(favs[songbookId] ?? []), ...data.fav]));
+  const merged = Array.from(new Set([
+    ...(favs[songbookId] ?? []),
+    ...data.fav,
+  ]));
   localStorage.setItem("favoritesBySongbook", JSON.stringify({ ...favs, [songbookId]: merged }));
 
   const songIds = readJson<Record<string, number>>("songIdBySongbook", {});

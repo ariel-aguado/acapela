@@ -15,31 +15,45 @@ export default withNuxt(antfu({
     semi: true,
     quotes: "double",
   },
-  ignores: [".pnpm-store/**", "**/migrations/*", "scripts/**", "legacy-vercel/**"],
+  ignores: [
+    ".pnpm-store/**",
+    "**/migrations/*",
+    "scripts/**",
+    "legacy-vercel/**",
+  ],
 }, {
   rules: {
-    "vue/max-attributes-per-line": ["error", {
-      singleline: {
-        max: 3,
+    "vue/max-attributes-per-line": [
+      "error",
+      {
+        singleline: {
+          max: 3,
+        },
+        multiline: {
+          max: 1,
+        },
       },
-      multiline: {
-        max: 1,
-      },
-    }],
+    ],
     "ts/no-redeclare": "off",
     "ts/consistent-type-definitions": ["error", "type"],
     "no-console": ["warn"],
     "antfu/no-top-level-await": ["off"],
     "node/prefer-global/process": ["off"],
     "node/no-process-env": ["error"],
-    "perfectionist/sort-imports": ["error", {
-      tsconfig: {
-        rootDir: ".",
+    "perfectionist/sort-imports": [
+      "error",
+      {
+        tsconfig: {
+          rootDir: ".",
+        },
       },
-    }],
-    "unicorn/filename-case": ["error", {
-      case: "kebabCase",
-      ignore: ["README.md"],
-    }],
+    ],
+    "unicorn/filename-case": [
+      "error",
+      {
+        case: "kebabCase",
+        ignore: ["README.md"],
+      },
+    ],
   },
 }));

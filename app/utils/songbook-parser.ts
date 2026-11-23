@@ -17,7 +17,13 @@ export function parseSongbook(text: string): SongData[] {
       const songId = Number.parseInt(num[0], 10);
       const title = first.replace(/^\d+\.?\s*/, "").trim();
       const lyric = lines.slice(1).join("\n").trim();
-      return { id: songId, songId, title, lyric, createdAt: Date.now() } as unknown as SongData;
+      return {
+        id: songId,
+        songId,
+        title,
+        lyric,
+        createdAt: Date.now(),
+      } as unknown as SongData;
     })
     .filter(Boolean) as SongData[];
 }
@@ -208,7 +214,13 @@ export function lyricToBlocks(formatted: string): LyricBlockSource[] {
     // Bible citation, e.g. "(SALMO 100)": only before any sung line.
     const sungSoFar = blocks.some(b => b.kind !== "citation") || (current?.markdown.length ?? 0) > 0;
     if (/^\([^)]*\)$/.test(trimmed) && !sungSoFar) {
-      blocks.push({ kind: "citation", number: "", markdown: [trimmed.slice(1, -1).trim()] });
+      blocks.push({
+        kind: "citation",
+        number: "",
+        markdown: [
+          trimmed.slice(1, -1).trim(),
+        ],
+      });
       continue;
     }
 

@@ -13,10 +13,14 @@ export default defineNuxtPlugin(() => {
       metas.forEach((meta) => {
         if (preference === "system") {
           const media = meta.getAttribute("media") ?? "";
-          meta.content = media.includes("dark") ? BG.dark : BG.light;
+          meta.content = media.includes("dark")
+            ? BG.dark
+            : BG.light;
         }
         else {
-          meta.content = value === "dark" ? BG.dark : BG.light;
+          meta.content = value === "dark"
+            ? BG.dark
+            : BG.light;
         }
       });
     },

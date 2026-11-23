@@ -18,7 +18,9 @@ export const usePresentationStore = defineStore("presentation", () => {
     if (!songbookId.value)
       return;
     const clamped = Math.round(Math.min(SCALE_MAX, Math.max(SCALE_MIN, scale)) * 10) / 10;
-    const book = { ...(scaleBySongbook.value[songbookId.value] ?? {}) };
+    const book = {
+      ...(scaleBySongbook.value[songbookId.value] ?? {}),
+    };
     if (clamped === 1)
       delete book[String(songId)];
     else

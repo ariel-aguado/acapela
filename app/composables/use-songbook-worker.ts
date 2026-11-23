@@ -123,7 +123,9 @@ export function useSongbookWorker(): UseSongbookWorkerReturn {
     const w = worker.value ?? _worker;
     // Cloning is critical: Vue's reactive arrays are Proxies and Proxies are
     // NOT structured-cloneable, so `postMessage` would throw DataCloneError.
-    const safe = Array.isArray(ids) ? ids.slice() : [];
+    const safe = Array.isArray(ids)
+      ? ids.slice()
+      : [];
     if (w)
       w.setFavoriteIds(safe);
   };

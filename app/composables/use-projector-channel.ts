@@ -30,7 +30,10 @@ export function useProjectorSender(state: Ref<ProjectorState> | ComputedRef<Proj
 
   function post() {
     // JSON round-trip: reactive proxies are not structured-cloneable.
-    channel?.postMessage({ type: "state", state: JSON.parse(JSON.stringify(state.value)) } satisfies Message);
+    channel?.postMessage({
+      type: "state",
+      state: JSON.parse(JSON.stringify(state.value)),
+    } satisfies Message);
   }
 
   onMounted(() => {

@@ -27,7 +27,9 @@ export const useSongbookStore = defineStore("songbook", () => {
 
   /** Path of the currently selected songbook file (empty if none). */
   const currentFile = computed<string>(
-    () => (currentSongbook.value ? fileUrl(currentSongbook.value.file) : ""),
+    () => (currentSongbook.value
+      ? fileUrl(currentSongbook.value.file)
+      : ""),
   );
 
   async function loadManifest() {
@@ -38,7 +40,7 @@ export const useSongbookStore = defineStore("songbook", () => {
       throw new Error(`Failed to load songbook manifest: ${res.status}`);
     const data = (await res.json()) as Songbook[];
     if (!Array.isArray(data))
-      throw new Error("Songbook manifest must be an array");
+      throw new TypeError("Songbook manifest must be an array");
     manifest.value = data;
     manifestLoaded.value = true;
   }

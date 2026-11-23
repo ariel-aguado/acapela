@@ -80,7 +80,9 @@ function updateCurrent() {
   }
   if (currentTab.value === "byTitle") {
     const i = (anchors.value as string[]).indexOf(key);
-    currentIndex.value = i >= 0 ? i : null;
+    currentIndex.value = i >= 0
+      ? i
+      : null;
     return;
   }
   // Numbers: the last anchor at or before the first visible hymn.

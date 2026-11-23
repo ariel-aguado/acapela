@@ -87,7 +87,9 @@ function changeScale(delta: number) {
 }
 
 const atEnd = computed(() => slides.value.length > 0 && slideIndex.value === slides.value.length - 1);
-const nextHymnId = computed(() => (current.value < total.value ? current.value + 1 : null));
+const nextHymnId = computed(() => (current.value < total.value
+  ? current.value + 1
+  : null));
 
 // ------------------------------------------------------------ keyboard
 function blocked(e: KeyboardEvent) {
@@ -123,27 +125,60 @@ const shortcutGroups: ShortcutGroup[] = [
   {
     title: "Estrofas",
     items: [
-      { keys: ["→", "Espacio"], label: "Siguiente estrofa (también el control remoto)" },
-      { keys: ["←"], label: "Estrofa anterior" },
-      { keys: ["Inicio", "Fin"], label: "Primera / última estrofa" },
+      {
+        keys: ["→", "Espacio"],
+        label: "Siguiente estrofa (también el control remoto)",
+      },
+      {
+        keys: ["←"],
+        label: "Estrofa anterior",
+      },
+      {
+        keys: ["Inicio", "Fin"],
+        label: "Primera / última estrofa",
+      },
     ],
   },
   {
     title: "Himnos",
     items: [
-      { keys: ["N"], label: "Himno siguiente" },
-      { keys: ["P"], label: "Himno anterior" },
-      { keys: ["G"], label: "Ir a un himno por número" },
+      {
+        keys: ["N"],
+        label: "Himno siguiente",
+      },
+      {
+        keys: ["P"],
+        label: "Himno anterior",
+      },
+      {
+        keys: ["G"],
+        label: "Ir a un himno por número",
+      },
     ],
   },
   {
     title: "Pantalla",
     items: [
-      { keys: ["B"], label: "Pantalla en negro / volver" },
-      { keys: ["+", "−"], label: "Agrandar / achicar el texto de este himno" },
-      { keys: ["0"], label: "Tamaño automático" },
-      { keys: ["F"], label: "Presentar en esta pantalla" },
-      { keys: ["?"], label: "Ver estos atajos" },
+      {
+        keys: ["B"],
+        label: "Pantalla en negro / volver",
+      },
+      {
+        keys: ["+", "−"],
+        label: "Agrandar / achicar el texto de este himno",
+      },
+      {
+        keys: ["0"],
+        label: "Tamaño automático",
+      },
+      {
+        keys: ["F"],
+        label: "Presentar en esta pantalla",
+      },
+      {
+        keys: ["?"],
+        label: "Ver estos atajos",
+      },
     ],
   },
 ];

@@ -56,7 +56,9 @@ async function fit() {
     else
       hi = mid;
   }
-  const fitted = fits(hi) ? hi : lo;
+  const fitted = fits(hi)
+    ? hi
+    : lo;
   const final = Math.round(fitted * props.scale);
   fontPx.value = final;
   lyricRef.value.style.fontSize = `${final}px`;

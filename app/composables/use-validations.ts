@@ -66,7 +66,10 @@ export function useValidation<T extends ZodTypeAny>(schema: T, data: MaybeRefOrG
     isValid.value = result.success;
 
     if (!result.success) {
-      errors.value = { ...errors.value, ...groupBy(result.error.issues, "path") };
+      errors.value = {
+        ...errors.value,
+        ...groupBy(result.error.issues, "path"),
+      };
     }
     else {
       Object.keys(partialData).forEach((p) => {
@@ -95,5 +98,13 @@ export function useValidation<T extends ZodTypeAny>(schema: T, data: MaybeRefOrG
     validationWatch();
   }
 
-  return { validate, validatePartial, errors, isValid, clearErrors, getError, scrollToError };
+  return {
+    validate,
+    validatePartial,
+    errors,
+    isValid,
+    clearErrors,
+    getError,
+    scrollToError,
+  };
 }

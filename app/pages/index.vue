@@ -96,7 +96,10 @@ async function revealPendingBlock() {
   if (!el)
     return;
   const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  el.scrollIntoView({ block: "center", behavior: reduce ? "auto" : "smooth" });
+  el.scrollIntoView({
+    block: "center",
+    behavior: reduce ? "auto" : "smooth",
+  });
   el.classList.add("hymn-block--found");
   setTimeout(() => el.classList.remove("hymn-block--found"), 2200);
 }
@@ -126,9 +129,18 @@ const shortcutGroups = [
   {
     title: "Lectura",
     items: [
-      { keys: ["←", "→"], label: "Himno anterior / siguiente" },
-      { keys: ["G"], label: "Ir a un himno por número" },
-      { keys: ["?"], label: "Ver estos atajos" },
+      {
+        keys: ["←", "→"],
+        label: "Himno anterior / siguiente",
+      },
+      {
+        keys: ["G"],
+        label: "Ir a un himno por número",
+      },
+      {
+        keys: ["?"],
+        label: "Ver estos atajos",
+      },
     ],
   },
 ];
@@ -153,7 +165,9 @@ onMounted(async () => {
   // 3. Not coming from internal search pages
   const router = useRouter();
   const fromInternalPage = router.options.history.state.back;
-  const fromPath = typeof fromInternalPage === "string" ? fromInternalPage : "";
+  const fromPath = typeof fromInternalPage === "string"
+    ? fromInternalPage
+    : "";
   const isFromSearchPages = fromPath
     && (fromPath.includes("/search") || fromPath.includes("/fully-search"));
 

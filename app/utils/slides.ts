@@ -11,8 +11,12 @@ export type Slide = {
 
 function toSlide(block: LyricBlock): Slide {
   return {
-    kind: block.kind === "chorus" ? "chorus" : "stanza",
-    label: blockLabel(block) || (block.kind === "chorus" ? "Coro" : "Estrofa"),
+    kind: block.kind === "chorus"
+      ? "chorus"
+      : "stanza",
+    label: blockLabel(block) || (block.kind === "chorus"
+      ? "Coro"
+      : "Estrofa"),
     html: block.html,
     preview: lyricExcerpt(block.text[0] ?? ""),
   };

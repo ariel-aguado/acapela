@@ -44,7 +44,9 @@ const FUSE_OPTIONS = {
 
 function buildTitleIndex(songs: Song[]): Fuse<Song> {
   return new Fuse(songs, {
-    keys: [{ name: "title", weight: 2 }],
+    keys: [
+      { name: "title", weight: 2 },
+    ],
     ...FUSE_OPTIONS,
   });
 }
@@ -63,7 +65,9 @@ function searchLyricLines(lines: LyricLine[], query: string): Array<{ line: stri
   if (!Array.isArray(lines) || lines.length === 0 || !query.trim())
     return [];
   const fuse = new Fuse(lines, {
-    keys: [{ name: "line", weight: 1 }],
+    keys: [
+      { name: "line", weight: 1 },
+    ],
     ...FUSE_OPTIONS,
   });
   return fuse.search(query).map(r => ({ line: r.item.line }));
@@ -112,7 +116,10 @@ const api = {
     const songs: Song[] = parsed.map((s) => {
       const formatted = formatSongContent(s.lyric || "");
       const html = marked.parse(formatted || s.lyric || "");
-      const lyricParsed: ParsedLyric = { body: html, data: { title: s.title } };
+      const lyricParsed: ParsedLyric = {
+        body: html,
+        data: { title: s.title },
+      };
       const lyricLines: LyricLine[] = lyricToLines(formatted || s.lyric || "");
 
       return {
