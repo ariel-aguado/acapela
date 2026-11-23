@@ -23,6 +23,13 @@ const title = computed(() => titles[route.path] ?? "Acapela");
 
 const current = computed(() => songStore.currentSong);
 const currentIsFavorite = computed(() => (current.value ? isFavorite(current.value.songId) : false));
+// Outside the reading view the capsule offers "Ir al himno" instead of the
+// actions that apply to the open hymn.
+const showGoTo = ref(false);
+function goToHymn(id: number) {
+  songStore.navigateToSong(id);
+}
+
 const inSetlist = computed(() => (current.value ? presentation.has(current.value.songId) : false));
 
 function toggleSetlist() {
@@ -63,10 +70,7 @@ function toggleSetlist() {
       <span class="text-lg font-bold leading-none">Acapela</span>
     </NuxtLink>
 
-    <div
-      v-if="isReading"
-      class="glass pointer-events-auto h-12 inline-flex items-center gap-0.5 rounded-full px-1"
-    >
+    <div class="glass pointer-events-auto h-12 inline-flex items-center gap-0.5 rounded-full px-1">
       <!-- Presentation is opened on purpose, only on large screens. -->
       <NuxtLink
         to="/fullscreen"
@@ -76,7 +80,17 @@ function toggleSetlist() {
         Proyectar
       </NuxtLink>
       <button
-        v-if="current"
+        v-if="!isReading"
+        type="button"
+        class="btn btn-ghost btn-circle h-10 w-10"
+        aria-label="Ir al himno"
+        title="Ir al himno"
+        @click="showGoTo = true"
+      >
+        <Icon name="tabler:hash" size="24" />
+      </button>
+      <button
+        v-if="isReading && current"
         type="button"
         class="btn btn-ghost btn-circle h-10 w-10"
         :class="{ 'text-secondary': currentIsFavorite }"
@@ -87,7 +101,7 @@ function toggleSetlist() {
         <Icon :name="currentIsFavorite ? 'tabler:heart-filled' : 'tabler:heart'" size="24" />
       </button>
       <button
-        v-if="current"
+        v-if="isReading && current"
         type="button"
         class="btn btn-ghost btn-circle h-10 w-10"
         :class="{ 'text-primary': inSetlist }"
@@ -108,4 +122,6 @@ function toggleSetlist() {
       </button>
     </div>
   </header>
+  <!-- Outside the header: its pointer-events:none would reach the dialog. -->
+  <AppGoToHymn v-if="!isReading" v-model:open="showGoTo" @go="goToHymn" />
 </template>
