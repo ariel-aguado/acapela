@@ -3,15 +3,15 @@ const emit = defineEmits(["update:open"]);
 
 const route = useRoute();
 const songStore = useSongStore();
+const { songs, songId } = storeToRefs(songStore);
 const { toggle, isFavorite } = useFavoriteToggle();
 const presentation = usePresentationStore();
 const { show: toast } = useUndoToast();
+const { show: showGoTo } = useGoToHymn();
 
 const isReading = computed(() => route.path === "/");
-const chromeHidden = useChromeHidden();
 
-// Section title outside the reading view, where the songbook chip and the
-// hymn actions are what matters.
+// Section name for screen readers outside the reading view.
 const titles: Record<string, string> = {
   "/search": "Buscar",
   "/fully-search": "Buscar",
@@ -22,15 +22,24 @@ const titles: Record<string, string> = {
 };
 const title = computed(() => titles[route.path] ?? "Acapela");
 
+// ------------------------------------------------------------ hymn capsule
+// While reading, the top-left capsule says which hymn is open (so the lyric
+// needs no sticky title) and moves to the previous / next one. Tapping the
+// name opens "Ir al himno".
 const current = computed(() => songStore.currentSong);
-const currentIsFavorite = computed(() => (current.value ? isFavorite(current.value.songId) : false));
-// Outside the reading view the capsule offers "Ir al himno" instead of the
-// actions that apply to the open hymn.
-const showGoTo = ref(false);
-function goToHymn(id: number) {
-  songStore.navigateToSong(id);
+const total = computed(() => songs.value.length);
+const number = computed(() => Number(songId.value) || 1);
+const hasPrev = computed(() => number.value > 1);
+const hasNext = computed(() => number.value < total.value);
+
+function step(delta: -1 | 1) {
+  const next = number.value + delta;
+  if (next >= 1 && next <= total.value)
+    songId.value = next;
 }
 
+// ------------------------------------------------------------ actions
+const currentIsFavorite = computed(() => (current.value ? isFavorite(current.value.songId) : false));
 const inSetlist = computed(() => (current.value ? presentation.has(current.value.songId) : false));
 
 function toggleSetlist() {
@@ -53,20 +62,66 @@ function toggleSetlist() {
     });
   }
 }
+
+// "⋯" menu: less frequent actions, each with its name written out.
+const menuOpen = ref(false);
+const menuRef = shallowRef<HTMLElement | null>(null);
+const isLarge = useMediaQuery("(min-width: 1024px)");
+onClickOutside(menuRef, () => (menuOpen.value = false));
+onKeyStroke("Escape", () => (menuOpen.value = false));
+watch(() => route.fullPath, () => (menuOpen.value = false));
+
+function run(action: () => void) {
+  menuOpen.value = false;
+  action();
+}
 </script>
 
 <template>
-  <!-- Floating capsules over the content (no full-width bar): the brand on
-       the left and, while reading, the hymn actions on the right. -->
-  <header
-    class="chrome-auto float-top fixed inset-x-2 sm:inset-x-3 z-30 h-12 flex items-center justify-between gap-2 pointer-events-none"
-    :class="{ 'chrome-hidden-up': chromeHidden }"
-    data-floating-chrome
-  >
+  <!-- Floating capsules over the content (no full-width bar). -->
+  <header class="float-top fixed inset-x-2 sm:inset-x-3 z-30 h-12 flex items-center justify-between gap-2 pointer-events-none">
     <h1 class="sr-only">
       {{ isReading ? 'Acapela' : `${title} · Acapela` }}
     </h1>
+
+    <!-- Reading: the open hymn -->
+    <div
+      v-if="isReading && current"
+      class="pointer-events-auto h-12 min-w-0 flex-1 max-w-md inline-flex items-center rounded-full bg-primary text-primary-content px-1 shadow-[0_10px_28px_-10px_rgb(40_20_150/0.65)]"
+    >
+      <button
+        type="button"
+        class="btn btn-ghost btn-circle h-10 w-10 text-primary-content hover:bg-white/15 disabled:bg-transparent disabled:text-primary-content/40"
+        :disabled="!hasPrev"
+        :aria-label="hasPrev ? `Himno anterior, ${number - 1}` : 'No hay himno anterior'"
+        @click="step(-1)"
+      >
+        <Icon name="tabler:chevron-left" size="24" />
+      </button>
+      <button
+        type="button"
+        class="flex-1 min-w-0 h-10 px-1 inline-flex items-center gap-1.5 rounded-full text-start hover:bg-white/10"
+        :aria-label="`Himno ${number} de ${total}: ${current.title}. Ir a otro himno`"
+        @click="showGoTo"
+      >
+        <span class="text-lg font-bold tabular-nums">{{ number }}</span>
+        <span class="opacity-60" aria-hidden="true">·</span>
+        <span class="truncate font-semibold text-[15px]">{{ current.title }}</span>
+      </button>
+      <button
+        type="button"
+        class="btn btn-ghost btn-circle h-10 w-10 text-primary-content hover:bg-white/15 disabled:bg-transparent disabled:text-primary-content/40"
+        :disabled="!hasNext"
+        :aria-label="hasNext ? `Himno siguiente, ${number + 1}` : 'No hay himno siguiente'"
+        @click="step(1)"
+      >
+        <Icon name="tabler:chevron-right" size="24" />
+      </button>
+    </div>
+
+    <!-- Other screens: the brand -->
     <NuxtLink
+      v-else
       to="/"
       class="pointer-events-auto h-12 inline-flex items-center gap-2 rounded-full bg-primary text-primary-content pl-2.5 pr-4 shadow-[0_10px_28px_-10px_rgb(40_20_150/0.65)]"
       aria-label="Acapela, ir a la lectura"
@@ -75,58 +130,120 @@ function toggleSetlist() {
       <span class="text-lg font-bold leading-none">Acapela</span>
     </NuxtLink>
 
-    <div class="glass pointer-events-auto h-12 inline-flex items-center gap-0.5 rounded-full px-1">
-      <!-- Presentation is opened on purpose, only on large screens. -->
-      <NuxtLink
-        to="/fullscreen"
-        class="btn btn-primary btn-sm h-9 rounded-full hidden lg:inline-flex mr-1"
-      >
-        <Icon name="tabler:presentation" size="18" />
-        Proyectar
-      </NuxtLink>
-      <button
-        v-if="!isReading"
-        type="button"
-        class="btn btn-ghost btn-circle h-10 w-10"
-        aria-label="Ir al himno"
-        title="Ir al himno"
-        @click="showGoTo = true"
-      >
-        <Icon name="tabler:hash" size="24" />
-      </button>
-      <button
-        v-if="isReading && current"
-        type="button"
-        class="btn btn-ghost btn-circle h-10 w-10"
-        :class="{ 'text-secondary': currentIsFavorite }"
-        :aria-label="currentIsFavorite ? `Quitar «${current.title}» de favoritos` : `Agregar «${current.title}» a favoritos`"
-        :aria-pressed="currentIsFavorite"
-        @click="toggle(current)"
-      >
-        <Icon :name="currentIsFavorite ? 'tabler:heart-filled' : 'tabler:heart'" size="24" />
-      </button>
-      <button
-        v-if="isReading && current"
-        type="button"
-        class="btn btn-ghost btn-circle h-10 w-10"
-        :class="{ 'text-primary': inSetlist }"
-        :aria-label="inSetlist ? 'Quitar de la lista del culto' : 'Agregar a la lista del culto'"
-        :title="inSetlist ? 'Quitar de la lista del culto' : 'Agregar a la lista del culto'"
-        :aria-pressed="inSetlist"
-        @click="toggleSetlist"
-      >
-        <Icon :name="inSetlist ? 'tabler:playlist-x' : 'tabler:playlist-add'" size="24" />
-      </button>
-      <button
-        type="button"
-        class="btn btn-ghost btn-circle h-10 w-10"
-        aria-label="Tamaño de letra"
-        @click="emit('update:open')"
-      >
-        <Icon name="tabler:text-size" size="24" />
-      </button>
+    <!-- Actions -->
+    <div ref="menuRef" class="relative pointer-events-auto shrink-0">
+      <div class="glass h-12 inline-flex items-center gap-0.5 rounded-full px-1">
+        <button
+          v-if="isReading && current"
+          type="button"
+          class="btn btn-ghost btn-circle h-10 w-10"
+          :class="{ 'text-secondary': currentIsFavorite }"
+          :aria-label="currentIsFavorite ? `Quitar «${current.title}» de favoritos` : `Agregar «${current.title}» a favoritos`"
+          :aria-pressed="currentIsFavorite"
+          @click="toggle(current)"
+        >
+          <Icon :name="currentIsFavorite ? 'tabler:heart-filled' : 'tabler:heart'" size="24" />
+        </button>
+        <button
+          type="button"
+          class="btn btn-ghost btn-circle h-10 w-10"
+          aria-label="Más opciones"
+          aria-haspopup="menu"
+          :aria-expanded="menuOpen"
+          @click="menuOpen = !menuOpen"
+        >
+          <Icon name="tabler:dots" size="24" />
+        </button>
+      </div>
+
+      <Transition name="menu">
+        <ul
+          v-if="menuOpen"
+          class="absolute right-0 top-[calc(100%+0.5rem)] w-64 rounded-2xl bg-base-100 text-base-content shadow-2xl border border-base-300 p-1.5 z-40"
+          role="menu"
+        >
+          <li v-if="isReading && current" role="none">
+            <button
+              type="button"
+              role="menuitem"
+              class="menu-row"
+              @click="run(toggleSetlist)"
+            >
+              <Icon :name="inSetlist ? 'tabler:playlist-x' : 'tabler:playlist-add'" size="22" aria-hidden="true" />
+              {{ inSetlist ? 'Quitar de la lista del culto' : 'Agregar a la lista del culto' }}
+            </button>
+          </li>
+          <li role="none">
+            <button
+              type="button"
+              role="menuitem"
+              class="menu-row"
+              @click="run(() => emit('update:open'))"
+            >
+              <Icon name="tabler:text-size" size="22" aria-hidden="true" />
+              Tamaño de letra
+            </button>
+          </li>
+          <li v-if="isLarge" role="none">
+            <NuxtLink
+              to="/fullscreen"
+              role="menuitem"
+              class="menu-row"
+              @click="menuOpen = false"
+            >
+              <Icon name="tabler:presentation" size="22" aria-hidden="true" />
+              Proyectar
+            </NuxtLink>
+          </li>
+          <li role="none">
+            <NuxtLink
+              to="/favorites?tab=lista"
+              role="menuitem"
+              class="menu-row"
+              @click="menuOpen = false"
+            >
+              <Icon name="tabler:playlist" size="22" aria-hidden="true" />
+              Ver la lista del culto
+            </NuxtLink>
+          </li>
+        </ul>
+      </Transition>
     </div>
   </header>
-  <!-- Outside the header: its pointer-events:none would reach the dialog. -->
-  <AppGoToHymn v-if="!isReading" v-model:open="showGoTo" @go="goToHymn" />
 </template>
+
+<style scoped>
+.menu-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.75rem;
+  text-align: start;
+  font-size: 0.95rem;
+}
+.menu-row:hover,
+.menu-row:focus-visible {
+  background: var(--color-base-200);
+  outline: none;
+}
+.menu-enter-active,
+.menu-leave-active {
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease;
+}
+.menu-enter-from,
+.menu-leave-to {
+  opacity: 0;
+  transform: translateY(-4px) scale(0.98);
+}
+@media (prefers-reduced-motion: reduce) {
+  .menu-enter-active,
+  .menu-leave-active {
+    transition: none;
+  }
+}
+</style>

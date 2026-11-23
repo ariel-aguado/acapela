@@ -4,10 +4,8 @@ const route = useRoute();
 const bottomOffset = computed(() => {
   if (route.meta.bare === true)
     return "0.75rem";
-  // Above the floating nav and, on the reading view, the floating pager.
-  return route.name === "index"
-    ? "calc(var(--bar-bottom) + var(--pager-h) + 4px)"
-    : "var(--bar-bottom)";
+  // Above the floating bottom navigation.
+  return "var(--bar-bottom)";
 });
 </script>
 

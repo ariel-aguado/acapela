@@ -19,8 +19,9 @@ const { status } = useSongbookWorker();
 const fontStore = useFontStore();
 const { fontSize } = storeToRefs(fontStore);
 
-// "Ir al himno" sheet and keyboard help
-const showGoTo = ref(false);
+// "Ir al himno" (one dialog for the app, hosted by the bottom navigation)
+// and keyboard help
+const { open: goToOpen, show: showGoTo } = useGoToHymn();
 const showHelp = ref(false);
 
 // Swiper reference
@@ -52,6 +53,14 @@ function getSwiper() {
 function goToSong(id: number) {
   getSwiper()?.slideTo(id - 1, 0);
 }
+
+// The hymn capsule (‹ ›), "Ir al himno" and the side list change songId;
+// keep the carousel on that hymn.
+watch(current, (id) => {
+  const sw = getSwiper();
+  if (sw && sw.activeIndex !== id - 1)
+    sw.slideTo(id - 1, 0);
+});
 
 function goPrev() {
   if (hasPrev.value)
@@ -98,7 +107,7 @@ onMounted(revealPendingBlock);
 function keyBlocked(e: KeyboardEvent) {
   const t = e.target as HTMLElement | null;
   const typing = !!t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable);
-  return typing || showGoTo.value || showHelp.value || e.ctrlKey || e.metaKey || e.altKey;
+  return typing || goToOpen.value || showHelp.value || e.ctrlKey || e.metaKey || e.altKey;
 }
 function readerKey(keys: string[], run: () => void) {
   onKeyStroke(keys, (e) => {
@@ -110,7 +119,7 @@ function readerKey(keys: string[], run: () => void) {
 }
 readerKey(["ArrowLeft"], goPrev);
 readerKey(["ArrowRight"], goNext);
-readerKey(["g", "G"], () => (showGoTo.value = true));
+readerKey(["g", "G"], showGoTo);
 readerKey(["?"], () => (showHelp.value = true));
 
 const shortcutGroups = [
@@ -123,10 +132,6 @@ const shortcutGroups = [
     ],
   },
 ];
-
-// A new hymn starts at its top: bring the floating controls back.
-const chromeHidden = useChromeHidden();
-watch(current, () => (chromeHidden.value = false));
 
 async function onActiveIndexChange(instance: any) {
   setTimeout(() => {
@@ -188,8 +193,7 @@ onMounted(async () => {
               :aria-labelledby="`hymn-title-${song.songId}`"
             >
               <header
-                class="chrome-auto sticky top-0 z-10 mx-2 sm:mx-3 rounded-2xl bg-base-100 shadow-[0_8px_20px_-14px_rgb(20_12_60/0.5)] px-3 pt-2.5 pb-2"
-                :class="{ 'hymn-title--raised': chromeHidden }"
+                class="px-4 pt-2"
               >
                 <div class="mx-auto w-full max-w-[38rem]">
                   <h2
@@ -233,67 +237,17 @@ onMounted(async () => {
         </Swiper>
       </div>
 
-      <!-- Reading pager: visible prev / go-to / next, so changing hymn does
-         not depend on a hidden swipe gesture. -->
-      <nav
-        v-if="status !== 'loading' && total > 0"
-        class="glass chrome-auto reader-pager absolute left-1/2 -translate-x-1/2 z-20 w-[calc(100%-1.5rem)] max-w-md h-[var(--pager-h)] rounded-full flex items-center gap-1 px-1.5"
-        :class="{ 'chrome-hidden-down-far': chromeHidden }"
-        data-floating-chrome
-        aria-label="Cambiar de himno"
-      >
-        <button
-          type="button"
-          class="btn btn-ghost h-11 min-w-0 flex-1 justify-start gap-1 px-3 rounded-full"
-          :disabled="!hasPrev"
-          :aria-label="hasPrev ? `Himno anterior, ${current - 1}` : 'No hay himno anterior'"
-          @click="goPrev"
-        >
-          <Icon name="tabler:chevron-left" size="24" />
-          <span v-if="hasPrev" class="tabular-nums">{{ current - 1 }}</span>
-        </button>
-        <button
-          type="button"
-          class="btn btn-primary h-11 rounded-full px-5 flex-none gap-2"
-          @click="showGoTo = true"
-        >
-          <Icon name="tabler:hash" size="20" />
-          <span class="flex flex-col items-start leading-tight">
-            <span>Ir al himno</span>
-            <span class="text-[11px] font-normal opacity-85 tabular-nums">{{ current }} de {{ total }}</span>
-          </span>
-        </button>
-        <button
-          type="button"
-          class="btn btn-ghost h-11 min-w-0 flex-1 justify-end gap-1 px-3 rounded-full"
-          :disabled="!hasNext"
-          :aria-label="hasNext ? `Himno siguiente, ${current + 1}` : 'No hay himno siguiente'"
-          @click="goNext"
-        >
-          <span v-if="hasNext" class="tabular-nums">{{ current + 1 }}</span>
-          <Icon name="tabler:chevron-right" size="24" />
-        </button>
-      </nav>
-
-      <AppGoToHymn v-model:open="showGoTo" @go="goToSong" />
       <AppShortcutsHelp v-model:open="showHelp" :groups="shortcutGroups" />
     </div>
   </div>
 </template>
 
 <style>
-/* Each hymn scrolls under the floating header, the pager and the nav. */
+/* Each hymn scrolls under the floating capsules and navigation. */
 .reader-scroll {
   height: 100dvh;
   padding-top: var(--bar-top);
-  padding-bottom: calc(var(--bar-bottom) + var(--pager-h) + 1.5rem);
-}
-/* While the floating capsules are hidden, the hymn title takes their place. */
-.hymn-title--raised {
-  transform: translateY(calc(-1 * (var(--bar-top-h) + var(--float-gap))));
-}
-.reader-pager {
-  bottom: calc(var(--bar-bottom) - 2px);
+  padding-bottom: calc(var(--bar-bottom) + 1rem);
 }
 
 .swiper {

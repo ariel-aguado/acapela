@@ -7,8 +7,6 @@ const route = useRoute();
 const showFontSidebar = ref(false);
 // Projection screens (console and projector window) have no app chrome.
 const bare = computed(() => route.meta.bare === true);
-// Floating capsules hide while scrolling down and return on scroll up.
-useAutoHideChrome();
 </script>
 
 <template>
