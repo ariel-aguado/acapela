@@ -2,16 +2,19 @@
   {
     "id": "songbook-lavilla",
     "name": "Lavilla",
-    "file": "songbook-lavilla.txt"
+    "file": "songbook-lavilla.txt",
+    "count": 250
   },
   {
     "id": "songbook-montevideo",
     "name": "Montevideo",
-    "file": "songbook-montevideo.txt"
+    "file": "songbook-montevideo.txt",
+    "count": 380
   },
   {
     "id": "songbook-nogales",
     "name": "Nogales",
-    "file": "songbook-nogales.txt"
+    "file": "songbook-nogales.txt",
+    "count": 275
   }
 ]

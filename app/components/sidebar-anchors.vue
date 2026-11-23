@@ -95,13 +95,15 @@ onBeforeUnmount(() => {
 <template>
   <div
     ref="railEl"
-    class="sticky top-0 z-50 flex flex-col items-center bg-secondary/10 w-7 h-full rounded-t-full rounded-b-full py-4"
-    style="width: 28px; height: 100%; touch-action: none;"
+    class="z-20 flex flex-col items-center bg-primary/10 w-10 h-full rounded-full py-3"
+    style="touch-action: none;"
+    role="navigation"
+    :aria-label="currentTab === 'byTitle' ? 'Saltar a una letra' : 'Saltar a un número'"
   >
     <div
       v-for="a in anchorsRef"
       :key="a"
-      class="flex-1 flex justify-center items-center w-full text-secondary hover:cursor-pointer text-xs leading-none"
+      class="flex-1 flex justify-center items-center w-full text-primary font-semibold hover:cursor-pointer text-xs leading-none"
     >
       {{ a }}
     </div>
@@ -112,7 +114,7 @@ onBeforeUnmount(() => {
       v-if="dragging && lastIdx !== null"
       class="fixed inset-0 z-100 flex items-center justify-center pointer-events-none"
     >
-      <div class="w-20 h-20 flex items-center justify-center rounded-2xl bg-base-100/90 backdrop-blur-sm border-2 border-secondary shadow-xl text-4xl font-bold text-secondary">
+      <div class="w-20 h-20 flex items-center justify-center rounded-2xl bg-base-100/90 backdrop-blur-sm border-2 border-primary shadow-xl text-4xl font-bold text-primary">
         {{ anchorsRef[lastIdx] }}
       </div>
     </div>

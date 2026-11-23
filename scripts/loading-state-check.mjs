@@ -116,23 +116,10 @@ try {
   await cdpEval(page.webSocketDebuggerUrl, `(() => { window.location.assign("/search"); })()`)
   await sleep(8000)
 
-  // Open the filter toggle to expose the search input
-  await cdpEval(page.webSocketDebuggerUrl, `(async () => {
-    const swap = document.querySelector("label.swap");
-    if (swap) {
-      const cb = swap.querySelector("input[type='checkbox']");
-      if (cb && !cb.checked) cb.click();
-    }
-    await new Promise(r => setTimeout(r, 800));
-    const input = document.querySelector("input[type='search']");
-    if (input) {
-      input.focus();
-      const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
-      nativeSetter.call(input, "amor");
-      input.dispatchEvent(new Event("input", { bubbles: true }));
-    }
-    await new Promise(r => setTimeout(r, 1500));
-  })()`)
+  // The "Todos los himnos" list (empty query) has the Por número / Por título
+  // sort control; sorting is client-side, so switching must never show the
+  // empty state.
+  await sleep(500)
 
   console.log("=== Test 1: Initial state on byNumber ===")
   const initial = await evalState(page, `(() => {

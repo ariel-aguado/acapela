@@ -16,7 +16,6 @@ const songbookStore = useSongbookStore();
 const { status } = useSongbookWorker();
 const { manifest, currentSongbook, currentId } = storeToRefs(songbookStore);
 const { selectSongbook } = songbookStore;
-const songStore = useSongStore();
 
 const isOpen = ref(false);
 const detailsRef = ref<HTMLDetailsElement | null>(null);
@@ -40,12 +39,8 @@ async function onSelect(sb: Songbook) {
   if (sb.id === currentId.value)
     return;
 
-  // Always reset to the first song. The new songbook may have a different
-  // total count, so the previous songId could be out of range — including
-  // when the user navigates back to the main page from a search page where
-  // we wouldn't touch songId otherwise.
-  songStore.songId = 1;
-
+  // No reset of songId: the last opened hymn is kept per songbook, and the
+  // song store clamps it if it is out of range for the new songbook.
   await selectSongbook(sb.id);
 }
 

@@ -123,8 +123,8 @@ try {
     localStorage.setItem("searchHistory", JSON.stringify(["El Señor"]));
   })()`)
 
-  // Navigate to /fully-search
-  await cdpEval(page.webSocketDebuggerUrl, `(() => { window.location.assign("/fully-search"); })()`)
+  // Navigate to the unified search page (recent searches live there now)
+  await cdpEval(page.webSocketDebuggerUrl, `(() => { window.location.assign("/search"); })()`)
   await sleep(8000)
 
   // Click on the recent search item "El Señor"
@@ -162,7 +162,7 @@ try {
     });
   })()`)
 
-  log("URL: /fully-search", "")
+  log("URL: /search", "")
   log("Input value:", afterClick.inputValue)
   log("Context exists:", afterClick.contextExists)
   log("Context has content:", afterClick.contextHasContent)

@@ -251,7 +251,7 @@ try {
     return JSON.stringify({
       url: window.location.pathname,
       hasSearchInput: !!document.querySelector("input[type='search']"),
-      hasIntroText: document.body.textContent.includes("Busca una palabra"),
+      hasIntroText: document.body.textContent.includes("Número, título o una frase de la letra"),
       storeSongs: store.songs.length,
       searchHistoryCount: store.searchHistory.length,
     });
@@ -262,8 +262,9 @@ try {
   log("Store songs:", fsPageState.storeSongs)
   log("Search history count:", fsPageState.searchHistoryCount)
 
-  if (fsPageState.url === "/fully-search" && fsPageState.hasSearchInput && fsPageState.hasIntroText) {
-    pass(`fully-search.vue renders with worker-backed store (${fsPageState.storeSongs} songs available)`)
+  // /fully-search now redirects to the unified search page.
+  if (fsPageState.url === "/search" && fsPageState.hasSearchInput && fsPageState.hasIntroText) {
+    pass(`/fully-search redirects to the unified search (${fsPageState.storeSongs} songs available)`)
   }
   else {
     fail(`fully-search.vue page state: ${JSON.stringify(fsPageState)}`)
@@ -297,7 +298,7 @@ try {
       inputValue: document.querySelector("input[type='search']")?.value,
       storeSongs: store.songs.length,
       historyLen: store.searchHistory.length,
-      bodyHasSearchContent: document.body.textContent.includes("Busca una palabra") || document.body.textContent.includes("Buscar"),
+      bodyHasSearchContent: document.body.textContent.includes("Número, título o una frase") || document.body.textContent.includes("Buscar"),
       emptyStateVisible: !!document.querySelector("img[alt='Empty state']"),
       contextContainerExists: !!document.querySelector(".context"),
       contextChildren: document.querySelector(".context")?.children?.length || 0,

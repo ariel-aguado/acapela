@@ -32,6 +32,12 @@ export const useSongStore = defineStore("useSongStore", () => {
     },
   });
   const searchHistory = useLocalStorage<string[]>("searchHistory", []);
+  // Hymns opened recently, per songbook, most recent first.
+  const recentBySongbook = useLocalStorage<Record<string, number[]>>("recentBySongbook", {});
+  const recentSongIds = computed<number[]>(() => recentBySongbook.value[songbookId.value] ?? []);
+  // Block (stanza / chorus) to bring into view when the reading view opens a
+  // hymn from a lyric search hit. Consumed (reset to null) by the reader.
+  const pendingBlock = ref<{ songId: number; blockIndex: number } | null>(null);
 
   const { status: workerStatus, songs: workerSongs, setFavoriteIds } = useSongbookWorker();
 
@@ -148,9 +154,24 @@ export const useSongStore = defineStore("useSongStore", () => {
     return songs.value ? songs.value[id - 1] : songs.value[0];
   }
 
-  async function navigateToSong(id: number) {
+  async function navigateToSong(id: number, blockIndex = -1) {
     songId.value = id;
+    pendingBlock.value = blockIndex >= 0 ? { songId: id, blockIndex } : null;
     await navigateTo("/");
+  }
+
+  function pushRecent(id: number, max = 8) {
+    if (!songbookId.value || !id)
+      return;
+    const next = [id, ...recentSongIds.value.filter(r => r !== id)].slice(0, max);
+    recentBySongbook.value = { ...recentBySongbook.value, [songbookId.value]: next };
+  }
+
+  function rememberSearch(query: string, max = 6) {
+    const q = query.trim();
+    if (!q)
+      return;
+    searchHistory.value = [q, ...searchHistory.value.filter(h => h.toLowerCase() !== q.toLowerCase())].slice(0, max);
   }
 
   function jumpToSong(id: number | string) {
@@ -241,12 +262,16 @@ export const useSongStore = defineStore("useSongStore", () => {
     filteredSongIdsByTitle,
     favoriteSongs,
     searchHistory,
+    recentSongIds,
+    pendingBlock,
     songsCount,
     currentTab,
     currentSong,
     getSongs,
     getSongById,
     navigateToSong,
+    pushRecent,
+    rememberSearch,
     jumpToSong,
     generateAnchorsFromSongIds,
     generateAnchorFromInitials,

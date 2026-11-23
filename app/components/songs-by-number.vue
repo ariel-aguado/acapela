@@ -1,17 +1,6 @@
 <script lang="ts" setup>
-import type { FilteredSong } from "~~/lib/types";
-
-const emit = defineEmits<{
-  (e: "favoriteOff", favoriteOff: boolean): void;
-}>();
-
 const songStore = useSongStore();
 const { filteredSongIdsByNumber, filteredSongsByNumber } = storeToRefs(songStore);
-
-function onToggleFavorite(song: FilteredSong) {
-  songStore.toggleFavorite(song);
-  emit("favoriteOff", song.favorite);
-}
 </script>
 
 <template>
@@ -22,14 +11,18 @@ function onToggleFavorite(song: FilteredSong) {
       class="song-item [&:not(:first-child)]:border-t [&:not(:first-child)]:border-base-300"
       :data-song-index="song.songId"
     >
-      <SongItem :song @favorite-off="onToggleFavorite($event)" />
+      <SongItem :song />
     </div>
   </div>
   <!-- Sidebar of anchors -->
-  <SidebarAnchors
+  <div
     v-if="filteredSongsByNumber.length > 15"
-    :ids="filteredSongIdsByNumber"
-    :sections="15"
-    @jump="songStore.jumpToSong"
-  />
+    class="sticky top-2 self-start h-[calc(100dvh-64px-52px-9rem)] shrink-0 mr-1"
+  >
+    <SidebarAnchors
+      :ids="filteredSongIdsByNumber"
+      :sections="15"
+      @jump="songStore.jumpToSong"
+    />
+  </div>
 </template>

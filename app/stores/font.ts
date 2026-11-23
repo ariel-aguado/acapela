@@ -16,5 +16,18 @@ export const useFontStore = defineStore("font", () => {
     fontSize.value = Math.max(MIN_FONT_SIZE, Math.min(MAX_FONT_SIZE, size));
   }
 
-  return { fontSize, increaseFont, decreaseFont, setFont };
+  function resetFont() {
+    fontSize.value = DEFAULT_FONT_SIZE;
+  }
+
+  return {
+    fontSize,
+    increaseFont,
+    decreaseFont,
+    setFont,
+    resetFont,
+    min: MIN_FONT_SIZE,
+    max: MAX_FONT_SIZE,
+    defaultSize: DEFAULT_FONT_SIZE,
+  };
 });

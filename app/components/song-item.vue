@@ -1,75 +1,65 @@
 <script lang="ts" setup>
 import type { FilteredSong } from "~~/lib/types";
 
-const { song } = defineProps<{
+// One hymn row: the title leads, the number is plain tabular text in the
+// brand tone, and the heart is a real toggle button with Deshacer.
+const props = withDefaults(defineProps<{
   song: FilteredSong;
-}>();
+  /** Second line; defaults to the hymn's first line. */
+  detail?: string;
+  /** Small tag after the detail, e.g. "Estrofa 2" or "Coro". */
+  tag?: string;
+  /** Block to open the hymn at (lyric search hits). */
+  blockIndex?: number;
+  showFavorite?: boolean;
+}>(), {
+  detail: undefined,
+  tag: "",
+  blockIndex: -1,
+  showFavorite: true,
+});
 
-const emit = defineEmits(["favoriteOff"]);
-
-const route = useRoute();
+const emit = defineEmits<{ (e: "open", songId: number): void }>();
 
 const songStore = useSongStore();
+const { toggle, isFavorite } = useFavoriteToggle();
+
+const favorite = computed(() => isFavorite(props.song.songId));
+
+function open() {
+  emit("open", props.song.songId);
+  songStore.navigateToSong(props.song.songId, props.blockIndex);
+}
 </script>
 
 <template>
-  <div
-    class="w-full h-auto flex justify-start items-center hover:cursor-pointer gap-2 py-2 pl-4 pr-0"
-  >
-    <!-- Song number -->
+  <div class="song-row flex items-center gap-1 pl-4 pr-1">
     <button
       type="button"
-      class="flex justify-center items-center bg-secondary hover:cursor-pointer font-bold text-xl text-white aspect-square w-12 h-12 p-2 rounded-full"
-      :aria-label="`Abrir himno ${song.songId}, ${song.title}`"
-      @click="songStore.navigateToSong(song.songId)"
+      class="flex-1 min-w-0 flex items-center gap-3 py-2.5 text-start cursor-pointer"
+      @click="open"
     >
-      {{ song.songId }}
+      <span class="w-10 shrink-0 text-lg font-semibold text-primary tabular-nums text-end">
+        {{ song.songId }}
+      </span>
+      <span class="flex-1 min-w-0 flex flex-col">
+        <span class="font-semibold leading-snug line-clamp-1">{{ song.title }}</span>
+        <span class="text-sm opacity-70 line-clamp-1">
+          <slot name="detail">{{ detail ?? song.firstLine }}</slot>
+        </span>
+        <span v-if="tag" class="text-xs opacity-60 mt-0.5">{{ tag }}</span>
+      </span>
     </button>
-    <div class="flex-1 flex justify-between gap-2">
-      <button
-        type="button"
-        class="flex-1 flex flex-col hover:cursor-pointer"
-        :class="{
-          'justify-center items-center': route.name === 'fully-search',
-          'justify-center items-start': route.name === 'search',
-        }"
-        @click="songStore.navigateToSong(song.songId)"
-      >
-        <!-- Title -->
-        <p class="w-full text-start font-bold">
-          {{ song.title }}
-        </p>
-        <!-- First line -->
-        <p class="w-full text-start text-sm clamped-line">
-          {{ song.firstLine }}
-        </p>
-      </button>
-      <!-- Favorite -->
-      <label class="swap p-4">
-        <!-- this hidden checkbox controls the state -->
-        <input
-          type="checkbox"
-          :checked="song.favorite"
-          :aria-label="song.favorite ? `Quitar «${song.title}» de favoritos` : `Agregar «${song.title}» a favoritos`"
-          @change="emit('favoriteOff', song)"
-        >
-
-        <!-- favorite on icon -->
-        <Icon name="tabler:heart-filled" size="28" class="swap-on fill-current text-secondary" />
-
-        <!-- favorite off icon -->
-        <Icon name="tabler:heart" size="28" class="swap-off fill-current text-secondary" />
-      </label>
-    </div>
+    <button
+      v-if="showFavorite"
+      type="button"
+      class="btn btn-ghost btn-circle h-12 w-12 shrink-0"
+      :class="favorite ? 'text-secondary' : 'opacity-60'"
+      :aria-pressed="favorite"
+      :aria-label="favorite ? `Quitar «${song.title}» de favoritos` : `Agregar «${song.title}» a favoritos`"
+      @click="toggle(song)"
+    >
+      <Icon :name="favorite ? 'tabler:heart-filled' : 'tabler:heart'" size="24" />
+    </button>
   </div>
 </template>
-
-<style scoped>
-.clamped-line {
-  display: -webkit-box; /* Necesario para Safari/WebKit */
-  -webkit-box-orient: vertical; /* Orientación vertical */
-  -webkit-line-clamp: 1; /* Número de líneas que quieres mostrar */
-  overflow: hidden; /* Oculta el texto sobrante */
-  text-overflow: ellipsis; /* Añade los puntos suspensivos (…) */
-}
-</style>

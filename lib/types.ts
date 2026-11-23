@@ -18,6 +18,29 @@ export type ParsedLyric = {
 };
 
 /**
+ * One block of a hymn as it is sung: the Bible citation under the title, a
+ * numbered stanza, or the chorus.
+ */
+export type LyricBlockSource = {
+  kind: "citation" | "stanza" | "chorus";
+  /** Stanza number as printed in the songbook ("1", "2"…); empty otherwise. */
+  number: string;
+  /** The block's own Markdown lines (some hymns use tables for voice parts). */
+  markdown: string[];
+};
+
+/**
+ * A block ready for the reading view: rendered HTML plus plain-text lines,
+ * used to point a search hit at the stanza it belongs to.
+ */
+export type LyricBlock = {
+  kind: LyricBlockSource["kind"];
+  number: string;
+  html: string;
+  text: string[];
+};
+
+/**
  * Base song data structure
  */
 export type SongData = {
@@ -34,6 +57,7 @@ export type SongData = {
 export type Song = SongData & {
   lyricParsed: ParsedLyric;
   lyricLines: LyricLine[];
+  blocks: LyricBlock[];
   favorite: boolean;
   scrollTitle: boolean;
 };
@@ -57,6 +81,16 @@ export type FullSearchResult = {
   firstLine: string;
   favorite: boolean;
   matchedLines: Array<{ line: string }>;
+};
+
+/**
+ * A lyric search hit resolved to the block it belongs to, so the result can
+ * say "Estrofa 2" / "Coro" and open the hymn at that place.
+ */
+export type LyricMatch = {
+  line: string;
+  blockIndex: number;
+  blockLabel: string;
 };
 
 /**
@@ -97,4 +131,6 @@ export type Songbook = {
   id: string;
   name: string;
   file: string;
+  /** Number of hymns in the file (added by the manifest generator). */
+  count?: number;
 };

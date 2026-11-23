@@ -6,8 +6,13 @@ const { show: updatePending } = useUpdateNotification();
 const route = useRoute();
 // Never over the projected slides; the install option stays available
 // from every other view.
+// Invite only after the app proved useful (three hymns opened): asking on the
+// first visit interrupts before the user knows what Acapela is. The option
+// is always available in Ajustes.
+const songStore = useSongStore();
+const engaged = computed(() => songStore.recentSongIds.length >= 3);
 const visible = computed(() =>
-  showBanner.value && !updatePending.value && route.name !== "fullscreen",
+  showBanner.value && engaged.value && !updatePending.value && route.name !== "fullscreen",
 );
 // Sit above the bottom navigation bar (52px) and, on the reading view,
 // above the hymn pager (64px) instead of covering them.

@@ -12,7 +12,7 @@ import type {
   Song,
 } from "~~/lib/types";
 
-import { formatSongContent, lyricToLines, parseSongbook } from "~/utils/songbook-parser";
+import { blockPlainLines, formatSongContent, lyricToBlocks, lyricToLines, parseSongbook } from "~/utils/songbook-parser";
 
 function deriveFirstLine(song: Song): string {
   const lines = song.lyricLines;
@@ -123,6 +123,13 @@ const api = {
         createdAt: Date.now(),
         lyricParsed,
         lyricLines,
+        blocks: lyricToBlocks(formatted || s.lyric || "").map(b => ({
+          kind: b.kind,
+          number: b.number,
+          // Two trailing spaces keep each lyric line on its own line.
+          html: marked.parse(b.markdown.map(l => `${l}  `).join("\n"), { async: false }) as string,
+          text: blockPlainLines(b.markdown),
+        })),
         favorite: false,
         scrollTitle: false,
       } as Song;

@@ -43,14 +43,19 @@ async function main() {
   }
 
   const entries = await readdir(SONGS_DIR)
-  const songbooks = entries
+  const files = entries
     .filter(name => PATTERN.test(name))
     .sort((a, b) => a.localeCompare(b))
-    .map((filename) => {
-      const id = deriveIdFromFilename(filename)
-      const name = deriveNameFromFilename(filename)
-      return { id, name, file: filename }
-    })
+  const songbooks = []
+  for (const filename of files) {
+    const id = deriveIdFromFilename(filename)
+    const name = deriveNameFromFilename(filename)
+    // Hymn count, shown in the songbook picker ("250 himnos"). Every hymn
+    // starts with "<number>." at the beginning of a line.
+    const text = await readFile(path.join(SONGS_DIR, filename), "utf8")
+    const count = (text.match(/^\d+\./gm) ?? []).length
+    songbooks.push({ id, name, file: filename, count })
+  }
 
   if (songbooks.length === 0) {
     console.error("[songbook-manifest] no songbook*.txt files found in public/songs/")

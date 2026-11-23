@@ -1,126 +1,75 @@
 <script setup lang="ts">
+// Bottom sheet for the reading view: same control as Ajustes, with a scrim
+// that makes it clearly modal and a visible "Listo" to close it.
 const props = defineProps<{ open: boolean }>();
 const emit = defineEmits(["update:open"]);
 
-const dragging = ref(false);
-const startY = ref(0);
-const lastY = ref(0);
-const dragDelta = ref(0);
-
-const fontStore = useFontStore();
-
-function increaseFont() {
-  fontStore.increaseFont();
-}
-function decreaseFont() {
-  fontStore.decreaseFont();
+function close() {
+  emit("update:open", false);
 }
 
-function onTouchStart(e: TouchEvent) {
-  if (e.touches.length !== 1 || !e.touches[0])
-    return;
-  dragging.value = true;
-  startY.value = e.touches[0].clientY;
-  lastY.value = startY.value;
-  dragDelta.value = 0;
-  document.body.style.overflow = "hidden";
-}
-
-function onTouchMove(e: TouchEvent) {
-  if (!dragging.value || e.touches.length !== 1 || !e.touches[0])
-    return;
-  const y = e.touches[0].clientY;
-  dragDelta.value = y - startY.value;
-  lastY.value = y;
-  if (dragDelta.value > 60) {
-    emit("update:open", false);
-    onTouchEnd();
-  }
-}
-
-function onTouchEnd() {
-  dragging.value = false;
-  dragDelta.value = 0;
-  document.body.style.overflow = "";
-}
-
-function onMouseDown(e: MouseEvent) {
-  dragging.value = true;
-  startY.value = e.clientY;
-  lastY.value = startY.value;
-  dragDelta.value = 0;
-  document.addEventListener("mousemove", onMouseMove);
-  document.addEventListener("mouseup", onMouseUp);
-  document.body.style.overflow = "hidden";
-}
-function onMouseMove(e: MouseEvent) {
-  if (!dragging.value)
-    return;
-  const y = e.clientY;
-  dragDelta.value = y - startY.value;
-  lastY.value = y;
-  if (dragDelta.value > 60) {
-    emit("update:open", false);
-    onMouseUp();
-  }
-}
-function onMouseUp() {
-  dragging.value = false;
-  dragDelta.value = 0;
-  document.removeEventListener("mousemove", onMouseMove);
-  document.removeEventListener("mouseup", onMouseUp);
-  document.body.style.overflow = "";
-}
+onKeyStroke("Escape", () => {
+  if (props.open)
+    close();
+});
 </script>
 
 <template>
   <div>
-    <!-- Sidebar tipo drawer desde abajo -->
-    <transition name="slide-up">
+    <Transition name="fade">
       <div
         v-if="props.open"
-        class="fixed left-0 bottom-0 w-full bg-base-200 shadow-[0_-4px_22px_0_rgba(0,0,0,0.35)] z-50 flex flex-col items-center rounded-t-2xl border-t border-base-300"
+        class="fixed inset-0 z-40 bg-black/40"
+        aria-hidden="true"
+        @click="close"
+      />
+    </Transition>
+    <Transition name="slide-up">
+      <div
+        v-if="props.open"
+        class="fixed inset-x-0 bottom-0 z-50 mx-auto w-full max-w-lg rounded-t-2xl bg-base-100 shadow-2xl px-4 pt-3 pb-[calc(1rem+env(safe-area-inset-bottom,0px))]"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="font-sheet-title"
       >
-        <!-- Handle para arrastrar/cerrar -->
-        <div
-          class="w-16 h-2 bg-base-300 rounded-full mt-2 mb-4 cursor-grab"
-          @mousedown="onMouseDown"
-          @touchstart="onTouchStart"
-          @touchmove.prevent="onTouchMove"
-          @touchend="onTouchEnd"
-        />
-        <span class="w-full px-4">Ajustar tamaño de letra:</span>
-        <div class="w-full flex gap-4 mt-4 mb-8 px-4">
-          <button class="flex-1 btn btn-secondary btn-sm rounded-full" @click="decreaseFont">
-            A-
-          </button>
-          <button class="flex-1 btn btn-secondary btn-sm rounded-full text-2xl" @click="increaseFont">
-            A+
+        <div class="mx-auto mb-3 h-1.5 w-10 rounded-full bg-base-300" aria-hidden="true" />
+        <div class="flex items-center justify-between mb-3">
+          <h2 id="font-sheet-title" class="text-lg font-bold">
+            Lectura
+          </h2>
+          <button type="button" class="btn btn-primary btn-sm h-10 px-5" @click="close">
+            Listo
           </button>
         </div>
+        <AppFontSizeControl />
       </div>
-    </transition>
-    <!-- Overlay para cerrar, solo click, no bloquea el resto -->
-    <div
-      v-if="props.open"
-      class="fixed inset-0 bg-transparent z-40"
-      style="pointer-events:auto;"
-      @click.self="emit('update:open', false)"
-    />
+    </Transition>
   </div>
 </template>
 
 <style scoped>
 .slide-up-enter-active,
 .slide-up-leave-active {
-  transition: transform 0.3s;
+  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 .slide-up-enter-from,
 .slide-up-leave-to {
   transform: translateY(100%);
 }
-.slide-up-enter-to,
-.slide-up-leave-from {
-  transform: translateY(0);
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .slide-up-enter-active,
+  .slide-up-leave-active,
+  .fade-enter-active,
+  .fade-leave-active {
+    transition: none;
+  }
 }
 </style>

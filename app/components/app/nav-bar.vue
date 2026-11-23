@@ -5,9 +5,9 @@ const route = useRoute();
 // near-identical music glyphs that users had to learn by trial.
 const items = [
   { to: "/", label: "Cantar", icon: "tabler:music", match: ["/", "/fullscreen"] },
-  { to: "/search", label: "Buscar", icon: "tabler:list-search", match: ["/search"] },
-  { to: "/fully-search", label: "En la letra", icon: "tabler:text-scan-2", match: ["/fully-search"] },
-  { to: "/about", label: "Acerca de", icon: "tabler:info-circle", match: ["/about"] },
+  { to: "/search", label: "Buscar", icon: "tabler:search", match: ["/search", "/fully-search"] },
+  { to: "/favorites", label: "Favoritos", icon: "tabler:heart", match: ["/favorites"] },
+  { to: "/settings", label: "Ajustes", icon: "tabler:settings", match: ["/settings", "/about"] },
 ];
 
 function isActive(match: string[]) {
