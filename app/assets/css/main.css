@@ -26,7 +26,10 @@
   --bar-top-h: 48px;
   --bar-bottom-h: 60px;
   --bar-top: calc(env(safe-area-inset-top, 0px) + var(--float-gap) + var(--bar-top-h) + var(--float-gap));
-  --bar-bottom: calc(env(safe-area-inset-bottom, 0px) + 12px + var(--bar-bottom-h) + var(--float-gap));
+  --float-bottom-gap: 6px;
+  --bar-bottom: calc(
+    env(safe-area-inset-bottom, 0px) + var(--float-bottom-gap) + var(--bar-bottom-h) + var(--float-gap)
+  );
 }
 
 /* Translucent floating surface (bottom navigation, reading pager). */
@@ -44,7 +47,7 @@
   top: calc(env(safe-area-inset-top, 0px) + var(--float-gap));
 }
 .float-bottom {
-  bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+  bottom: calc(env(safe-area-inset-bottom, 0px) + var(--float-bottom-gap));
 }
 
 /* A full-height page that scrolls under both floating bars. */
