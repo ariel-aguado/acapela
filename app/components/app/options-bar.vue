@@ -23,9 +23,9 @@ const titles: Record<string, string> = {
 const title = computed(() => titles[route.path] ?? "Acapela");
 
 // ------------------------------------------------------------ hymn capsule
-// While reading, the top-left capsule says which hymn is open (so the lyric
-// needs no sticky title) and moves to the previous / next one. Tapping the
-// name opens "Ir al himno".
+// While reading, the top-left capsule shows the brand and the open hymn's
+// number, and moves to the previous / next hymn. Tapping it opens "Ir al
+// himno". The title itself is at the top of the lyric.
 const current = computed(() => songStore.currentSong);
 const total = computed(() => songs.value.length);
 const number = computed(() => Number(songId.value) || 1);
@@ -87,7 +87,7 @@ function run(action: () => void) {
     <!-- Reading: the open hymn -->
     <div
       v-if="isReading && current"
-      class="pointer-events-auto h-12 min-w-0 flex-1 max-w-md inline-flex items-center rounded-full bg-primary text-primary-content px-1 shadow-[0_10px_28px_-10px_rgb(40_20_150/0.65)]"
+      class="pointer-events-auto h-12 inline-flex items-center rounded-full bg-primary text-primary-content px-1 shadow-[0_10px_28px_-10px_rgb(40_20_150/0.65)]"
     >
       <button
         type="button"
@@ -98,15 +98,18 @@ function run(action: () => void) {
       >
         <Icon name="tabler:chevron-left" size="24" />
       </button>
+      <!-- Brand + hymn number; the title is already at the top of the lyric. -->
       <button
         type="button"
-        class="flex-1 min-w-0 h-10 px-1 inline-flex items-center gap-1.5 rounded-full text-start hover:bg-white/10"
-        :aria-label="`Himno ${number} de ${total}: ${current.title}. Ir a otro himno`"
+        class="h-10 pl-1.5 pr-1 inline-flex items-center gap-1.5 rounded-full hover:bg-white/10"
+        :aria-label="`Acapela, himno ${number} de ${total}: ${current.title}. Ir a otro himno`"
         @click="showGoTo"
       >
-        <span class="text-lg font-bold tabular-nums">{{ number }}</span>
-        <span class="opacity-60" aria-hidden="true">·</span>
-        <span class="truncate font-semibold text-[15px]">{{ current.title }}</span>
+        <Icon name="tabler:brand-netease-music" size="26" aria-hidden="true" />
+        <span class="text-lg font-bold leading-none">Acapela</span>
+        <span class="ml-0.5 min-w-8 h-7 px-2 inline-flex items-center justify-center rounded-full bg-white/20 text-base font-bold tabular-nums">
+          {{ number }}
+        </span>
       </button>
       <button
         type="button"
