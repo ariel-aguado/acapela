@@ -124,6 +124,10 @@ const shortcutGroups = [
   },
 ];
 
+// A new hymn starts at its top: bring the floating controls back.
+const chromeHidden = useChromeHidden();
+watch(current, () => (chromeHidden.value = false));
+
 async function onActiveIndexChange(instance: any) {
   setTimeout(() => {
     // If we set the slide programmatically during init, ignore the first event
@@ -184,7 +188,8 @@ onMounted(async () => {
               :aria-labelledby="`hymn-title-${song.songId}`"
             >
               <header
-                class="sticky top-0 z-10 mx-2 sm:mx-3 rounded-2xl bg-base-100 shadow-[0_8px_20px_-14px_rgb(20_12_60/0.5)] px-3 pt-2.5 pb-2"
+                class="chrome-auto sticky top-0 z-10 mx-2 sm:mx-3 rounded-2xl bg-base-100 shadow-[0_8px_20px_-14px_rgb(20_12_60/0.5)] px-3 pt-2.5 pb-2"
+                :class="{ 'hymn-title--raised': chromeHidden }"
               >
                 <div class="mx-auto w-full max-w-[38rem]">
                   <h2
@@ -232,7 +237,9 @@ onMounted(async () => {
          not depend on a hidden swipe gesture. -->
       <nav
         v-if="status !== 'loading' && total > 0"
-        class="glass reader-pager absolute left-1/2 -translate-x-1/2 z-20 w-[calc(100%-1.5rem)] max-w-md h-[var(--pager-h)] rounded-full flex items-center gap-1 px-1.5"
+        class="glass chrome-auto reader-pager absolute left-1/2 -translate-x-1/2 z-20 w-[calc(100%-1.5rem)] max-w-md h-[var(--pager-h)] rounded-full flex items-center gap-1 px-1.5"
+        :class="{ 'chrome-hidden-down-far': chromeHidden }"
+        data-floating-chrome
         aria-label="Cambiar de himno"
       >
         <button
@@ -280,6 +287,10 @@ onMounted(async () => {
   height: 100dvh;
   padding-top: var(--bar-top);
   padding-bottom: calc(var(--bar-bottom) + var(--pager-h) + 1.5rem);
+}
+/* While the floating capsules are hidden, the hymn title takes their place. */
+.hymn-title--raised {
+  transform: translateY(calc(-1 * (var(--bar-top-h) + var(--float-gap))));
 }
 .reader-pager {
   bottom: calc(var(--bar-bottom) - 2px);

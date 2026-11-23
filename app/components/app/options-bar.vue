@@ -8,6 +8,7 @@ const presentation = usePresentationStore();
 const { show: toast } = useUndoToast();
 
 const isReading = computed(() => route.path === "/");
+const chromeHidden = useChromeHidden();
 
 // Section title outside the reading view, where the songbook chip and the
 // hymn actions are what matters.
@@ -57,7 +58,11 @@ function toggleSetlist() {
 <template>
   <!-- Floating capsules over the content (no full-width bar): the brand on
        the left and, while reading, the hymn actions on the right. -->
-  <header class="float-top fixed inset-x-2 sm:inset-x-3 z-30 h-12 flex items-center justify-between gap-2 pointer-events-none">
+  <header
+    class="chrome-auto float-top fixed inset-x-2 sm:inset-x-3 z-30 h-12 flex items-center justify-between gap-2 pointer-events-none"
+    :class="{ 'chrome-hidden-up': chromeHidden }"
+    data-floating-chrome
+  >
     <h1 class="sr-only">
       {{ isReading ? 'Acapela' : `${title} · Acapela` }}
     </h1>

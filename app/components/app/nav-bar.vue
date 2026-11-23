@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 const route = useRoute();
+const chromeHidden = useChromeHidden();
 
 // Icon + visible text label for every destination: icons alone were four
 // near-identical music glyphs that users had to learn by trial.
@@ -17,7 +18,9 @@ function isActive(match: string[]) {
 
 <template>
   <nav
-    class="glass float-bottom fixed left-1/2 -translate-x-1/2 z-30 w-[calc(100%-1.5rem)] max-w-md h-[60px] rounded-full flex items-stretch px-1.5"
+    class="glass chrome-auto float-bottom fixed left-1/2 -translate-x-1/2 z-30 w-[calc(100%-1.5rem)] max-w-md h-[60px] rounded-full flex items-stretch px-1.5"
+    :class="{ 'chrome-hidden-down': chromeHidden }"
+    data-floating-chrome
     aria-label="Navegación principal"
   >
     <NuxtLink

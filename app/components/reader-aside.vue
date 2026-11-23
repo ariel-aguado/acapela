@@ -37,6 +37,7 @@ watch(
   <aside
     class="w-80 shrink-0 flex-col h-dvh pad-bar-top pad-bar-bottom border-r border-base-300 bg-base-100"
     aria-label="Himnos"
+    data-no-autohide
   >
     <div class="p-3 border-b border-base-200">
       <label for="aside-filter" class="sr-only">Filtrar por número o título</label>

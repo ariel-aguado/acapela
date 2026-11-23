@@ -33,6 +33,39 @@
     0 2px 6px rgb(20 12 60 / 0.08);
 }
 
+/* Auto-hide on scroll (see use-auto-hide-chrome). Uses `transform`, which
+   composes with Tailwind's `translate` used for centering. */
+.chrome-auto {
+  transition:
+    transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1),
+    opacity 0.2s ease;
+}
+.chrome-hidden-up {
+  transform: translateY(calc(-100% - var(--float-gap) - env(safe-area-inset-top, 0px) - 12px));
+  opacity: 0;
+}
+.chrome-hidden-down {
+  transform: translateY(calc(100% + 12px + env(safe-area-inset-bottom, 0px) + 12px));
+  opacity: 0;
+}
+.chrome-hidden-down-far {
+  transform: translateY(calc(100% + var(--bar-bottom) + 12px));
+  opacity: 0;
+}
+.chrome-hidden-up,
+.chrome-hidden-up *,
+.chrome-hidden-down,
+.chrome-hidden-down *,
+.chrome-hidden-down-far,
+.chrome-hidden-down-far * {
+  pointer-events: none !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .chrome-auto {
+    transition: opacity 0.15s ease;
+  }
+}
+
 .float-top {
   top: calc(env(safe-area-inset-top, 0px) + var(--float-gap));
 }
