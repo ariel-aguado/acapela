@@ -17,7 +17,7 @@ const { filteredSongIdsByTitle, filteredSongsByTitle } = storeToRefs(songStore);
   <!-- Sidebar of anchors -->
   <div
     v-if="filteredSongsByTitle.length > 15"
-    class="sticky top-2 self-start rail-height shrink-0 mr-1"
+    class="sticky top-2 self-start rail-height shrink-0"
   >
     <SidebarAnchors
       :ids="filteredSongIdsByTitle"

@@ -61,6 +61,37 @@ function onInput(e: Event) {
     el.value = digits;
 }
 
+// When the dialog closes, the browser puts focus back on the button that
+// opened it (the # in the bottom bar, the hymn capsule), which then shows a
+// focus ring on touch screens. Drop that focus when the dialog was used with
+// a finger or mouse; keep it for keyboard users, who need to see where they
+// are.
+let lastInput: "pointer" | "keyboard" = "pointer";
+function onPointer() {
+  lastInput = "pointer";
+}
+function onKey(e: KeyboardEvent) {
+  // Only Tab: phones send Enter from the on-screen "Ir" key.
+  if (e.key === "Tab")
+    lastInput = "keyboard";
+}
+onMounted(() => {
+  document.addEventListener("pointerdown", onPointer, { capture: true, passive: true });
+  document.addEventListener("keydown", onKey, { capture: true });
+});
+onBeforeUnmount(() => {
+  document.removeEventListener("pointerdown", onPointer, { capture: true });
+  document.removeEventListener("keydown", onKey, { capture: true });
+});
+
+function onDialogClose() {
+  emit("update:open", false);
+  if (lastInput === "pointer") {
+    // After the browser has restored focus to the opener.
+    setTimeout(() => (document.activeElement as HTMLElement | null)?.blur(), 0);
+  }
+}
+
 function close() {
   emit("update:open", false);
 }
@@ -95,7 +126,7 @@ watch(
     ref="dialogRef"
     class="modal modal-bottom sm:modal-middle"
     aria-labelledby="go-to-hymn-title"
-    @close="close"
+    @close="onDialogClose"
   >
     <div class="modal-box">
       <form class="flex flex-col gap-3" @submit.prevent="submit">
