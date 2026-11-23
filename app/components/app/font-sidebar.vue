@@ -28,19 +28,22 @@ onKeyStroke("Escape", () => {
     <Transition name="slide-up">
       <div
         v-if="props.open"
-        class="fixed inset-x-0 bottom-0 z-50 mx-auto w-full max-w-lg rounded-t-2xl bg-base-100 shadow-2xl px-4 pt-3 pb-[calc(1rem+env(safe-area-inset-bottom,0px))]"
+        class="fixed inset-x-0 bottom-0 z-50 mx-auto w-full max-w-lg rounded-t-2xl bg-default shadow-2xl px-4 pt-3 pb-[calc(1rem+env(safe-area-inset-bottom,0px))]"
         role="dialog"
         aria-modal="true"
         aria-labelledby="font-sheet-title"
       >
-        <div class="mx-auto mb-3 h-1.5 w-10 rounded-full bg-base-300" aria-hidden="true" />
+        <div class="mx-auto mb-3 h-1.5 w-10 rounded-full bg-accented" aria-hidden="true" />
         <div class="flex items-center justify-between mb-3">
           <h2 id="font-sheet-title" class="text-lg font-bold">
             Apariencia
           </h2>
-          <button type="button" class="btn btn-primary btn-sm h-10 px-5" @click="close">
-            Listo
-          </button>
+          <UButton
+            size="lg"
+            class="px-5"
+            label="Listo"
+            @click="close"
+          />
         </div>
         <div class="flex flex-col gap-6">
           <AppFontSizeControl />

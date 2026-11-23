@@ -253,7 +253,7 @@ onBeforeUnmount(() => {
   <Transition name="rail-bubble">
     <div
       v-if="dragging && activeIndex !== null && bubble"
-      class="pointer-events-none fixed top-0 z-100 min-w-14 rounded-xl bg-primary px-3.5 py-1.5 text-center text-3xl font-bold text-primary-content shadow-lg will-change-transform"
+      class="pointer-events-none fixed top-0 z-100 min-w-14 rounded-xl bg-primary px-3.5 py-1.5 text-center text-3xl font-bold text-inverted shadow-lg will-change-transform"
       :style="{ right: `${bubble.right}px`, transform: `translate3d(0, calc(${bubble.top}px - 50%), 0)` }"
       aria-hidden="true"
     >
@@ -271,14 +271,14 @@ onBeforeUnmount(() => {
   bottom: 0;
   width: 1px;
   border-radius: 999px;
-  background: color-mix(in oklab, var(--color-base-content) 22%, transparent);
+  background: color-mix(in oklab, var(--ui-text) 22%, transparent);
   opacity: 0.6;
   transition:
     opacity 0.3s ease,
     background-color 0.3s ease;
 }
 .anchor-rail__label {
-  color: var(--color-primary);
+  color: var(--ui-primary);
   opacity: 0.4;
   transition: opacity 0.3s ease;
 }
@@ -292,8 +292,8 @@ onBeforeUnmount(() => {
   justify-content: center;
   padding-inline: 0.3rem;
   border-radius: 999px;
-  background: var(--color-primary);
-  color: var(--color-primary-content);
+  background: var(--ui-primary);
+  color: var(--ui-text-inverted);
   font-size: 10px;
   font-weight: 700;
   line-height: 1;
@@ -318,7 +318,7 @@ onBeforeUnmount(() => {
 }
 .anchor-rail--dragging .anchor-rail__line,
 .anchor-rail:focus-visible .anchor-rail__line {
-  background: var(--color-primary);
+  background: var(--ui-primary);
   width: 2px;
 }
 .rail-bubble-enter-active,

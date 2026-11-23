@@ -47,18 +47,18 @@ const isLarge = useMediaQuery("(min-width: 1024px)");
     <!-- Reading: the open hymn -->
     <div
       v-if="isReading && current"
-      class="pointer-events-auto h-12 inline-flex items-center rounded-full bg-primary text-primary-content px-1 shadow-[0_10px_28px_-10px_var(--brand-shadow)]"
+      class="pointer-events-auto h-12 inline-flex items-center rounded-full bg-primary text-inverted px-1 shadow-[0_10px_28px_-10px_var(--brand-shadow)]"
     >
       <!-- Brand + hymn number; the title is already at the top of the lyric. -->
       <button
         type="button"
-        class="h-10 pl-1.5 pr-1.5 inline-flex items-center gap-1.5 rounded-full hover:bg-primary-content/10"
+        class="h-10 pl-1.5 pr-1.5 inline-flex items-center gap-1.5 rounded-full hover:bg-(--ui-text-inverted)/10"
         :aria-label="`Acapela, himno ${number} de ${total}: ${current.title}. Ir a otro himno`"
         @click="showGoTo"
       >
         <AppBrandMark class="size-7" />
         <span class="wordmark text-[1.2rem] leading-none">Acapela</span>
-        <span class="ml-0.5 min-w-8 h-7 px-2 inline-flex items-center justify-center rounded-full bg-primary-content/15 text-base font-bold tabular-nums">
+        <span class="ml-0.5 min-w-8 h-7 px-2 inline-flex items-center justify-center rounded-full bg-(--ui-text-inverted)/15 text-base font-bold tabular-nums">
           {{ number }}
         </span>
       </button>
@@ -68,7 +68,7 @@ const isLarge = useMediaQuery("(min-width: 1024px)");
     <NuxtLink
       v-else
       to="/"
-      class="pointer-events-auto h-12 inline-flex items-center gap-2 rounded-full bg-primary text-primary-content pl-2.5 pr-4 shadow-[0_10px_28px_-10px_var(--brand-shadow)]"
+      class="pointer-events-auto h-12 inline-flex items-center gap-2 rounded-full bg-primary text-inverted pl-2.5 pr-4 shadow-[0_10px_28px_-10px_var(--brand-shadow)]"
       aria-label="Acapela, ir a la lectura"
     >
       <AppBrandMark class="size-8" />
@@ -77,35 +77,39 @@ const isLarge = useMediaQuery("(min-width: 1024px)");
 
     <!-- Actions -->
     <div class="glass pointer-events-auto shrink-0 h-12 inline-flex items-center gap-0.5 rounded-full px-1">
-      <button
+      <UButton
         v-if="isReading && current"
-        type="button"
-        class="btn btn-ghost btn-circle h-10 w-10"
-        :class="{ 'text-secondary': currentIsFavorite }"
+        :color="currentIsFavorite ? 'secondary' : 'neutral'"
+        variant="ghost"
+        square
+        class="size-10 justify-center"
+        :icon="currentIsFavorite ? 'i-tabler-heart-filled' : 'i-tabler-heart'"
+        :ui="{ leadingIcon: 'size-6' }"
         :aria-label="currentIsFavorite ? `Quitar «${current.title}» de favoritos` : `Agregar «${current.title}» a favoritos`"
         :aria-pressed="currentIsFavorite"
         @click="toggle(current)"
-      >
-        <Icon :name="currentIsFavorite ? 'tabler:heart-filled' : 'tabler:heart'" size="24" />
-      </button>
-      <button
-        type="button"
-        class="btn btn-ghost btn-circle h-10 w-10"
+      />
+      <UButton
+        color="neutral"
+        variant="ghost"
+        square
+        class="size-10 justify-center"
+        icon="i-tabler-letter-case"
+        :ui="{ leadingIcon: 'size-6.5' }"
         aria-label="Apariencia: tamaño de letra y tema"
         title="Apariencia"
         aria-haspopup="dialog"
         @click="emit('update:open')"
-      >
-        <Icon name="tabler:letter-case" size="26" />
-      </button>
-      <NuxtLink
+      />
+      <UButton
         v-if="isLarge"
         to="/fullscreen"
-        class="btn btn-ghost h-10 rounded-full px-3 gap-1.5 font-semibold"
-      >
-        <Icon name="tabler:presentation" size="22" aria-hidden="true" />
-        Proyectar
-      </NuxtLink>
+        color="neutral"
+        variant="ghost"
+        class="h-10 px-3 font-semibold"
+        icon="i-tabler-presentation"
+        label="Proyectar"
+      />
     </div>
   </header>
 </template>

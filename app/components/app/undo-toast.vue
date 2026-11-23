@@ -21,25 +21,24 @@ const bottomOffset = computed(() => {
       <div
         v-if="toast"
         :key="toast.id"
-        class="pointer-events-auto flex items-center gap-3 w-full max-w-md rounded-xl bg-neutral text-neutral-content shadow-xl pl-4 pr-2 py-2"
+        class="pointer-events-auto flex items-center gap-3 w-full max-w-md rounded-xl bg-inverted text-inverted shadow-xl pl-4 pr-2 py-2"
       >
         <span class="flex-1 text-sm">{{ toast.message }}</span>
-        <button
+        <UButton
           v-if="toast.actionLabel"
-          type="button"
-          class="btn btn-ghost btn-sm h-10 text-primary-content font-bold"
+          variant="ghost"
+          class="h-10 text-inverted font-bold hover:bg-(--ui-text-inverted)/10"
+          :label="toast.actionLabel"
           @click="runAction"
-        >
-          {{ toast.actionLabel }}
-        </button>
-        <button
-          type="button"
-          class="btn btn-ghost btn-sm btn-square h-10 w-10 text-neutral-content"
+        />
+        <UButton
+          variant="ghost"
+          square
+          class="size-10 justify-center text-inverted hover:bg-(--ui-text-inverted)/10"
+          icon="i-tabler-x"
           aria-label="Cerrar aviso"
           @click="hide"
-        >
-          <Icon name="tabler:x" size="18" />
-        </button>
+        />
       </div>
     </Transition>
   </div>

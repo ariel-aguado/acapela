@@ -42,16 +42,14 @@ const bottomOffset = computed(() => {
         </p>
       </div>
       <div class="install-banner__actions">
-        <button class="btn btn-primary btn-sm" @click="install">
-          Instalar
-        </button>
-        <button
-          class="btn btn-ghost btn-sm btn-circle"
+        <UButton label="Instalar" @click="install" />
+        <UButton
+          color="neutral"
+          variant="ghost"
+          icon="i-tabler-x"
           aria-label="Más tarde"
           @click="dismiss"
-        >
-          <Icon name="tabler:x" size="18" />
-        </button>
+        />
       </div>
     </div>
   </Transition>
@@ -68,8 +66,8 @@ const bottomOffset = computed(() => {
   align-items: center;
   gap: 0.75rem;
   padding: 0.875rem 1rem;
-  background: var(--color-base-100, #fff);
-  color: var(--color-base-content, #1f2937);
+  background: var(--ui-bg, #fff);
+  color: var(--ui-text, #1f2937);
   border-radius: 1rem;
   box-shadow:
     0 -4px 24px rgba(0, 0, 0, 0.15),

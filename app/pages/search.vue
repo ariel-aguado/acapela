@@ -40,7 +40,8 @@ const query = ref(typeof route.query.q === "string"
   ? route.query.q
   : "");
 const scope = ref<Scope>("all");
-const inputRef = shallowRef<HTMLInputElement | null>(null);
+const queryInput = useTemplateRef<{ inputRef: HTMLInputElement | null }>("queryInput");
+const inputRef = computed(() => queryInput.value?.inputRef ?? null);
 const resultsRef = shallowRef<HTMLElement | null>(null);
 
 const trimmed = computed(() => query.value.trim());
@@ -264,35 +265,31 @@ onMounted(async () => {
 
 <template>
   <div class="flex flex-col h-dvh pad-bar-top w-full max-w-2xl mx-auto min-w-0">
-    <div class="flex flex-col gap-2 px-4 pt-1 pb-3 bg-base-100 border-b border-base-200 z-10">
+    <div class="flex flex-col gap-2 px-4 pt-1 pb-3 bg-default border-b border-muted z-10">
       <label for="query" class="text-sm font-medium">Número, título o una frase de la letra</label>
-      <div class="input input-lg w-full flex items-center gap-2 pr-1">
-        <Icon
-          name="tabler:search"
-          size="20"
-          class="opacity-60 shrink-0"
-          aria-hidden="true"
-        />
-        <input
-          id="query"
-          ref="inputRef"
-          v-model="query"
-          type="search"
-          autocomplete="off"
-          enterkeyhint="search"
-          placeholder="Por ejemplo: 214 o cuán grande"
-          class="flex-1 min-w-0"
-        >
-        <button
-          v-if="query"
-          type="button"
-          class="btn btn-ghost btn-circle btn-sm h-10 w-10"
-          aria-label="Borrar búsqueda"
-          @click="clearQuery"
-        >
-          <Icon name="tabler:x" size="18" />
-        </button>
-      </div>
+      <UInput
+        id="query"
+        ref="queryInput"
+        v-model="query"
+        type="search"
+        autocomplete="off"
+        enterkeyhint="search"
+        placeholder="Por ejemplo: 214 o cuán grande"
+        size="xl"
+        icon="i-tabler-search"
+        class="w-full"
+        :ui="{ base: 'h-12 text-base', trailing: 'pe-1.5' }"
+      >
+        <template v-if="query" #trailing>
+          <UButton
+            color="neutral"
+            variant="ghost"
+            icon="i-tabler-x"
+            aria-label="Borrar búsqueda"
+            @click="clearQuery"
+          />
+        </template>
+      </UInput>
 
       <div
         v-if="hasQuery && !isNumberQuery"
@@ -307,8 +304,8 @@ onMounted(async () => {
             { value: 'lyrics', label: 'Letra', count: lyricHits.length },
           ]"
           :key="opt.value"
-          class="btn btn-sm h-9 rounded-full font-medium has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-primary"
-          :class="scope === opt.value ? 'btn-neutral' : 'btn-ghost border border-base-300'"
+          class="chip"
+          :class="{ 'chip--on': scope === opt.value }"
         >
           <input
             v-model="scope"
@@ -341,18 +338,18 @@ onMounted(async () => {
             Títulos · {{ visibleTitles.length }} {{ visibleTitles.length === 1 ? 'himno' : 'himnos' }}
           </h3>
           <ul>
-            <li v-for="song in visibleTitles.slice(0, titleLimit)" :key="`t-${song.songId}`" class="border-t border-base-200 first:border-t-0">
+            <li v-for="song in visibleTitles.slice(0, titleLimit)" :key="`t-${song.songId}`" class="border-t border-muted first:border-t-0">
               <SongItem :song @open="onOpen" />
             </li>
           </ul>
-          <button
+          <UButton
             v-if="visibleTitles.length > titleLimit"
-            type="button"
-            class="btn btn-ghost btn-sm mx-4 my-2 no-mark"
+            color="neutral"
+            variant="ghost"
+            class="mx-4 my-2 no-mark"
+            :label="`Mostrar ${Math.min(PAGE, visibleTitles.length - titleLimit)} más`"
             @click="titleLimit += PAGE"
-          >
-            Mostrar {{ Math.min(PAGE, visibleTitles.length - titleLimit) }} más
-          </button>
+          />
         </section>
 
         <section v-if="visibleLyrics.length" aria-labelledby="g-lyrics">
@@ -360,7 +357,7 @@ onMounted(async () => {
             En la letra · {{ visibleLyrics.length }} {{ visibleLyrics.length === 1 ? 'himno' : 'himnos' }}
           </h3>
           <ul>
-            <li v-for="hit in visibleLyrics.slice(0, lyricLimit)" :key="`l-${hit.song.songId}`" class="border-t border-base-200 first:border-t-0">
+            <li v-for="hit in visibleLyrics.slice(0, lyricLimit)" :key="`l-${hit.song.songId}`" class="border-t border-muted first:border-t-0">
               <SongItem
                 :song="hit.song"
                 :detail="hit.line"
@@ -370,18 +367,18 @@ onMounted(async () => {
               />
             </li>
           </ul>
-          <button
+          <UButton
             v-if="visibleLyrics.length > lyricLimit"
-            type="button"
-            class="btn btn-ghost btn-sm mx-4 my-2 no-mark"
+            color="neutral"
+            variant="ghost"
+            class="mx-4 my-2 no-mark"
+            :label="`Mostrar ${Math.min(PAGE, visibleLyrics.length - lyricLimit)} más`"
             @click="lyricLimit += PAGE"
-          >
-            Mostrar {{ Math.min(PAGE, visibleLyrics.length - lyricLimit) }} más
-          </button>
+          />
         </section>
 
         <div v-if="searching && !titleHits.length && !lyricHits.length && !numberMatch" class="flex justify-center py-10">
-          <span class="loading loading-spinner loading-lg" aria-label="Buscando" />
+          <UIcon name="i-tabler-loader-2" class="size-8 animate-spin text-primary" aria-label="Buscando" />
         </div>
 
         <div v-if="nothingFound && !isNumberQuery" class="flex flex-col items-center text-center gap-2 px-6 py-10 no-mark">
@@ -392,9 +389,13 @@ onMounted(async () => {
           <p class="opacity-80">
             Revisa la ortografía o prueba con menos palabras.
           </p>
-          <button type="button" class="btn btn-ghost mt-2" @click="clearQuery">
-            Ver todos los himnos
-          </button>
+          <UButton
+            color="neutral"
+            variant="ghost"
+            class="mt-2"
+            label="Ver todos los himnos"
+            @click="clearQuery"
+          />
         </div>
       </template>
 
@@ -405,7 +406,7 @@ onMounted(async () => {
             Recientes
           </h3>
           <ul>
-            <li v-for="song in recentSongs" :key="`r-${song.songId}`" class="border-t border-base-200 first:border-t-0">
+            <li v-for="song in recentSongs" :key="`r-${song.songId}`" class="border-t border-muted first:border-t-0">
               <SongItem :song />
             </li>
           </ul>
@@ -416,26 +417,27 @@ onMounted(async () => {
             <h3 id="g-history" class="group-title px-0">
               Búsquedas recientes
             </h3>
-            <button type="button" class="btn btn-link btn-sm px-0 text-base-content/70" @click="clearHistory">
-              Borrar historial
-            </button>
+            <UButton
+              color="neutral"
+              variant="link"
+              size="sm"
+              class="px-0"
+              label="Borrar historial"
+              @click="clearHistory"
+            />
           </div>
           <div class="flex flex-wrap gap-2">
-            <button
+            <UButton
               v-for="entry in searchHistory"
               :key="entry"
-              type="button"
-              class="btn btn-ghost btn-sm h-9 rounded-full border border-base-300 font-normal"
+              color="neutral"
+              variant="outline"
+              icon="i-tabler-clock"
+              class="h-9 font-normal"
+              :label="entry"
+              data-history-entry
               @click="useHistory(entry)"
-            >
-              <Icon
-                name="tabler:clock"
-                size="16"
-                class="opacity-60"
-                aria-hidden="true"
-              />
-              {{ entry }}
-            </button>
+            />
           </div>
         </section>
 
@@ -444,15 +446,15 @@ onMounted(async () => {
             <h3 id="g-all" class="text-xs font-bold uppercase tracking-wider opacity-70">
               Todos los himnos · {{ songs.length }}
             </h3>
-            <div class="join" role="radiogroup" aria-label="Ordenar">
+            <div class="segmented" role="radiogroup" aria-label="Ordenar">
               <label
                 v-for="opt in [
                   { id: 'by_number', value: 'byNumber', label: 'Por número' },
                   { id: 'by_title', value: 'byTitle', label: 'Por título' },
                 ]"
                 :key="opt.id"
-                class="join-item btn btn-sm h-9 font-medium has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-primary"
-                :class="currentTab === opt.value ? 'btn-neutral' : 'btn-ghost border border-base-300'"
+                class="chip"
+                :class="{ 'chip--on': currentTab === opt.value }"
               >
                 <input
                   :id="opt.id"
@@ -489,7 +491,7 @@ onMounted(async () => {
 
 <style>
 .context mark {
-  background: color-mix(in oklab, var(--color-warning) 55%, transparent);
+  background: color-mix(in oklab, var(--ui-warning) 55%, transparent);
   color: inherit;
   border-radius: 2px;
   padding: 0 1px;

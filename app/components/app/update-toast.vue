@@ -30,12 +30,7 @@ const bottomOffset = computed(() => {
         </p>
       </div>
       <div class="update-toast__actions">
-        <button
-          class="btn btn-primary btn-sm"
-          @click="applyUpdate"
-        >
-          Recargar
-        </button>
+        <UButton label="Recargar" @click="applyUpdate" />
       </div>
     </div>
   </Transition>
@@ -52,8 +47,8 @@ const bottomOffset = computed(() => {
   align-items: center;
   gap: 0.75rem;
   padding: 0.75rem 1rem;
-  background: var(--color-base-100, #fff);
-  color: var(--color-base-content, #1f2937);
+  background: var(--ui-bg, #fff);
+  color: var(--ui-text, #1f2937);
   border-radius: 1rem;
   box-shadow:
     0 -4px 24px rgba(0, 0, 0, 0.15),
@@ -70,8 +65,8 @@ const bottomOffset = computed(() => {
   width: 2.25rem;
   height: 2.25rem;
   border-radius: 0.625rem;
-  background: var(--color-primary, #4f34b4);
-  color: var(--color-primary-content, #fff);
+  background: var(--ui-primary, #4f34b4);
+  color: var(--ui-text-inverted, #fff);
 }
 
 .update-toast__text {

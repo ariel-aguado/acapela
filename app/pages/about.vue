@@ -19,7 +19,7 @@ useHead({ title: "Acerca de" });
       </p>
       <p class="md:max-w-2xl md:mx-auto text-left md:text-center mt-4 leading-8">
         Esta aplicación es completamente gratuita y de código abierto. Puedes encontrar el código fuente en <a
-          class="link link-primary underline-offset-2"
+          class="text-primary underline underline-offset-2"
           href="https://github.com/ariel-aguado/acapela"
           target="_blank"
           rel="noopener noreferrer"
@@ -28,7 +28,7 @@ useHead({ title: "Acerca de" });
       <p class="md:max-w-2xl md:mx-auto text-left md:text-center mt-4 leading-8">
         Si necesitas ayuda, tienes alguna sugerencia o encuentras algún error, puedes contactar a través de la siguiente dirección de correo electrónico al:
         <a
-          class="link link-primary underline-offset-2"
+          class="text-primary underline underline-offset-2"
           href="mailto:ariel.841207@gmail.com"
         >Desarrollador de Acapela</a>.
       </p>

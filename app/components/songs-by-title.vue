@@ -8,7 +8,7 @@ const { filteredSongIdsByTitle, filteredSongsByTitle } = storeToRefs(songStore);
     <div
       v-for="song in filteredSongsByTitle"
       :key="`song-by-title-${song.songId}`"
-      class="song-item [&:not(:first-child)]:border-t [&:not(:first-child)]:border-base-300"
+      class="song-item [&:not(:first-child)]:border-t [&:not(:first-child)]:border-default"
       :data-song-index="titleInitial(song.title)"
     >
       <SongItem :song />

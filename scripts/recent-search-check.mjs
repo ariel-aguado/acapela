@@ -130,7 +130,7 @@ try {
   // Click on the recent search item "El Señor"
   const afterClick = await evalState(page, `(async () => {
     // Find the recent search button
-    const historyButtons = document.querySelectorAll("button.btn-ghost");
+    const historyButtons = document.querySelectorAll("button[data-history-entry]");
     let recentSearchBtn = null;
     for (const btn of historyButtons) {
       if (btn.textContent.includes("El Señor")) {

@@ -1,40 +1,33 @@
 @import "tailwindcss";
-@plugin "daisyui" {
-  themes:
-    light --default,
-    dark --prefersdark;
+@import "@nuxt/ui";
+
+/* "Índigo Acapela" as a full scale (Nuxt UI's `primary`, see
+   app/app.config.ts), hue 285. */
+@theme static {
+  --color-acapela-50: oklch(97% 0.015 285);
+  --color-acapela-100: oklch(94% 0.03 285);
+  --color-acapela-200: oklch(88% 0.06 285);
+  --color-acapela-300: oklch(82% 0.09 285);
+  --color-acapela-400: oklch(76% 0.12 285);
+  --color-acapela-500: oklch(62% 0.17 285);
+  --color-acapela-600: oklch(52% 0.19 285);
+  --color-acapela-700: oklch(44% 0.19 285);
+  --color-acapela-800: oklch(37% 0.16 285);
+  --color-acapela-900: oklch(30% 0.12 285);
+  --color-acapela-950: oklch(22% 0.09 285);
 }
 
-/* Rounded buttons and fields everywhere, matching the floating capsules.
-   Doubled :root so it outranks the built-in light/dark theme selectors,
-   which are emitted after this file's @plugin blocks. */
-:root:root,
-:root:root[data-theme] {
-  --radius-field: 2rem;
-}
-
-/* Brand colour: "Índigo Acapela". Light: deep indigo-violet with light
-   text. Dark: a light violet with dark text (a saturated purple on a dark
-   background reads poorly: daisyUI's #605dff gives 3.4:1 as text there).
-   Text in primary on the page background: 8.5:1 light, 7.2:1 dark.
-   Same specificity trick as above to beat the built-in themes. */
-:root:root,
-:root:root[data-theme="light"] {
-  --color-primary: oklch(44% 0.19 285);
-  --color-primary-content: oklch(98% 0.01 285);
+/* The brand colour itself. Light: deep indigo-violet (700) with white text.
+   Dark: a light violet (400) with dark text — a saturated purple on a dark
+   background reads poorly. Text in primary on the page background: 8.5:1
+   light, 7.2:1 dark. Unlayered, so it wins over Nuxt UI's theme layer. */
+:root {
+  --ui-primary: var(--ui-color-primary-700);
   --brand-shadow: rgb(40 22 120 / 0.6);
 }
-:root:root[data-theme="dark"] {
-  --color-primary: oklch(76% 0.12 285);
-  --color-primary-content: oklch(22% 0.05 285);
+.dark {
+  --ui-primary: var(--ui-color-primary-400);
   --brand-shadow: rgb(0 0 0 / 0.55);
-}
-@media (prefers-color-scheme: dark) {
-  :root:root:not([data-theme]) {
-    --color-primary: oklch(76% 0.12 285);
-    --color-primary-content: oklch(22% 0.05 285);
-    --brand-shadow: rgb(0 0 0 / 0.55);
-  }
 }
 
 /* The name "Acapela" is set in the lyric face (Literata): the brand reads
@@ -66,10 +59,10 @@
 
 /* Translucent floating surface (bottom navigation, reading pager). */
 .glass {
-  background: color-mix(in oklab, var(--color-base-100) 80%, transparent);
+  background: color-mix(in oklab, var(--ui-bg) 80%, transparent);
   -webkit-backdrop-filter: blur(18px) saturate(1.5);
   backdrop-filter: blur(18px) saturate(1.5);
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  border: 1px solid color-mix(in oklab, var(--ui-text) 10%, transparent);
   box-shadow:
     0 12px 32px -12px var(--brand-shadow),
     0 2px 6px rgb(20 12 60 / 0.08);
@@ -97,13 +90,6 @@
 }
 .rail-height {
   height: calc(100dvh - var(--bar-top) - var(--bar-bottom) - 9rem);
-}
-
-.modal {
-  backdrop-filter: blur(8px);
-  transition:
-    opacity 0.2s,
-    transform 0.2s;
 }
 
 /* Android style transition */
@@ -138,4 +124,51 @@
 .modal-fade-leave-from {
   opacity: 1;
   transform: scale(1);
+}
+
+/* Choice chips (a radio input inside a label): scope of a search, sort
+   order. Selected = filled; the others outlined. Keyboard focus is shown
+   on the chip, since the radio itself is visually hidden. */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  height: 2.25rem;
+  padding-inline: 0.875rem;
+  border-radius: 999px;
+  border: 1px solid var(--ui-border);
+  font-size: 0.875rem;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color 0.15s,
+    color 0.15s;
+}
+.chip:hover {
+  background: var(--ui-bg-elevated);
+}
+.chip--on,
+.chip--on:hover {
+  background: var(--ui-bg-inverted);
+  border-color: var(--ui-bg-inverted);
+  color: var(--ui-text-inverted);
+}
+.chip:has(:focus-visible) {
+  outline: 2px solid var(--ui-primary);
+  outline-offset: 2px;
+}
+/* Chips joined into one segmented control. */
+.segmented {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+.segmented > .chip:not(:first-child) {
+  border-start-start-radius: 0;
+  border-end-start-radius: 0;
+  margin-inline-start: -1px;
+}
+.segmented > .chip:not(:last-child) {
+  border-start-end-radius: 0;
+  border-end-end-radius: 0;
 }

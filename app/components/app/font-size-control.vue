@@ -10,62 +10,63 @@ const sample = computed(() => {
   return block?.text[0] ?? "Cantad alegres; sí, cantad a Dios";
 });
 
-function onInput(e: Event) {
-  fontStore.setFont(Number((e.target as HTMLInputElement).value));
+function onSlide(value: number | undefined) {
+  if (value !== undefined)
+    fontStore.setFont(value);
 }
 </script>
 
 <template>
   <div class="flex flex-col gap-3">
     <div class="flex items-baseline justify-between">
-      <label for="font-size-range" class="font-medium">Tamaño de letra</label>
+      <span id="font-size-label" class="font-medium">Tamaño de letra</span>
       <span class="text-sm tabular-nums opacity-70">{{ fontSize }} px</span>
     </div>
     <div class="flex items-center gap-3">
-      <button
-        type="button"
-        class="btn btn-ghost btn-square h-11 w-11 text-sm"
+      <UButton
+        color="neutral"
+        variant="ghost"
+        square
+        class="size-11 justify-center text-sm font-bold"
+        label="A"
         aria-label="Achicar la letra"
         :disabled="fontSize <= fontStore.min"
         @click="fontStore.decreaseFont()"
-      >
-        A
-      </button>
-      <input
-        id="font-size-range"
-        type="range"
-        class="range range-primary range-sm flex-1"
+      />
+      <USlider
+        :model-value="fontSize"
         :min="fontStore.min"
         :max="fontStore.max"
-        step="2"
-        :value="fontSize"
-        :aria-valuetext="`${fontSize} píxeles`"
-        @input="onInput"
-      >
-      <button
-        type="button"
-        class="btn btn-ghost btn-square h-11 w-11 text-2xl"
+        :step="2"
+        class="flex-1"
+        aria-labelledby="font-size-label"
+        @update:model-value="onSlide"
+      />
+      <UButton
+        color="neutral"
+        variant="ghost"
+        square
+        class="size-11 justify-center text-2xl font-bold"
+        label="A"
         aria-label="Agrandar la letra"
         :disabled="fontSize >= fontStore.max"
         @click="fontStore.increaseFont()"
-      >
-        A
-      </button>
+      />
     </div>
     <p
-      class="font-lyric rounded-box bg-base-200 px-4 py-3 leading-snug overflow-hidden"
+      class="font-lyric rounded-2xl bg-muted px-4 py-3 leading-snug overflow-hidden"
       :style="{ fontSize: `${fontSize}px` }"
       aria-hidden="true"
     >
       {{ sample }}
     </p>
-    <button
+    <UButton
       v-if="fontSize !== fontStore.defaultSize"
-      type="button"
-      class="btn btn-ghost btn-sm self-start"
+      color="neutral"
+      variant="ghost"
+      class="self-start"
+      :label="`Restablecer (${fontStore.defaultSize} px)`"
       @click="fontStore.resetFont()"
-    >
-      Restablecer ({{ fontStore.defaultSize }} px)
-    </button>
+    />
   </div>
 </template>

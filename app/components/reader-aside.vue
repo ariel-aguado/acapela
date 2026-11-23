@@ -29,27 +29,21 @@ watch(
 
 <template>
   <aside
-    class="w-80 shrink-0 flex-col h-dvh pad-bar-top pad-bar-bottom border-r border-base-300 bg-base-100"
+    class="w-80 shrink-0 flex-col h-dvh pad-bar-top pad-bar-bottom border-r border-default bg-default"
     aria-label="Himnos"
   >
-    <div class="p-3 border-b border-base-200">
+    <div class="p-3 border-b border-muted">
       <label for="aside-filter" class="sr-only">Filtrar por número o título</label>
-      <div class="input w-full flex items-center gap-2">
-        <Icon
-          name="tabler:filter"
-          size="18"
-          class="opacity-60"
-          aria-hidden="true"
-        />
-        <input
-          id="aside-filter"
-          v-model="filter"
-          type="search"
-          autocomplete="off"
-          placeholder="Filtrar por número o título"
-          class="flex-1 min-w-0"
-        >
-      </div>
+      <UInput
+        id="aside-filter"
+        v-model="filter"
+        type="search"
+        autocomplete="off"
+        placeholder="Filtrar por número o título"
+        icon="i-tabler-filter"
+        size="lg"
+        class="w-full"
+      />
     </div>
     <div ref="listRef" class="flex-1 overflow-y-auto">
       <ul>
@@ -86,10 +80,10 @@ watch(
   font-size: 0.9rem;
 }
 .aside-row:hover {
-  background: var(--color-base-200);
+  background: var(--ui-bg-muted);
 }
 .aside-row--on {
-  background: color-mix(in oklab, var(--color-primary) 12%, transparent);
+  background: color-mix(in oklab, var(--ui-primary) 12%, transparent);
   font-weight: 700;
 }
 .aside-row__no {
@@ -97,7 +91,7 @@ watch(
   flex: none;
   text-align: end;
   font-weight: 600;
-  color: var(--color-primary);
+  color: var(--ui-primary);
   font-variant-numeric: tabular-nums;
 }
 </style>

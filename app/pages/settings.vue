@@ -19,6 +19,25 @@ async function choose(id: string) {
 function favCount(id: string) {
   return favoritesBySongbook.value[id]?.length ?? 0;
 }
+
+const songbookItems = computed(() => manifest.value.map((sb) => {
+  const n = favCount(sb.id);
+  const parts = [
+    sb.count
+      ? `${sb.count} himnos`
+      : "",
+    n
+      ? `${n} ${n === 1
+        ? "favorito"
+        : "favoritos"}`
+      : "",
+  ].filter(Boolean);
+  return {
+    label: sb.name,
+    value: sb.id,
+    description: parts.join(" · "),
+  };
+}));
 </script>
 
 <template>
@@ -29,32 +48,27 @@ function favCount(id: string) {
         <legend class="font-medium mb-2">
           Himnario
         </legend>
-        <div class="rounded-box border border-base-300 divide-y divide-base-300 overflow-hidden" role="radiogroup">
-          <label
-            v-for="sb in manifest"
-            :key="sb.id"
-            class="flex items-center gap-3 px-4 min-h-16 cursor-pointer has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-primary has-[:focus-visible]:-outline-offset-2"
-            :class="{ 'bg-primary/5': sb.id === currentId }"
-          >
-            <input
-              type="radio"
-              name="songbook"
-              class="radio radio-primary"
-              :value="sb.id"
-              :checked="sb.id === currentId"
-              :disabled="status === 'loading'"
-              @change="choose(sb.id)"
-            >
-            <span class="flex-1 flex flex-col">
-              <span class="font-semibold">{{ sb.name }}</span>
-              <span class="text-sm opacity-70">
-                <template v-if="sb.count">{{ sb.count }} himnos</template>
-                <template v-if="favCount(sb.id)"> · {{ favCount(sb.id) }} {{ favCount(sb.id) === 1 ? 'favorito' : 'favoritos' }}</template>
-              </span>
+        <URadioGroup
+          :model-value="currentId"
+          :items="songbookItems"
+          variant="table"
+          size="lg"
+          :disabled="status === 'loading'"
+          :ui="{ item: 'min-h-16 items-center', label: 'font-semibold' }"
+          @update:model-value="v => choose(String(v))"
+        >
+          <template #label="{ item }">
+            <span class="inline-flex items-center gap-2">
+              {{ item.label }}
+              <UIcon
+                v-if="status === 'loading' && item.value === currentId"
+                name="i-tabler-loader-2"
+                class="size-4 animate-spin"
+                aria-label="Cargando"
+              />
             </span>
-            <span v-if="status === 'loading' && sb.id === currentId" class="loading loading-spinner loading-sm" aria-label="Cargando" />
-          </label>
-        </div>
+          </template>
+        </URadioGroup>
         <p class="text-sm opacity-70">
           Tus favoritos y el último himno abierto se guardan por separado en cada himnario.
         </p>
@@ -65,7 +79,7 @@ function favCount(id: string) {
         <h2 id="s-appearance" class="font-medium">
           Apariencia
         </h2>
-        <div class="rounded-box border border-base-300 p-4 flex flex-col gap-6">
+        <div class="rounded-2xl border border-default p-4 flex flex-col gap-6">
           <AppFontSizeControl />
           <AppThemeControl />
         </div>
@@ -76,7 +90,7 @@ function favCount(id: string) {
         <h2 id="s-app" class="font-medium">
           Aplicación
         </h2>
-        <div class="rounded-box border border-base-300 divide-y divide-base-300 overflow-hidden">
+        <div class="rounded-2xl border border-default divide-y divide-default overflow-hidden">
           <div class="flex items-center gap-3 px-4 min-h-16 py-3">
             <AppIcon class="size-10" />
             <div class="flex-1 flex flex-col">
@@ -88,16 +102,14 @@ function favCount(id: string) {
                 <template v-else>Abre el menú del navegador y elige <em>Instalar app</em> o <em>Agregar a la pantalla de inicio</em>.</template>
               </span>
             </div>
-            <button
+            <UButton
               v-if="canInstall && !isInstalled"
-              type="button"
-              class="btn btn-primary btn-sm h-10"
+              size="lg"
+              label="Instalar"
               @click="install"
-            >
-              Instalar
-            </button>
+            />
           </div>
-          <NuxtLink to="/about" class="flex items-center gap-3 px-4 min-h-14 hover:bg-base-200">
+          <NuxtLink to="/about" class="flex items-center gap-3 px-4 min-h-14 hover:bg-muted">
             <Icon
               name="tabler:info-circle"
               size="22"

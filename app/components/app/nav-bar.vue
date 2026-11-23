@@ -66,7 +66,7 @@ function goTo(id: number) {
       class="flex-1 my-1 rounded-full flex flex-col items-center justify-center gap-0.5 text-[11px] leading-none font-semibold text-primary"
       @click="showGoTo"
     >
-      <span class="grid place-items-center h-8 w-12 rounded-full bg-primary text-primary-content shadow-[0_6px_16px_-6px_var(--brand-shadow)]">
+      <span class="grid place-items-center h-8 w-12 rounded-full bg-primary text-inverted shadow-[0_6px_16px_-6px_var(--brand-shadow)]">
         <Icon name="tabler:hash" size="22" aria-hidden="true" />
       </span>
       <span>Ir al himno</span>
@@ -100,19 +100,19 @@ function goTo(id: number) {
   font-size: 11px;
   line-height: 1;
   font-weight: 500;
-  color: color-mix(in oklab, var(--color-base-content) 70%, transparent);
+  color: color-mix(in oklab, var(--ui-text) 70%, transparent);
   transition:
     background-color 0.15s,
     color 0.15s;
 }
 .nav-item:hover {
-  color: var(--color-base-content);
-  background: color-mix(in oklab, var(--color-base-content) 5%, transparent);
+  color: var(--ui-text);
+  background: color-mix(in oklab, var(--ui-text) 5%, transparent);
 }
 .nav-item--on,
 .nav-item--on:hover {
-  color: var(--color-primary);
+  color: var(--ui-primary);
   font-weight: 700;
-  background: color-mix(in oklab, var(--color-primary) 15%, transparent);
+  background: color-mix(in oklab, var(--ui-primary) 15%, transparent);
 }
 </style>

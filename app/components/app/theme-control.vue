@@ -22,12 +22,12 @@ const systemNow = computed(() => (systemDark.value ? "ahora oscuro" : "ahora cla
     <legend class="font-medium mb-3">
       Tema
     </legend>
-    <div class="grid grid-cols-3 gap-1 rounded-box bg-base-200 p-1" role="radiogroup">
+    <div class="grid grid-cols-3 gap-1 rounded-2xl bg-muted p-1" role="radiogroup">
       <label
         v-for="opt in options"
         :key="opt.value"
-        class="flex flex-col items-center justify-center gap-0.5 min-h-16 py-1.5 rounded-field cursor-pointer text-sm transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-primary"
-        :class="colorMode.preference === opt.value ? 'bg-base-100 shadow-sm font-semibold' : 'opacity-75'"
+        class="flex flex-col items-center justify-center gap-0.5 min-h-16 py-1.5 rounded-full cursor-pointer text-sm transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-primary"
+        :class="colorMode.preference === opt.value ? 'bg-default shadow-sm font-semibold' : 'opacity-75'"
       >
         <input
           v-model="colorMode.preference"

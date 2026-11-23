@@ -15,14 +15,16 @@ const showFirstRunOverlay = computed(
 </script>
 
 <template>
-  <NuxtPwaManifest />
-  <AppBootLoader v-if="!isProjector" :status="status" :error="error" />
-  <NuxtLayout>
-    <NuxtPage />
-  </NuxtLayout>
-  <AppSongbookSelector v-if="showFirstRunOverlay" mode="overlay" />
-  <AppInstallBanner />
-  <AppUpdateToast />
-  <AppUndoToast />
-  <AppMovedDialog v-if="!isProjector" />
+  <UApp>
+    <NuxtPwaManifest />
+    <AppBootLoader v-if="!isProjector" :status="status" :error="error" />
+    <NuxtLayout>
+      <NuxtPage />
+    </NuxtLayout>
+    <AppSongbookSelector v-if="showFirstRunOverlay" />
+    <AppInstallBanner />
+    <AppUpdateToast />
+    <AppUndoToast />
+    <AppMovedDialog v-if="!isProjector" />
+  </UApp>
 </template>

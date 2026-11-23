@@ -20,7 +20,7 @@ export default defineNuxtConfig({
         // Browser / status bar = page background of each theme (see
         // app/plugins/theme-color.client.ts for an explicit Claro / Oscuro).
         { name: "theme-color", media: "(prefers-color-scheme: light)", content: "#ffffff" },
-        { name: "theme-color", media: "(prefers-color-scheme: dark)", content: "#1d232a" },
+        { name: "theme-color", media: "(prefers-color-scheme: dark)", content: "#0f172a" },
         { name: "apple-mobile-web-app-status-bar-style", content: "default" },
         { name: "mobile-web-app-capable", content: "yes" },
         { name: "apple-mobile-web-app-capable", content: "yes" },
@@ -52,8 +52,8 @@ export default defineNuxtConfig({
   },
   modules: [
     "@nuxt/eslint",
-    "@nuxt/icon",
-    "@nuxtjs/color-mode",
+    // Nuxt UI brings @nuxt/icon and @nuxtjs/color-mode with it.
+    "@nuxt/ui",
     "@pinia/nuxt",
     "@vueuse/nuxt",
     "@nuxt/fonts",
@@ -76,8 +76,13 @@ export default defineNuxtConfig({
     // The service list was removed; links shared before open the app.
     "/list": { redirect: "/" },
   },
-  colorMode: {
-    dataValue: "theme",
+  icon: {
+    // Ship every icon the code uses inside the app bundle, so they show
+    // offline from the very first launch (instead of being fetched).
+    clientBundle: {
+      scan: true,
+      sizeLimitKb: 256,
+    },
   },
   fonts: {
     families: [

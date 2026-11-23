@@ -29,17 +29,14 @@ function close() {
 </script>
 
 <template>
-  <div
-    v-if="moved"
-    class="modal modal-open"
-    role="dialog"
-    aria-labelledby="moved-title"
+  <UModal
+    :open="!!moved"
+    title="Acapela tiene nueva dirección"
+    :dismissible="false"
+    :close="false"
   >
-    <div class="modal-box">
-      <h3 id="moved-title" class="text-xl font-bold">
-        Acapela tiene nueva dirección
-      </h3>
-      <p class="mt-3">
+    <template #body>
+      <p>
         Ahora estamos en <strong>acapela.app</strong>. {{ broughtText }}
       </p>
 
@@ -50,9 +47,7 @@ function close() {
             Ya está instalada.
           </template>
           <template v-else-if="canPrompt">
-            <button class="btn btn-primary btn-sm mt-2 block" @click="onInstall">
-              Instalar Acapela
-            </button>
+            <UButton class="mt-2 flex" label="Instalar Acapela" @click="onInstall" />
           </template>
           <template v-else-if="isIos">
             En Safari, toca <em>Compartir</em> y luego <em>Agregar a pantalla de inicio</em>.
@@ -65,12 +60,11 @@ function close() {
           <strong>Borra la app anterior</strong> (el ícono que se llamaba “Acappella”). Ya no se actualiza.
         </li>
       </ol>
-
-      <div class="modal-action">
-        <button class="btn" @click="close">
-          Entendido
-        </button>
+    </template>
+    <template #footer>
+      <div class="flex justify-end w-full">
+        <UButton size="lg" label="Entendido" @click="close" />
       </div>
-    </div>
-  </div>
+    </template>
+  </UModal>
 </template>

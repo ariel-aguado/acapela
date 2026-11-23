@@ -28,7 +28,7 @@ const favorites = computed<FilteredSong[]>(() =>
 <template>
   <div class="page-scroll flex flex-col w-full max-w-2xl mx-auto min-w-0">
     <div v-if="status === 'loading'" class="flex justify-center py-10">
-      <span class="loading loading-spinner loading-lg" aria-label="Cargando" />
+      <UIcon name="i-tabler-loader-2" class="size-8 animate-spin text-primary" aria-label="Cargando" />
     </div>
 
     <template v-else-if="favorites.length">
@@ -36,7 +36,7 @@ const favorites = computed<FilteredSong[]>(() =>
         {{ favorites.length }} {{ favorites.length === 1 ? 'himno' : 'himnos' }} en {{ currentSongbook?.name }}
       </p>
       <ul>
-        <li v-for="song in favorites" :key="song.songId" class="border-t border-base-200 first:border-t-0">
+        <li v-for="song in favorites" :key="song.songId" class="border-t border-muted first:border-t-0">
           <SongItem :song />
         </li>
       </ul>
@@ -52,10 +52,13 @@ const favorites = computed<FilteredSong[]>(() =>
       <p class="opacity-80 max-w-xs">
         Toca el corazón en un himno, o en la lista de Buscar, para tenerlo siempre a mano aquí.
       </p>
-      <NuxtLink to="/search" class="btn btn-primary mt-2">
-        <Icon name="tabler:search" size="18" />
-        Buscar himnos
-      </NuxtLink>
+      <UButton
+        to="/search"
+        size="lg"
+        class="mt-2"
+        icon="i-tabler-search"
+        label="Buscar himnos"
+      />
     </div>
   </div>
 </template>

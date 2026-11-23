@@ -52,8 +52,8 @@ const shouldRender = computed(() => props.status === "loading" || props.status =
   z-index: 9999;
   display: grid;
   place-items: center;
-  background: var(--color-base-100, #ffffff);
-  color: var(--color-primary, #4f34b4);
+  background: var(--ui-bg, #ffffff);
+  color: var(--ui-primary, #4f34b4);
 }
 
 .boot-loader__inner {
@@ -79,7 +79,7 @@ const shouldRender = computed(() => props.status === "loading" || props.status =
   font-size: 1rem;
   font-weight: 500;
   letter-spacing: 0.01em;
-  color: var(--color-base-content, #1b1830);
+  color: var(--ui-text, #1b1830);
   opacity: 0.8;
   margin: 0;
 }
@@ -92,7 +92,7 @@ const shouldRender = computed(() => props.status === "loading" || props.status =
 
 .boot-loader__hint {
   font-size: 0.875rem;
-  color: var(--color-base-content, #1b1830);
+  color: var(--ui-text, #1b1830);
   opacity: 0.7;
   margin: 0;
 }

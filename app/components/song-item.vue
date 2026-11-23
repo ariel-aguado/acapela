@@ -50,16 +50,18 @@ function open() {
         <span v-if="tag" class="text-xs opacity-60 mt-0.5">{{ tag }}</span>
       </span>
     </button>
-    <button
+    <UButton
       v-if="showFavorite"
-      type="button"
-      class="btn btn-ghost btn-circle h-12 w-12 shrink-0"
-      :class="favorite ? 'text-secondary' : 'opacity-60'"
+      :color="favorite ? 'secondary' : 'neutral'"
+      variant="ghost"
+      square
+      class="size-12 shrink-0 justify-center"
+      :class="{ 'opacity-60': !favorite }"
+      :icon="favorite ? 'i-tabler-heart-filled' : 'i-tabler-heart'"
+      :ui="{ leadingIcon: 'size-6' }"
       :aria-pressed="favorite"
       :aria-label="favorite ? `Quitar «${song.title}» de favoritos` : `Agregar «${song.title}» a favoritos`"
       @click="toggle(song)"
-    >
-      <Icon :name="favorite ? 'tabler:heart-filled' : 'tabler:heart'" size="24" />
-    </button>
+    />
   </div>
 </template>

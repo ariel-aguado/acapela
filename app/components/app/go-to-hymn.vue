@@ -23,8 +23,7 @@ const songbookStore = useSongbookStore();
 const { songs } = storeToRefs(songStore);
 const { currentSongbook } = storeToRefs(songbookStore);
 
-const dialogRef = shallowRef<HTMLDialogElement | null>(null);
-const inputRef = shallowRef<HTMLInputElement | null>(null);
+const inputComp = useTemplateRef<{ inputRef: HTMLInputElement | null }>("inputComp");
 const value = ref("");
 
 const total = computed(() => songs.value.length);
@@ -63,11 +62,10 @@ function onInput(e: Event) {
     el.value = digits;
 }
 
-// When the dialog closes, the browser puts focus back on the button that
-// opened it (the # in the bottom bar, the hymn capsule), which then shows a
-// focus ring on touch screens. Drop that focus when the dialog was used with
-// a finger or mouse; keep it for keyboard users, who need to see where they
-// are.
+// When the dialog closes, focus goes back to the button that opened it (the
+// # in the bottom bar, the hymn capsule), which then shows a focus ring on
+// touch screens. Skip that when the dialog was used with a finger or mouse;
+// keep it for keyboard users, who need to see where they are.
 let lastInput: "pointer" | "keyboard" = "pointer";
 function onPointer() {
   lastInput = "pointer";
@@ -86,16 +84,31 @@ onBeforeUnmount(() => {
   document.removeEventListener("keydown", onKey, { capture: true });
 });
 
-function onDialogClose() {
-  emit("update:open", false);
-  if (lastInput === "pointer") {
-    // After the browser has restored focus to the opener.
-    setTimeout(() => (document.activeElement as HTMLElement | null)?.blur(), 0);
-  }
-}
+const content = {
+  // Focus the number field (not the close button) so phones raise the keyboard.
+  onOpenAutoFocus(e: Event) {
+    e.preventDefault();
+    requestAnimationFrame(() => inputComp.value?.inputRef?.focus());
+  },
+  onCloseAutoFocus(e: Event) {
+    if (lastInput === "pointer")
+      e.preventDefault();
+  },
+};
+
+const open = computed({
+  get: () => props.open,
+  set: v => emit("update:open", v),
+});
+
+// A bottom sheet on phones (near the thumb and the keyboard), a centred
+// dialog on larger screens.
+const isPhone = useMediaQuery("(max-width: 639px)");
+const UDrawer = resolveComponent("UDrawer");
+const UModal = resolveComponent("UModal");
 
 function close() {
-  emit("update:open", false);
+  open.value = false;
 }
 
 function submit() {
@@ -107,68 +120,50 @@ function submit() {
 
 watch(
   () => props.open,
-  async (open) => {
-    if (open) {
+  (isOpen) => {
+    if (isOpen)
       value.value = "";
-      await nextTick();
-      if (!dialogRef.value?.open)
-        dialogRef.value?.showModal();
-      // Focus after the dialog is shown so mobile browsers raise the keyboard.
-      requestAnimationFrame(() => inputRef.value?.focus());
-    }
-    else if (dialogRef.value?.open) {
-      dialogRef.value.close();
-    }
   },
 );
 </script>
 
 <template>
-  <dialog
-    ref="dialogRef"
-    class="modal modal-bottom sm:modal-middle"
-    aria-labelledby="go-to-hymn-title"
-    @close="onDialogClose"
+  <component
+    :is="isPhone ? UDrawer : UModal"
+    v-model:open="open"
+    :title="heading"
+    description="Escribe el número del himno"
+    :content="content"
+    :ui="{ description: 'sr-only' }"
   >
-    <div class="modal-box">
-      <form class="flex flex-col gap-3" @submit.prevent="submit">
-        <div class="flex justify-between items-center">
-          <h3 id="go-to-hymn-title" class="text-lg font-bold">
-            {{ heading }}
-          </h3>
-          <button
-            type="button"
-            class="btn btn-ghost btn-circle"
-            aria-label="Cerrar"
-            @click="close"
-          >
-            <Icon name="tabler:x" size="22" />
-          </button>
-        </div>
-
+    <template #body>
+      <form id="go-to-hymn-form" class="flex flex-col gap-3" @submit.prevent="submit">
         <label for="go-to-hymn-input" class="text-sm">
           Número del himno
         </label>
-        <input
+        <UInput
           id="go-to-hymn-input"
-          ref="inputRef"
-          :value="value"
+          ref="inputComp"
+          :model-value="value"
           name="songId"
           type="text"
           inputmode="numeric"
           pattern="[0-9]*"
           enterkeyhint="go"
           autocomplete="off"
-          class="input input-lg w-full text-2xl font-bold tabular-nums"
-          :class="{ 'input-error': !!error }"
+          size="xl"
+          class="w-full"
+          :color="error ? 'error' : 'primary'"
+          :highlight="!!error"
+          :ui="{ base: 'h-14 text-2xl font-bold tabular-nums' }"
           :aria-invalid="!!error"
           aria-describedby="go-to-hymn-hint"
           @input="onInput"
-        >
+        />
         <p
           id="go-to-hymn-hint"
           class="text-sm -mt-1"
-          :class="error ? 'text-error' : 'opacity-70'"
+          :class="error ? 'text-error' : 'text-muted'"
           aria-live="polite"
         >
           {{ error || `Del 1 al ${total} en ${songbookName}` }}
@@ -176,7 +171,7 @@ watch(
 
         <!-- Live preview: recognize the hymn before jumping -->
         <div
-          class="min-h-16 rounded-box bg-base-200 px-4 py-3 flex items-center gap-3"
+          class="min-h-16 rounded-2xl bg-muted px-4 py-3 flex items-center gap-3"
           aria-live="polite"
         >
           <template v-if="preview">
@@ -185,25 +180,29 @@ watch(
               <span class="font-semibold truncate">{{ preview.title }}</span>
             </span>
           </template>
-          <span v-else class="text-sm opacity-60">
+          <span v-else class="text-sm text-muted">
             Aquí verás el título del himno
           </span>
         </div>
-
-        <div class="flex justify-end gap-2 mt-1">
-          <button type="button" class="btn btn-ghost" @click="close">
-            Cancelar
-          </button>
-          <button type="submit" class="btn btn-primary" :disabled="!canGo">
-            {{ actionLabel }}
-          </button>
-        </div>
       </form>
-    </div>
-    <form method="dialog" class="modal-backdrop">
-      <button type="submit" aria-label="Cerrar">
-        Cerrar
-      </button>
-    </form>
-  </dialog>
+    </template>
+    <template #footer>
+      <div class="flex justify-end gap-2 w-full">
+        <UButton
+          color="neutral"
+          variant="ghost"
+          size="lg"
+          label="Cancelar"
+          @click="close"
+        />
+        <UButton
+          type="submit"
+          form="go-to-hymn-form"
+          size="lg"
+          :label="actionLabel"
+          :disabled="!canGo"
+        />
+      </div>
+    </template>
+  </component>
 </template>

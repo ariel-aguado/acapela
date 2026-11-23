@@ -183,7 +183,7 @@ onMounted(async () => {
     <ReaderAside class="hidden lg:flex" :current="current" @go="goToSong" />
     <div class="flex-1 flex flex-col justify-center items-center relative min-w-0">
       <div v-if="status === 'loading'">
-        <span class="loading loading-spinner loading-xl" />
+        <UIcon name="i-tabler-loader-2" class="size-10 animate-spin text-primary" aria-label="Cargando" />
       </div>
       <div v-else class="w-full">
         <Swiper
@@ -290,19 +290,19 @@ onMounted(async () => {
   font-size: 0.7em;
   font-weight: 700;
   line-height: 2.2;
-  color: color-mix(in oklab, var(--color-base-content) 55%, transparent);
+  color: color-mix(in oklab, var(--ui-text) 55%, transparent);
   font-variant-numeric: tabular-nums;
 }
 .hymn-block--chorus {
   grid-template-columns: minmax(0, 1fr);
-  background: color-mix(in oklab, var(--color-primary) 9%, transparent);
+  background: color-mix(in oklab, var(--ui-primary) 9%, transparent);
   padding: 0.6em 0.9em 0.7em;
 }
 .hymn-block--chorus .hymn-block__label {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   line-height: 1.6;
-  color: var(--color-primary);
+  color: var(--ui-primary);
 }
 .hymn-block--chorus .hymn-block__text {
   font-style: italic;
@@ -321,7 +321,7 @@ onMounted(async () => {
   padding: 0 0.5rem 0 0;
 }
 .hymn-block--found {
-  background: color-mix(in oklab, var(--color-warning) 30%, transparent);
+  background: color-mix(in oklab, var(--ui-warning) 30%, transparent);
 }
 @media (prefers-reduced-motion: reduce) {
   .hymn-block {

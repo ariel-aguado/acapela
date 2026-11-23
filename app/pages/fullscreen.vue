@@ -187,50 +187,68 @@ onMounted(() => songStore.getSongs());
 </script>
 
 <template>
-  <div class="console min-h-dvh flex flex-col bg-base-200 text-base-content">
+  <div class="console min-h-dvh flex flex-col bg-muted text-default">
     <!-- Top bar -->
-    <header class="flex flex-wrap items-center gap-2 px-3 py-2 bg-base-100 border-b border-base-300">
-      <NuxtLink to="/" class="btn btn-ghost btn-sm h-10 gap-1">
-        <Icon name="tabler:arrow-left" size="18" />
-        Volver a la lectura
-      </NuxtLink>
+    <header class="flex flex-wrap items-center gap-2 px-3 py-2 bg-default border-b border-default">
+      <UButton
+        to="/"
+        color="neutral"
+        variant="ghost"
+        size="lg"
+        icon="i-tabler-arrow-left"
+        label="Volver a la lectura"
+      />
       <h1 class="text-lg font-bold px-1">
         Proyección
       </h1>
-      <span v-if="currentSongbook" class="badge badge-ghost">{{ currentSongbook.name }}</span>
+      <UBadge
+        v-if="currentSongbook"
+        color="neutral"
+        variant="soft"
+        :label="currentSongbook.name"
+      />
       <span class="flex-1" />
       <span
         class="inline-flex items-center gap-1.5 text-sm font-semibold"
         :class="connected ? 'text-error' : 'opacity-60'"
         role="status"
       >
-        <span class="h-2.5 w-2.5 rounded-full" :class="connected ? 'bg-error animate-pulse' : 'bg-base-content/40'" />
+        <span class="h-2.5 w-2.5 rounded-full" :class="connected ? 'bg-error animate-pulse' : 'bg-inverted/40'" />
         {{ connected ? 'Proyector conectado' : 'Proyector sin conectar' }}
       </span>
-      <button type="button" class="btn btn-sm h-10" @click="openProjector">
-        <Icon name="tabler:device-desktop-share" size="18" />
-        Abrir ventana del proyector
-      </button>
-      <button type="button" class="btn btn-sm h-10" @click="toggleFullscreen()">
-        <Icon name="tabler:maximize" size="18" />
-        Presentar aquí <kbd class="kbd kbd-xs">F</kbd>
-      </button>
-      <button type="button" class="btn btn-primary btn-sm h-10" @click="showGoTo = true">
-        <Icon name="tabler:hash" size="18" />
-        Ir al himno <kbd class="kbd kbd-xs text-base-content">G</kbd>
-      </button>
-      <button
-        type="button"
-        class="btn btn-ghost btn-sm btn-square h-10 w-10"
+      <UButton
+        color="neutral"
+        variant="outline"
+        size="lg"
+        icon="i-tabler-device-desktop-share"
+        label="Abrir ventana del proyector"
+        @click="openProjector"
+      />
+      <UButton
+        color="neutral"
+        variant="outline"
+        size="lg"
+        icon="i-tabler-maximize"
+        @click="toggleFullscreen()"
+      >
+        Presentar aquí <UKbd value="F" />
+      </UButton>
+      <UButton size="lg" icon="i-tabler-hash" @click="showGoTo = true">
+        Ir al himno <UKbd value="G" />
+      </UButton>
+      <UButton
+        color="neutral"
+        variant="ghost"
+        size="lg"
+        icon="i-tabler-keyboard"
+        square
         aria-label="Atajos de teclado"
         @click="showHelp = true"
-      >
-        <Icon name="tabler:keyboard" size="20" />
-      </button>
+      />
     </header>
 
     <div v-if="status === 'loading' || !currentSong" class="flex-1 grid place-items-center">
-      <span class="loading loading-spinner loading-xl" aria-label="Cargando" />
+      <UIcon name="i-tabler-loader-2" class="size-10 animate-spin text-primary" aria-label="Cargando" />
     </div>
 
     <main v-else class="flex-1 grid gap-3 p-3 lg:grid-cols-[15rem_minmax(0,1fr)_17rem] min-h-0">
@@ -243,9 +261,9 @@ onMounted(() => songStore.getSongs());
           <li v-for="(s, i) in slides" :key="i">
             <button
               type="button"
-              class="w-full text-start rounded-box border-2 bg-base-100 px-3 py-2 text-sm leading-snug transition-colors"
+              class="w-full text-start rounded-2xl border-2 bg-default px-3 py-2 text-sm leading-snug transition-colors"
               :class="[
-                i === slideIndex ? 'border-error' : i === slideIndex + 1 ? 'border-primary border-dashed' : 'border-transparent hover:border-base-300',
+                i === slideIndex ? 'border-error' : i === slideIndex + 1 ? 'border-primary border-dashed' : 'border-transparent hover:border-default',
               ]"
               :aria-current="i === slideIndex ? 'step' : undefined"
               @click="goSlide(i)"
@@ -263,15 +281,18 @@ onMounted(() => songStore.getSongs());
           <h2 id="c-live" class="text-xs font-bold uppercase tracking-wider opacity-70">
             En pantalla · {{ liveSlide?.label }} · {{ slideIndex + 1 }} de {{ slides.length }}
           </h2>
-          <span v-if="overflow" class="badge badge-warning gap-1">
-            <Icon name="tabler:alert-triangle" size="14" />
-            El texto no entra: achícalo con −
-          </span>
+          <UBadge
+            v-if="overflow"
+            color="warning"
+            variant="subtle"
+            icon="i-tabler-alert-triangle"
+            label="El texto no entra: achícalo con −"
+          />
         </div>
         <div
           ref="liveWrapRef"
-          class="live-wrap rounded-box overflow-hidden ring-2"
-          :class="black ? 'ring-base-content/40' : 'ring-error'"
+          class="live-wrap rounded-2xl overflow-hidden ring-2"
+          :class="black ? 'ring-inverted/40' : 'ring-error'"
           @click="isFullscreen && nextStep()"
         >
           <ProjectionSlide
@@ -288,68 +309,72 @@ onMounted(() => songStore.getSongs());
         </div>
 
         <div class="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            class="btn h-11"
+          <UButton
+            color="neutral"
+            variant="outline"
+            size="xl"
+            class="h-11"
+            icon="i-tabler-chevron-left"
+            label="Anterior"
             :disabled="slideIndex === 0"
             @click="prevStep"
-          >
-            <Icon name="tabler:chevron-left" size="20" />
-            Anterior
-          </button>
-          <button
-            type="button"
-            class="btn btn-primary h-11 flex-1 min-w-40"
+          />
+          <UButton
+            size="xl"
+            class="h-11 flex-1 min-w-40 justify-center"
+            trailing-icon="i-tabler-chevron-right"
+            label="Siguiente estrofa"
             :disabled="atEnd"
             @click="nextStep"
-          >
-            Siguiente estrofa
-            <Icon name="tabler:chevron-right" size="20" />
-          </button>
-          <button
-            type="button"
-            class="btn h-11"
-            :class="black ? 'btn-neutral' : ''"
+          />
+          <UButton
+            color="neutral"
+            :variant="black ? 'solid' : 'outline'"
+            size="xl"
+            class="h-11"
+            icon="i-tabler-screen-share-off"
             :aria-pressed="black"
             @click="black = !black"
           >
-            <Icon name="tabler:screen-share-off" size="20" />
             {{ black ? 'Mostrar' : 'Negro' }}
-            <kbd class="kbd kbd-xs text-base-content">B</kbd>
-          </button>
-          <div class="join" role="group" aria-label="Tamaño del texto de este himno">
-            <button
-              type="button"
-              class="btn join-item h-11"
+            <UKbd value="B" />
+          </UButton>
+          <UFieldGroup role="group" aria-label="Tamaño del texto de este himno">
+            <UButton
+              color="neutral"
+              variant="outline"
+              size="xl"
+              class="h-11"
+              label="−"
               aria-label="Achicar texto"
               :disabled="scale <= SCALE_MIN"
               @click="changeScale(-SCALE_STEP)"
-            >
-              −
-            </button>
-            <button
-              type="button"
-              class="btn join-item h-11 tabular-nums min-w-16"
+            />
+            <UButton
+              color="neutral"
+              variant="outline"
+              size="xl"
+              class="h-11 tabular-nums min-w-16 justify-center"
               :title="scale === 1 ? 'Tamaño automático' : 'Volver al tamaño automático'"
+              :label="`${Math.round(scale * 100)}%`"
               @click="presentation.setScale(current, 1)"
-            >
-              {{ Math.round(scale * 100) }}%
-            </button>
-            <button
-              type="button"
-              class="btn join-item h-11"
+            />
+            <UButton
+              color="neutral"
+              variant="outline"
+              size="xl"
+              class="h-11"
+              label="+"
               aria-label="Agrandar texto"
               :disabled="scale >= SCALE_MAX"
               @click="changeScale(SCALE_STEP)"
-            >
-              +
-            </button>
-          </div>
+            />
+          </UFieldGroup>
         </div>
         <p v-if="atEnd" class="text-sm opacity-80">
           Fin del himno.
           <template v-if="nextHymnId">
-            <kbd class="kbd kbd-xs">N</kbd> pasa al {{ nextHymnId }}.
+            <UKbd value="N" /> pasa al {{ nextHymnId }}.
           </template>
         </p>
       </section>
@@ -360,7 +385,7 @@ onMounted(() => songStore.getSongs());
           <h2 class="text-xs font-bold uppercase tracking-wider opacity-70">
             Siguiente
           </h2>
-          <div class="rounded-box overflow-hidden">
+          <div class="rounded-2xl overflow-hidden">
             <ProjectionSlide
               v-if="nextSlide"
               :slide="nextSlide"
@@ -369,7 +394,7 @@ onMounted(() => songStore.getSongs());
               :scale="scale"
               :badge="nextSlide.label"
             />
-            <div v-else class="aspect-video grid place-items-center bg-base-300 text-sm opacity-70 px-3 text-center">
+            <div v-else class="aspect-video grid place-items-center bg-accented text-sm opacity-70 px-3 text-center">
               {{ nextHymnId ? `Después: himno ${nextHymnId}` : 'Última estrofa' }}
             </div>
           </div>
@@ -377,13 +402,13 @@ onMounted(() => songStore.getSongs());
       </aside>
     </main>
 
-    <footer class="hidden lg:flex flex-wrap items-center gap-x-4 gap-y-1 px-3 py-2 text-xs opacity-75 border-t border-base-300 bg-base-100">
-      <span><kbd class="kbd kbd-xs">←</kbd> <kbd class="kbd kbd-xs">→</kbd> estrofa</span>
-      <span><kbd class="kbd kbd-xs">N</kbd> <kbd class="kbd kbd-xs">P</kbd> himno</span>
-      <span><kbd class="kbd kbd-xs">B</kbd> negro</span>
-      <span><kbd class="kbd kbd-xs">+</kbd> <kbd class="kbd kbd-xs">−</kbd> tamaño ({{ Math.round(scale * 100) }}%)</span>
+    <footer class="hidden lg:flex flex-wrap items-center gap-x-4 gap-y-1 px-3 py-2 text-xs opacity-75 border-t border-default bg-default">
+      <span><UKbd value="←" /> <UKbd value="→" /> estrofa</span>
+      <span><UKbd value="N" /> <UKbd value="P" /> himno</span>
+      <span><UKbd value="B" /> negro</span>
+      <span><UKbd value="+" /> <UKbd value="−" /> tamaño ({{ Math.round(scale * 100) }}%)</span>
       <span class="flex-1" />
-      <span><kbd class="kbd kbd-xs">?</kbd> todos los atajos</span>
+      <span><UKbd value="?" /> todos los atajos</span>
     </footer>
 
     <AppGoToHymn v-model:open="showGoTo" @go="loadHymn" />

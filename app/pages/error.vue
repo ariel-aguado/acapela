@@ -23,13 +23,19 @@ const detail = typeof route.query.error === "string" && route.query.error
       Detalle: {{ detail }}
     </p>
     <div class="flex flex-wrap justify-center gap-2 mt-2">
-      <NuxtLink to="/" class="btn btn-primary">
-        <Icon name="tabler:arrow-left" size="20" />
-        Volver al himno
-      </NuxtLink>
-      <button type="button" class="btn btn-ghost" @click="$router.go(0)">
-        Reintentar
-      </button>
+      <UButton
+        to="/"
+        size="lg"
+        icon="i-tabler-arrow-left"
+        label="Volver al himno"
+      />
+      <UButton
+        color="neutral"
+        variant="ghost"
+        size="lg"
+        label="Reintentar"
+        @click="$router.go(0)"
+      />
     </div>
   </div>
 </template>
