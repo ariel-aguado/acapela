@@ -22,8 +22,9 @@ const isProjector = computed(() => route.name === "projector");
 
 // Show the first-run picker only after the manifest is loaded (so we know
 // what songbooks to offer) AND while no songbook is currently selected.
+// Not on the home page: it explains Acapela and offers the songbooks itself.
 const showFirstRunOverlay = computed(
-  () => songbookStore.manifest.length > 0 && !songbookStore.currentId && !isProjector.value,
+  () => songbookStore.manifest.length > 0 && !songbookStore.currentId && !isProjector.value && route.path !== "/",
 );
 </script>
 

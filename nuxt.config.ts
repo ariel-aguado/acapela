@@ -228,7 +228,18 @@ export default defineNuxtConfig({
           label: "Proyecta la letra para toda la congregación",
         },
       ],
+      // The installed app opens the home page; "Cantar" goes straight back
+      // to the last hymn (long-press the app icon).
       shortcuts: [
+        {
+          name: "Seguir cantando",
+          short_name: "Cantar",
+          description: "Abrir el último himno",
+          url: "/cantar?source=shortcut",
+          icons: [
+            { src: "shortcut-sing.png", sizes: "96x96", type: "image/png" },
+          ],
+        },
         {
           name: "Buscar himno",
           short_name: "Buscar",

@@ -111,7 +111,7 @@ try {
   // user to pick one on first run).
   await sleep(2000)
   await cdpEval(page.webSocketDebuggerUrl,
-    `localStorage.setItem('songbookId', 'songbook-montevideo'); location.reload();`)
+    `localStorage.setItem('songbookId', 'songbook-montevideo'); location.assign('/cantar');`)
   await sleep(7000)
 
   // Check that the homepage renders song content (Swiper slides)
@@ -202,6 +202,28 @@ try {
   log("/search title:", sc.title)
   if (sc.hasSearchInput) pass("Search page renders inputs")
   else fail("Search page did not render")
+
+  // Home page at "/", reached from the logo; its main button goes back to
+  // the open hymn at /cantar.
+  await cdpEval(page.webSocketDebuggerUrl, `(() => { location.assign("/cantar"); })()`)
+  await sleep(4000)
+  await cdpEval(page.webSocketDebuggerUrl, `(() => { document.querySelector("header a[aria-label='Acapela, ir al inicio']")?.click(); })()`)
+  await sleep(2000)
+  const homeCheck = await cdpEval(page.webSocketDebuggerUrl, `(() => JSON.stringify({
+    path: location.pathname,
+    title: document.querySelector("#home-title")?.textContent?.trim() ?? null,
+    hasCta: !!document.querySelector(".cta"),
+  }))()`)
+  const home = JSON.parse(homeCheck.result.value)
+  log("Home after logo:", JSON.stringify(home))
+  if (home.path === "/" && home.title?.includes("Cantemos juntos") && home.hasCta) pass("Logo opens the home page with its main button")
+  else fail(`Home page issue: ${JSON.stringify(home)}`)
+  await cdpEval(page.webSocketDebuggerUrl, `(() => { document.querySelector(".cta")?.click(); })()`)
+  await sleep(2000)
+  const back = await cdpEval(page.webSocketDebuggerUrl, `(() => JSON.stringify({ path: location.pathname, slides: document.querySelectorAll(".swiper-slide").length }))()`)
+  const b = JSON.parse(back.result.value)
+  if (b.path === "/cantar" && b.slides > 0) pass("Home's main button opens the hymn at /cantar")
+  else fail(`Home → hymn issue: ${JSON.stringify(b)}`)
 
   console.log("\n=== UI Smoke Test ===")
   if (process.exitCode) fail("Smoke test FAILED")

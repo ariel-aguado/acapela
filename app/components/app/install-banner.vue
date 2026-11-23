@@ -11,8 +11,9 @@ const route = useRoute();
 // is always available in Ajustes.
 const songStore = useSongStore();
 const engaged = computed(() => songStore.recentSongIds.length >= 3);
+// Not on the home page either: it has its own install invitation.
 const visible = computed(() =>
-  showBanner.value && engaged.value && !updatePending.value && route.meta.bare !== true,
+  showBanner.value && engaged.value && !updatePending.value && route.meta.bare !== true && route.path !== "/",
 );
 const bottomOffset = computed(() => {
   if (route.meta.bare === true)

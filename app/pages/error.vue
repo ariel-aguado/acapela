@@ -24,7 +24,7 @@ const detail = typeof route.query.error === "string" && route.query.error
     </p>
     <div class="flex flex-wrap justify-center gap-2 mt-2">
       <UButton
-        to="/"
+        to="/cantar"
         size="lg"
         icon="i-tabler-arrow-left"
         label="Volver al himno"

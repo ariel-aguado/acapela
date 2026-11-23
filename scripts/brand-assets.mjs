@@ -30,6 +30,7 @@ const MARK = `<g transform="translate(5 -0.4)">
 </g>`
 const mark = (size, color = "#fff") => `<svg viewBox="0 0 64 64" width="${size}" height="${size}" style="color:${color};display:block">${MARK}</svg>`
 const TABLER = {
+  music: `<path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 17a3 3 0 1 0 6 0a3 3 0 0 0-6 0m10 0a3 3 0 1 0 6 0a3 3 0 0 0-6 0M9 17V4h10v13M9 8h10"/>`,
   search: `<path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10a7 7 0 1 0 14 0a7 7 0 1 0-14 0m18 11l-6-6"/>`,
   heart: `<path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.5 12.572L12 20l-7.5-7.428A5 5 0 1 1 12 6.006a5 5 0 1 1 7.5 6.572"/>`,
 }
@@ -134,7 +135,7 @@ async function icons(cdp) {
   }
   for (const [name, body] of Object.entries(TABLER)) {
     const html = `<div style="width:96px;height:96px;display:grid;place-items:center;background:${BRAND};color:#fff"><svg viewBox="0 0 24 24" width="48" height="48">${body}</svg></div>`
-    const file = `shortcut-${name === "heart" ? "favorites" : name}.png`
+    const file = `shortcut-${{ heart: "favorites", music: "sing" }[name] ?? name}.png`
     writeFileSync(`public/${file}`, await render(cdp, html, 96, 96))
     console.log("✓", file)
   }
@@ -178,9 +179,9 @@ const phone = (src, w) => `<div style="width:${w}px;border-radius:${w * 0.11}px;
 async function screenshots(cdp) {
   mkdirSync("public/screenshots", { recursive: true })
   const shots = {
-    reading: await capture(cdp, "/", { width: 390, height: 780 }),
+    reading: await capture(cdp, "/cantar", { width: 390, height: 780 }),
     search: await capture(cdp, "/search?q=gracia", { width: 390, height: 780 }),
-    dark: await capture(cdp, "/", {
+    dark: await capture(cdp, "/cantar", {
       width: 390,
       height: 780,
       setup: `localStorage.setItem("nuxt-color-mode", "dark"); localStorage.setItem("acappellaFontSize", "20")`,

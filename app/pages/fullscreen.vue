@@ -191,7 +191,7 @@ onMounted(() => songStore.getSongs());
     <!-- Top bar -->
     <header class="flex flex-wrap items-center gap-2 px-3 py-2 bg-default border-b border-default">
       <UButton
-        to="/"
+        to="/cantar"
         color="neutral"
         variant="ghost"
         size="lg"

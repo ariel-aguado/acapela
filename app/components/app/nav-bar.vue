@@ -8,10 +8,10 @@ const { open: goToOpen, show: showGoTo } = useGoToHymn();
 // every screen.
 const left = [
   {
-    to: "/",
+    to: "/cantar",
     label: "Cantar",
     icon: "tabler:music",
-    match: ["/", "/fullscreen"],
+    match: ["/cantar", "/fullscreen"],
   },
   {
     to: "/search",

@@ -1,332 +1,584 @@
-<script setup lang="ts">
-import { Navigation } from "swiper/modules";
-import { Swiper, SwiperSlide } from "swiper/vue";
-// Swiper styles
-import "swiper/css";
-import "swiper/css/navigation";
-
-// Swiper navigation module
-const swiperModules = [Navigation];
-
-// Song store
+<script lang="ts" setup>
+// Home, reached from the logo (as in Superbiblia), never from the bottom
+// menu. Top: what Acapela is and one big way back to singing. Then your
+// recent hymns and songbook, what the app can do, how it is used in a
+// service, the install invitation and the footer. On a first visit (no
+// songbook chosen yet) the songbooks are offered right here, instead of
+// the first-run window.
 const songStore = useSongStore();
-const { songs, songId } = storeToRefs(songStore);
-
-// Worker state (single source of truth for the songbook loading state)
+const songbookStore = useSongbookStore();
+const { songs, songId, currentSong, recentSongIds } = storeToRefs(songStore);
+const { manifest, currentId, currentSongbook } = storeToRefs(songbookStore);
 const { status } = useSongbookWorker();
+const { show: showGoTo } = useGoToHymn();
+const { canInstall, install, isInstalled } = usePwaInstall();
+const isLarge = useMediaQuery("(min-width: 1024px)");
+const favoritesBySongbook = useLocalStorage<Record<string, number[]>>("favoritesBySongbook", {});
 
-// Font store
-const fontStore = useFontStore();
-const { fontSize } = storeToRefs(fontStore);
+const hasSongbook = computed(() => !!currentId.value);
+const hasSung = computed(() => recentSongIds.value.length > 0);
+const ready = computed(() => hasSongbook.value && !!currentSong.value);
 
-// "Ir al himno" (one dialog for the app, hosted by the bottom navigation)
-// and keyboard help
-const { open: goToOpen, show: showGoTo } = useGoToHymn();
-const showHelp = ref(false);
-
-// Swiper reference
-const swiper = shallowRef<any>(null);
-let _ignoreNextActiveChange = false;
-
-const total = computed(() => songs.value.length);
-const current = computed(() => Number(songId.value) || 1);
-const hasPrev = computed(() => current.value > 1);
-const hasNext = computed(() => current.value < total.value);
-
-// Init swiper instance
-function onSwiper(instance: any) {
-  swiper.value = instance;
-  // Prevent the initial active-index-change event from overwriting the persisted songId
-  _ignoreNextActiveChange = true;
-  instance.slideTo(current.value - 1, 0);
-};
-
-function getSwiper() {
-  if (!swiper.value) {
-    const el = document.querySelector(".swiper") as any;
-    if (el && el.swiper)
-      swiper.value = el.swiper;
-  }
-  return swiper.value;
-}
-
-function goToSong(id: number) {
-  getSwiper()?.slideTo(id - 1, 0);
-}
-
-// The hymn capsule (‹ ›), "Ir al himno" and the side list change songId;
-// keep the carousel on that hymn.
-watch(current, (id) => {
-  const sw = getSwiper();
-  if (sw && sw.activeIndex !== id - 1)
-    sw.slideTo(id - 1, 0);
+// A few lines of the hymn you were singing (its chorus when it has one).
+const snippet = computed(() => {
+  const song = currentSong.value;
+  if (!song)
+    return null;
+  const block = song.blocks?.find(b => b.kind === "chorus")
+    ?? song.blocks?.find(b => b.kind !== "citation");
+  if (!block)
+    return null;
+  return {
+    label: block.kind === "chorus"
+      ? `Coro del himno ${song.songId}`
+      : `Himno ${song.songId}`,
+    lines: block.text.slice(0, 2),
+  };
 });
 
-function goPrev() {
-  if (hasPrev.value)
-    getSwiper()?.slidePrev();
-}
-
-function goNext() {
-  if (hasNext.value)
-    getSwiper()?.slideNext();
-}
-
-// Remember opened hymns (Buscar shows them as "Recientes").
-watch(
-  () => [songId.value, songs.value.length] as const,
-  ([id, len]) => {
-    if (len > 0)
-      songStore.pushRecent(Number(id));
-  },
-  { immediate: true },
+const recents = computed(() =>
+  recentSongIds.value
+    .slice(0, 8)
+    .map(id => songs.value[id - 1])
+    .filter((s): s is NonNullable<typeof s> => !!s),
 );
 
-// Opening a hymn from a lyric search hit: bring that stanza into view and
-// mark it briefly so the eye lands on it.
-const { pendingBlock } = storeToRefs(songStore);
-async function revealPendingBlock() {
-  const target = pendingBlock.value;
-  if (!target || target.songId !== current.value || status.value === "loading")
-    return;
-  pendingBlock.value = null;
-  await nextTick();
-  await new Promise(r => setTimeout(r, 120));
-  const el = document.querySelector<HTMLElement>(`article[data-song="${target.songId}"] [data-block="${target.blockIndex}"]`);
-  if (!el)
-    return;
-  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  el.scrollIntoView({
-    block: "center",
-    behavior: reduce ? "auto" : "smooth",
-  });
-  el.classList.add("hymn-block--found");
-  setTimeout(() => el.classList.remove("hymn-block--found"), 2200);
-}
-watch([pendingBlock, current, status], revealPendingBlock);
-onMounted(revealPendingBlock);
+const favCount = computed(() => favoritesBySongbook.value[currentId.value]?.length ?? 0);
 
-// Keyboard (computers): ← → change hymn, G jumps to a number, ? shows help.
-function keyBlocked(e: KeyboardEvent) {
-  const t = e.target as HTMLElement | null;
-  const typing = !!t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable);
-  return typing || goToOpen.value || showHelp.value || e.ctrlKey || e.metaKey || e.altKey;
+function sing() {
+  songStore.navigateToSong(Number(songId.value) || 1);
 }
-function readerKey(keys: string[], run: () => void) {
-  onKeyStroke(keys, (e) => {
-    if (keyBlocked(e))
-      return;
-    e.preventDefault();
-    run();
-  }, { dedupe: true });
-}
-readerKey(["ArrowLeft"], goPrev);
-readerKey(["ArrowRight"], goNext);
-readerKey(["g", "G"], showGoTo);
-readerKey(["?"], () => (showHelp.value = true));
 
-const shortcutGroups = [
+async function chooseSongbook(id: string) {
+  if (status.value === "loading")
+    return;
+  await songbookStore.selectSongbook(id);
+}
+
+const FEATURES = [
   {
-    title: "Lectura",
-    items: [
-      {
-        keys: ["←", "→"],
-        label: "Himno anterior / siguiente",
-      },
-      {
-        keys: ["G"],
-        label: "Ir a un himno por número",
-      },
-      {
-        keys: ["?"],
-        label: "Ver estos atajos",
-      },
-    ],
+    icon: "i-tabler-typography",
+    title: "Letra a tu medida",
+    text: "Tamaño, interlineado, margen y seis letras para elegir.",
+    to: "/settings",
   },
+  {
+    icon: "i-tabler-search",
+    title: "Encuéntralo al instante",
+    text: "Por número, título o una frase de la letra.",
+    to: "/search",
+  },
+  {
+    icon: "i-tabler-wifi-off",
+    title: "Sin conexión",
+    text: "Funciona en el templo aunque no haya señal.",
+    to: null,
+  },
+  {
+    icon: "i-tabler-heart",
+    title: "Tus favoritos",
+    text: "Guardados por himnario, siempre a mano.",
+    to: "/favorites",
+  },
+] as const;
+
+const STEPS = [
+  { title: "Toca # y escribe el número", text: "Ves el título antes de ir, para no equivocarte." },
+  { title: "Desliza para el siguiente", text: "O usa las flechas del teclado." },
+  { title: "Agranda la letra con Aa", text: "Para cantar sin forzar la vista." },
 ];
-
-async function onActiveIndexChange(instance: any) {
-  setTimeout(() => {
-    // If we set the slide programmatically during init, ignore the first event
-    if (_ignoreNextActiveChange) {
-      _ignoreNextActiveChange = false;
-      return;
-    }
-
-    // Update the current song index (coerce to number)
-    songId.value = Number(instance.activeIndex) + 1;
-  }, 50);
-}
-
-onMounted(async () => {
-  // Only fetch songs if:
-  // 1. Songs are not yet loaded (empty array)
-  // 2. Arriving via page refresh (no navigation state)
-  // 3. Not coming from internal search pages
-  const router = useRouter();
-  const fromInternalPage = router.options.history.state.back;
-  const fromPath = typeof fromInternalPage === "string"
-    ? fromInternalPage
-    : "";
-  const isFromSearchPages = fromPath
-    && (fromPath.includes("/search") || fromPath.includes("/fully-search"));
-
-  // Fetch songs only if they're empty OR if we're NOT coming from search pages
-  if (songs.value.length === 0 || !isFromSearchPages) {
-    await songStore.getSongs();
-  }
-});
 </script>
 
 <template>
-  <div class="flex-1 flex min-h-0">
-    <ReaderAside class="hidden lg:flex" :current="current" @go="goToSong" />
-    <div class="flex-1 flex flex-col justify-center items-center relative min-w-0">
-      <div v-if="status === 'loading'">
-        <UIcon name="i-tabler-loader-2" class="size-10 animate-spin text-primary" aria-label="Cargando" />
-      </div>
-      <div v-else class="w-full">
-        <Swiper
-          class="swiper"
-          :modules="swiperModules"
-          :slides-per-view="1"
-          :space-between="0"
-          :navigation="true"
-          :threshold="24"
-          @active-index-change="onActiveIndexChange"
-          @swiper="onSwiper"
-        >
-          <SwiperSlide
-            v-for="song in songs"
-            :key="song.id"
-          >
-            <article
-              v-if="song"
-              class="hymn reader-scroll flex flex-col w-full overflow-y-auto"
-              :data-song="song.songId"
-              :aria-labelledby="`hymn-title-${song.songId}`"
-            >
-              <header
-                class="pt-2"
-                :style="{ paddingInline: 'var(--reading-margin)' }"
-              >
-                <div class="mx-auto w-full max-w-[38rem]">
-                  <h2
-                    :id="`hymn-title-${song.songId}`"
-                    class="font-lyric font-semibold text-balance"
-                    :style="{ fontSize: `${Math.round(fontSize * 1.25)}px`, lineHeight: 1.25 }"
-                  >
-                    <span class="text-primary tabular-nums">{{ song.songId }}.</span>
-                    {{ song.title }}
-                  </h2>
-                  <p
-                    v-for="(cite, ci) in song.blocks.filter(b => b.kind === 'citation')"
-                    :key="`cite-${ci}`"
-                    class="text-sm opacity-70 mt-0.5"
-                  >
-                    {{ cite.text.join(" ") }}
-                  </p>
-                </div>
-              </header>
-              <div
-                class="mx-auto w-full max-w-[40rem] font-lyric pt-4 flex flex-col gap-5"
-                :style="{ fontSize: `${fontSize}px`, lineHeight: 'var(--reading-line-height)', paddingInline: 'var(--reading-margin)' }"
-              >
-                <template v-for="(block, bi) in song.blocks" :key="`b-${song.songId}-${bi}`">
-                  <section
-                    v-if="block.kind !== 'citation'"
-                    class="hymn-block"
-                    :class="block.kind === 'chorus' ? 'hymn-block--chorus' : 'hymn-block--stanza'"
-                    :data-block="bi"
-                    :aria-label="blockLabel(block) || undefined"
-                  >
-                    <span class="hymn-block__label" aria-hidden="true">
-                      {{ block.kind === 'chorus' ? 'Coro' : block.number }}
-                    </span>
-                    <div class="hymn-block__text min-w-0" v-html="block.html" />
-                  </section>
-                </template>
-              </div>
-            </article>
-          </SwiperSlide>
-        </Swiper>
-      </div>
+  <div class="home h-dvh overflow-y-auto pad-bar-bottom">
+    <!-- ===================== Hero ===================== -->
+    <section class="hero relative overflow-hidden text-white" aria-labelledby="home-title">
+      <svg
+        class="hero__staff"
+        viewBox="0 0 1000 520"
+        preserveAspectRatio="none"
+        aria-hidden="true"
+      >
+        <g fill="none" stroke="currentColor" stroke-width="1.2">
+          <path d="M-20 300 C 250 220 600 400 1020 270" />
+          <path d="M-20 320 C 250 240 600 420 1020 290" />
+          <path d="M-20 340 C 250 260 600 440 1020 310" />
+          <path d="M-20 360 C 250 280 600 460 1020 330" />
+          <path d="M-20 380 C 250 300 600 480 1020 350" />
+        </g>
+        <g fill="currentColor">
+          <ellipse
+            class="hero__note"
+            cx="720"
+            cy="318"
+            rx="11"
+            ry="8"
+          />
+          <ellipse
+            class="hero__note"
+            cx="800"
+            cy="292"
+            rx="11"
+            ry="8"
+          />
+          <ellipse
+            class="hero__note"
+            cx="640"
+            cy="352"
+            rx="11"
+            ry="8"
+          />
+        </g>
+      </svg>
 
-      <AppShortcutsHelp v-model:open="showHelp" :groups="shortcutGroups" />
+      <div class="relative mx-auto max-w-5xl px-5 pb-10 lg:pb-14 hero__inner grid gap-8 lg:grid-cols-[1.15fr_0.85fr] lg:items-center">
+        <div class="min-w-0">
+          <p class="text-xs font-bold uppercase tracking-[0.14em] opacity-80">
+            Himnos y cánticos espirituales
+          </p>
+          <h2 id="home-title" class="hero__title mt-3">
+            Cantemos juntos, <em>a una voz.</em>
+          </h2>
+          <p class="mt-3 max-w-md text-base/relaxed opacity-90">
+            El himnario de tu iglesia: letra grande y clara, sin conexión y gratis.
+          </p>
+
+          <!-- Back to singing: the main action. -->
+          <button
+            v-if="ready"
+            type="button"
+            class="cta mt-6"
+            @click="sing"
+          >
+            <span class="cta__n">{{ currentSong!.songId }}</span>
+            <span class="flex-1 min-w-0 text-start">
+              <span class="cta__label">{{ hasSung ? 'Seguir cantando' : 'Abrir el himnario' }}</span>
+              <span class="cta__title">{{ currentSong!.title }}</span>
+            </span>
+            <UIcon name="i-tabler-arrow-right" class="size-6 shrink-0" />
+          </button>
+          <a v-else-if="!hasSongbook" href="#home-songbooks" class="cta mt-6">
+            <span class="cta__n"><UIcon name="i-tabler-book" class="size-6" /></span>
+            <span class="flex-1 min-w-0 text-start">
+              <span class="cta__label">Para empezar</span>
+              <span class="cta__title">Elige el himnario de tu iglesia</span>
+            </span>
+            <UIcon name="i-tabler-arrow-down" class="size-6 shrink-0" />
+          </a>
+
+          <div v-if="hasSongbook" class="mt-3 flex gap-2 max-w-md">
+            <button type="button" class="hero__ghost" @click="showGoTo">
+              <UIcon name="i-tabler-hash" class="size-5" />
+              Ir al himno
+            </button>
+            <NuxtLink v-if="isLarge" to="/fullscreen" class="hero__ghost">
+              <UIcon name="i-tabler-presentation" class="size-5" />
+              Proyectar
+            </NuxtLink>
+            <NuxtLink v-else to="/search" class="hero__ghost">
+              <UIcon name="i-tabler-search" class="size-5" />
+              Buscar
+            </NuxtLink>
+          </div>
+        </div>
+
+        <!-- A few lines of your hymn, in the lyric face. -->
+        <figure v-if="snippet" class="hero__lyric">
+          <figcaption class="hero__lyric-label">
+            {{ snippet.label }}
+          </figcaption>
+          <p class="font-lyric italic text-lg/relaxed">
+            <template v-for="(line, i) in snippet.lines" :key="i">
+              {{ line }}<br v-if="i < snippet.lines.length - 1">
+            </template>
+          </p>
+        </figure>
+      </div>
+    </section>
+
+    <div class="mx-auto max-w-5xl px-5">
+      <!-- ===================== First visit: pick a songbook ===================== -->
+      <section
+        v-if="!hasSongbook"
+        id="home-songbooks"
+        class="pt-8 scroll-mt-20"
+        aria-labelledby="home-sb"
+      >
+        <h3 id="home-sb" class="home__heading">
+          Elige tu himnario
+        </h3>
+        <ul class="grid gap-2 sm:grid-cols-3">
+          <li v-for="sb in manifest" :key="sb.id">
+            <button
+              type="button"
+              class="w-full flex items-center gap-3 rounded-2xl border border-default px-4 min-h-16 text-start hover:bg-elevated disabled:opacity-60"
+              :disabled="status === 'loading'"
+              @click="chooseSongbook(sb.id)"
+            >
+              <UIcon name="i-tabler-book" class="size-6 shrink-0 text-primary" />
+              <span class="flex-1 flex flex-col">
+                <span class="font-semibold">{{ sb.name }}</span>
+                <span v-if="sb.count" class="text-sm text-muted">{{ sb.count }} himnos</span>
+              </span>
+              <UIcon name="i-tabler-chevron-right" class="size-5 text-muted" />
+            </button>
+          </li>
+        </ul>
+        <p class="mt-2 text-sm text-muted">
+          Lo puedes cambiar cuando quieras en Ajustes.
+        </p>
+      </section>
+
+      <!-- ===================== Yours ===================== -->
+      <section v-if="recents.length" class="pt-8" aria-labelledby="home-recent">
+        <h3 id="home-recent" class="home__heading">
+          Recientes
+        </h3>
+        <ul class="recents -mx-5 px-5 flex gap-2 overflow-x-auto pb-1">
+          <li v-for="song in recents" :key="song.songId" class="shrink-0">
+            <button
+              type="button"
+              class="w-40 text-start rounded-2xl border border-default px-3 py-2.5 hover:bg-elevated"
+              @click="songStore.navigateToSong(song.songId)"
+            >
+              <span class="block text-lg font-bold text-primary tabular-nums leading-tight">{{ song.songId }}</span>
+              <span class="block text-sm truncate">{{ song.title }}</span>
+            </button>
+          </li>
+        </ul>
+      </section>
+
+      <section v-if="currentSongbook" class="pt-4" aria-label="Tu himnario">
+        <NuxtLink to="/settings" class="flex items-center gap-3 rounded-2xl bg-muted px-4 py-3 hover:bg-elevated">
+          <UIcon name="i-tabler-book" class="size-5 shrink-0 text-primary" />
+          <span class="flex-1 min-w-0 text-sm">
+            <b>{{ currentSongbook.name }}</b>
+            <template v-if="currentSongbook.count"> · {{ currentSongbook.count }} himnos</template>
+            <template v-if="favCount"> · {{ favCount }} {{ favCount === 1 ? 'favorito' : 'favoritos' }}</template>
+          </span>
+          <span class="text-sm font-semibold text-primary">Cambiar</span>
+        </NuxtLink>
+      </section>
+
+      <!-- ===================== Features ===================== -->
+      <section class="pt-10" aria-labelledby="home-features">
+        <h3 id="home-features" class="home__heading">
+          Lo que puedes hacer
+        </h3>
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+          <component
+            :is="f.to ? resolveComponent('NuxtLink') : 'div'"
+            v-for="f in FEATURES"
+            :key="f.title"
+            :to="f.to ?? undefined"
+            class="feature"
+            :class="{ 'feature--link': f.to }"
+          >
+            <span class="feature__icon"><UIcon :name="f.icon" class="size-5" /></span>
+            <b class="text-sm/tight">{{ f.title }}</b>
+            <span class="text-xs/snug text-muted">{{ f.text }}</span>
+          </component>
+
+          <!-- What sets Acapela apart: the projection console. -->
+          <component
+            :is="isLarge ? resolveComponent('NuxtLink') : 'div'"
+            :to="isLarge ? '/fullscreen' : undefined"
+            class="feature feature--project col-span-2"
+          >
+            <span class="feature__icon"><UIcon name="i-tabler-presentation" class="size-5" /></span>
+            <b class="text-sm/tight">Proyecta para la congregación</b>
+            <span class="text-xs/snug opacity-80">Desde la computadora: estrofa por estrofa, con la siguiente a la vista y el control remoto.</span>
+            <span class="mt-1 flex gap-1.5" aria-hidden="true">
+              <i class="feature__slide" /><i class="feature__slide" /><i class="feature__slide" />
+            </span>
+          </component>
+
+          <NuxtLink to="/settings" class="feature feature--link col-span-2 flex-row! items-center gap-3! min-h-0!">
+            <span class="feature__icon"><UIcon name="i-tabler-moon" class="size-5" /></span>
+            <span class="flex flex-col">
+              <b class="text-sm/tight">Claro u oscuro</b>
+              <span class="text-xs/snug text-muted">Para leer de día o con las luces bajas.</span>
+            </span>
+          </NuxtLink>
+        </div>
+      </section>
+
+      <!-- ===================== In a service ===================== -->
+      <section class="pt-10" aria-labelledby="home-steps">
+        <h3 id="home-steps" class="home__heading">
+          En el culto, en tres pasos
+        </h3>
+        <ol class="grid gap-3 lg:grid-cols-3">
+          <li v-for="(step, i) in STEPS" :key="step.title" class="flex gap-3">
+            <span class="step__n">{{ i + 1 }}</span>
+            <span>
+              <b class="block text-sm">{{ step.title }}</b>
+              <span class="text-sm text-muted">{{ step.text }}</span>
+            </span>
+          </li>
+        </ol>
+      </section>
+
+      <!-- ===================== Install ===================== -->
+      <section v-if="canInstall && !isInstalled" class="pt-10" aria-label="Instalar Acapela">
+        <div class="flex items-center gap-3 rounded-3xl bg-[#4f34b4] text-white p-4">
+          <span class="grid place-items-center size-12 shrink-0 rounded-xl bg-white text-[#4f34b4]">
+            <AppBrandMark class="size-8" />
+          </span>
+          <span class="flex-1 min-w-0">
+            <b class="block">Instala Acapela</b>
+            <span class="text-sm opacity-85">Ábrela desde tu pantalla de inicio, también sin conexión</span>
+          </span>
+          <UButton
+            color="neutral"
+            variant="solid"
+            class="bg-white text-[#4f34b4] hover:bg-white/90"
+            label="Instalar"
+            @click="install"
+          />
+        </div>
+      </section>
+
+      <!-- ===================== Footer ===================== -->
+      <footer class="pt-12 pb-6 text-center text-sm text-muted">
+        <p class="wordmark text-xl text-highlighted">
+          Acapela
+        </p>
+        <p class="mt-1">
+          Himnos y cánticos espirituales
+        </p>
+        <p class="mt-1">
+          Gratis y de código abierto ·
+          <NuxtLink to="/about" class="text-primary underline underline-offset-2">
+            Acerca de
+          </NuxtLink>
+        </p>
+      </footer>
     </div>
   </div>
 </template>
 
-<style>
-/* Each hymn scrolls under the floating capsules and navigation. */
-.reader-scroll {
-  height: 100dvh;
-  padding-top: var(--bar-top);
-  padding-bottom: calc(var(--bar-bottom) + 1rem);
+<style scoped>
+/* Fixed brand indigo (like the app icon) in both themes, under the
+   floating capsules. */
+.hero {
+  background:
+    radial-gradient(110% 90% at 100% 0%, #7b62e6 0%, transparent 55%),
+    radial-gradient(80% 80% at 0% 100%, #2a1678 0%, transparent 60%),
+    linear-gradient(160deg, #5a3fc6, #3b2596 60%, #26165f);
 }
-
-.swiper {
+.hero__inner {
+  padding-top: calc(var(--bar-top) + 1.25rem);
+}
+/* The staff that waves behind the title: Acapela's own detail. */
+.hero__staff {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
-  flex: 1 1 0%;
-  display: flex;
-  flex-direction: column;
+  color: #fff;
+  opacity: 0.22;
+  pointer-events: none;
 }
-
-.swiper-button-prev,
-.swiper-button-next {
-  display: none;
-}
-
-/* Stanza number in the margin; the chorus as a tinted block with its label. */
-.hymn-block {
-  display: grid;
-  grid-template-columns: 1.75em minmax(0, 1fr);
-  column-gap: 0.5em;
-  border-radius: var(--radius-box);
-  transition: background-color 0.6s ease;
-}
-.hymn-block__label {
-  font-family: var(--font-display);
-  font-size: 0.7em;
+.hero__title {
+  font-family: "Literata", Georgia, serif;
   font-weight: 700;
-  line-height: 2.2;
-  color: color-mix(in oklab, var(--ui-text) 55%, transparent);
+  font-size: clamp(2.25rem, 7vw, 3.5rem);
+  line-height: 1.04;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+.hero__title em {
+  font-style: italic;
+  font-weight: 400;
+  color: #ddd6ff;
+}
+.cta {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  max-width: 28rem;
+  padding: 0.75rem 1rem 0.75rem 0.75rem;
+  border-radius: 1.25rem;
+  background: #fff;
+  color: #2b1a7d;
+  box-shadow: 0 16px 34px -16px rgb(0 0 0 / 0.55);
+  transition: transform 0.15s ease;
+}
+.cta:active {
+  transform: scale(0.98);
+}
+.cta:focus-visible {
+  outline: 3px solid #ddd6ff;
+  outline-offset: 3px;
+}
+.cta__n {
+  display: grid;
+  place-items: center;
+  min-width: 3rem;
+  height: 3rem;
+  padding-inline: 0.5rem;
+  border-radius: 0.9rem;
+  background: #4f34b4;
+  color: #fff;
+  font-size: 1.25rem;
+  font-weight: 800;
   font-variant-numeric: tabular-nums;
 }
-.hymn-block--chorus {
-  grid-template-columns: minmax(0, 1fr);
-  background: color-mix(in oklab, var(--ui-primary) 9%, transparent);
-  padding: 0.6em 0.9em 0.7em;
-}
-.hymn-block--chorus .hymn-block__label {
-  text-transform: uppercase;
+.cta__label {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 700;
   letter-spacing: 0.08em;
-  line-height: 1.6;
-  color: var(--ui-primary);
+  text-transform: uppercase;
+  color: #6f66a3;
 }
-.hymn-block--chorus .hymn-block__text {
-  font-style: italic;
+.cta__title {
+  display: block;
+  font-family: "Literata", Georgia, serif;
+  font-weight: 600;
+  font-size: 1.05rem;
+  line-height: 1.25;
+  color: #1e1b33;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.hymn-block__text p {
+.hero__ghost {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  height: 2.75rem;
+  border-radius: 999px;
+  border: 1px solid rgb(255 255 255 / 0.35);
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition: background-color 0.15s;
+}
+.hero__ghost:hover {
+  background: rgb(255 255 255 / 0.1);
+}
+.hero__ghost:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+.hero__lyric {
   margin: 0;
+  border-radius: 1.25rem;
+  padding: 1rem 1.25rem;
+  background: rgb(255 255 255 / 0.1);
+  border: 1px solid rgb(255 255 255 / 0.2);
 }
-.hymn-block__text table {
-  width: 100%;
-  font-size: 0.9em;
+.hero__lyric-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  opacity: 0.75;
+  margin-bottom: 0.25rem;
 }
-.hymn-block__text td,
-.hymn-block__text th {
-  text-align: start;
-  vertical-align: top;
-  padding: 0 0.5rem 0 0;
+@media (min-width: 1024px) {
+  .hero__lyric {
+    background: #fff;
+    color: #1e1b33;
+    border: 0;
+    transform: rotate(1.5deg);
+    box-shadow: 0 24px 50px -24px rgb(0 0 0 / 0.6);
+  }
+  .hero__lyric-label {
+    color: #4f34b4;
+    opacity: 1;
+  }
 }
-.hymn-block--found {
-  background: color-mix(in oklab, var(--ui-warning) 30%, transparent);
+.home__heading {
+  margin-bottom: 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ui-text-muted);
 }
-@media (prefers-reduced-motion: reduce) {
-  .hymn-block {
-    transition: none;
+.recents {
+  scrollbar-width: none;
+}
+.recents::-webkit-scrollbar {
+  display: none;
+}
+.feature {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-height: 8rem;
+  padding: 0.9rem;
+  border-radius: 1.25rem;
+  background: var(--ui-bg-muted);
+  transition: background-color 0.15s;
+}
+.feature--link:hover {
+  background: var(--ui-bg-elevated);
+}
+.feature__icon {
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.75rem;
+  background: var(--ui-primary);
+  color: var(--ui-text-inverted);
+}
+.feature--project {
+  min-height: 0;
+  background: #1e1640;
+  color: #fff;
+}
+.feature--project .feature__icon {
+  background: #fff;
+  color: #4f34b4;
+}
+.feature__slide {
+  flex: 1;
+  height: 2.25rem;
+  border-radius: 0.5rem;
+  background: linear-gradient(135deg, #6b5326, #2b2218);
+}
+.step__n {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  border: 2px solid var(--ui-primary);
+  color: var(--ui-primary);
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+.hero__note {
+  transform-box: fill-box;
+  transform-origin: center;
+  transform: rotate(-24deg);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .hero__note {
+    animation: note-float 6s ease-in-out infinite;
+  }
+  .hero__note:nth-child(2) {
+    animation-delay: -2s;
+  }
+  .hero__note:nth-child(3) {
+    animation-delay: -4s;
+  }
+}
+@keyframes note-float {
+  0%,
+  100% {
+    transform: rotate(-24deg);
+  }
+  50% {
+    transform: translateY(-8px) rotate(-24deg);
   }
 }
 </style>

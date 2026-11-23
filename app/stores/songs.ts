@@ -166,7 +166,7 @@ export const useSongStore = defineStore("useSongStore", () => {
     pendingBlock.value = blockIndex >= 0
       ? { songId: id, blockIndex }
       : null;
-    await navigateTo("/");
+    await navigateTo("/cantar");
   }
 
   function pushRecent(id: number, max = 8) {

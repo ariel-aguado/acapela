@@ -7,10 +7,11 @@ const { songs, songId } = storeToRefs(songStore);
 const { toggle, isFavorite } = useFavoriteToggle();
 const { show: showGoTo } = useGoToHymn();
 
-const isReading = computed(() => route.path === "/");
+const isReading = computed(() => route.path === "/cantar");
 
 // Section name for screen readers outside the reading view.
 const titles: Record<string, string> = {
+  "/": "Inicio",
   "/search": "Buscar",
   "/fully-search": "Buscar",
   "/favorites": "Favoritos",
@@ -49,16 +50,23 @@ const isLarge = useMediaQuery("(min-width: 1024px)");
       v-if="isReading && current"
       class="pointer-events-auto h-12 inline-flex items-center rounded-full bg-primary text-inverted px-1 shadow-[0_10px_28px_-10px_var(--brand-shadow)]"
     >
-      <!-- Brand + hymn number; the title is already at the top of the lyric. -->
-      <button
-        type="button"
-        class="h-10 pl-1.5 pr-1.5 inline-flex items-center gap-1.5 rounded-full hover:bg-(--ui-text-inverted)/10"
-        :aria-label="`Acapela, himno ${number} de ${total}: ${current.title}. Ir a otro himno`"
-        @click="showGoTo"
+      <!-- The brand goes home (as in Superbiblia); the hymn number opens
+        "Ir al himno". The title is already at the top of the lyric. -->
+      <NuxtLink
+        to="/"
+        class="h-10 pl-1.5 pr-1 inline-flex items-center gap-1.5 rounded-full hover:bg-(--ui-text-inverted)/10"
+        aria-label="Acapela, ir al inicio"
       >
         <AppBrandMark class="size-7" />
         <span class="wordmark text-[1.2rem] leading-none">Acapela</span>
-        <span class="ml-0.5 min-w-8 h-7 px-2 inline-flex items-center justify-center rounded-full bg-(--ui-text-inverted)/15 text-base font-bold tabular-nums">
+      </NuxtLink>
+      <button
+        type="button"
+        class="ml-0.5 min-w-10 h-10 px-1 inline-flex items-center justify-center rounded-full hover:bg-(--ui-text-inverted)/10"
+        :aria-label="`Himno ${number} de ${total}: ${current.title}. Ir a otro himno`"
+        @click="showGoTo"
+      >
+        <span class="min-w-8 h-7 px-2 inline-flex items-center justify-center rounded-full bg-(--ui-text-inverted)/15 text-base font-bold tabular-nums">
           {{ number }}
         </span>
       </button>
@@ -69,7 +77,7 @@ const isLarge = useMediaQuery("(min-width: 1024px)");
       v-else
       to="/"
       class="pointer-events-auto h-12 inline-flex items-center gap-2 rounded-full bg-primary text-inverted pl-2.5 pr-4 shadow-[0_10px_28px_-10px_var(--brand-shadow)]"
-      aria-label="Acapela, ir a la lectura"
+      aria-label="Acapela, ir al inicio"
     >
       <AppBrandMark class="size-8" />
       <span class="wordmark text-[1.2rem] leading-none">Acapela</span>
