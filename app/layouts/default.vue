@@ -10,9 +10,9 @@ const bare = computed(() => route.meta.bare === true);
 </script>
 
 <template>
-  <div class="flex flex-col h-screen max-h-screen relative">
+  <div class="relative" :class="bare ? 'min-h-dvh' : 'flex flex-col h-dvh overflow-hidden'">
     <AppOptionsBar v-if="!bare" @update:open="showFontSidebar = !showFontSidebar" />
-    <main class="flex-1 flex flex-col">
+    <main class="flex-1 flex flex-col min-h-0">
       <slot />
     </main>
     <AppNavBar v-if="!bare" />

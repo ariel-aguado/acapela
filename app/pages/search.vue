@@ -222,8 +222,8 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="flex flex-col h-[calc(100dvh-64px-52px)] w-full max-w-2xl mx-auto min-w-0">
-    <div class="flex flex-col gap-2 px-4 pt-3 pb-3 bg-base-100 border-b border-base-200 shadow-sm z-10">
+  <div class="flex flex-col h-dvh pad-bar-top w-full max-w-2xl mx-auto min-w-0">
+    <div class="flex flex-col gap-2 px-4 pt-1 pb-3 bg-base-100 border-b border-base-200 z-10">
       <label for="query" class="text-sm font-medium">Número, título o una frase de la letra</label>
       <div class="input input-lg w-full flex items-center gap-2 pr-1">
         <Icon
@@ -282,7 +282,7 @@ onMounted(async () => {
       </div>
     </div>
 
-    <div ref="resultsRef" class="context flex-1 overflow-y-auto">
+    <div ref="resultsRef" class="context flex-1 overflow-y-auto pad-bar-bottom">
       <!-- ===================== Results ===================== -->
       <template v-if="hasQuery">
         <section v-if="isNumberQuery" aria-labelledby="g-number">

@@ -2,13 +2,13 @@
 const { toast, runAction, hide } = useUndoToast();
 const route = useRoute();
 
-// Above the bottom navigation (52px) and, on the reading view, above the
-// hymn pager (64px).
 const bottomOffset = computed(() => {
   if (route.meta.bare === true)
     return "1rem";
-  const bars = route.name === "index" ? 52 + 64 : 52;
-  return `calc(${bars}px + 0.75rem + env(safe-area-inset-bottom, 0px))`;
+  // Above the floating nav and, on the reading view, the floating pager.
+  return route.name === "index"
+    ? "calc(var(--bar-bottom) + var(--pager-h) + 4px)"
+    : "var(--bar-bottom)";
 });
 </script>
 

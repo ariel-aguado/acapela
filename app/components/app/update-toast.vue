@@ -1,13 +1,13 @@
 <script setup lang="ts">
 const { show, applyUpdate } = useUpdateNotification();
-// Sit above the bottom navigation bar (52px) and, on the reading view,
-// above the hymn pager (64px) instead of covering them.
 const route = useRoute();
 const bottomOffset = computed(() => {
   if (route.meta.bare === true)
     return "0.75rem";
-  const bars = route.name === "index" ? 52 + 64 : 52;
-  return `calc(${bars}px + 0.75rem + env(safe-area-inset-bottom, 0px))`;
+  // Above the floating nav and, on the reading view, the floating pager.
+  return route.name === "index"
+    ? "calc(var(--bar-bottom) + var(--pager-h) + 4px)"
+    : "var(--bar-bottom)";
 });
 </script>
 

@@ -31,7 +31,7 @@ const favorites = computed<FilteredSong[]>(() =>
 </script>
 
 <template>
-  <div class="flex flex-col h-[calc(100dvh-64px-52px)] w-full max-w-2xl mx-auto min-w-0 overflow-y-auto">
+  <div class="page-scroll flex flex-col w-full max-w-2xl mx-auto min-w-0">
     <div role="tablist" aria-label="Mis himnos" class="tabs tabs-border shrink-0 border-b border-base-200 px-2">
       <button
         id="tab-favoritos"

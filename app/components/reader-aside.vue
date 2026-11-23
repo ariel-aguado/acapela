@@ -35,7 +35,7 @@ watch(
 
 <template>
   <aside
-    class="w-80 shrink-0 flex-col h-[calc(100dvh-64px-52px)] border-r border-base-300 bg-base-100"
+    class="w-80 shrink-0 flex-col h-dvh pad-bar-top pad-bar-bottom border-r border-base-300 bg-base-100"
     aria-label="Himnos"
   >
     <div class="p-3 border-b border-base-200">

@@ -12,6 +12,49 @@
 
 :root {
   font-family: var(--font-display);
+  /* Floating bars. Space each one takes from the screen edge:
+     margin + height + gap before content. Content scrolls underneath. */
+  --float-gap: 8px;
+  --bar-top-h: 48px;
+  --bar-bottom-h: 60px;
+  --pager-h: 56px;
+  --bar-top: calc(env(safe-area-inset-top, 0px) + var(--float-gap) + var(--bar-top-h) + var(--float-gap));
+  --bar-bottom: calc(env(safe-area-inset-bottom, 0px) + 12px + var(--bar-bottom-h) + var(--float-gap));
+}
+
+/* Translucent floating surface (bottom navigation, reading pager). */
+.glass {
+  background: color-mix(in oklab, var(--color-base-100) 80%, transparent);
+  -webkit-backdrop-filter: blur(18px) saturate(1.5);
+  backdrop-filter: blur(18px) saturate(1.5);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  box-shadow:
+    0 12px 32px -12px rgb(20 12 60 / 0.45),
+    0 2px 6px rgb(20 12 60 / 0.08);
+}
+
+.float-top {
+  top: calc(env(safe-area-inset-top, 0px) + var(--float-gap));
+}
+.float-bottom {
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+}
+
+/* A full-height page that scrolls under both floating bars. */
+.page-scroll {
+  height: 100dvh;
+  overflow-y: auto;
+  padding-top: var(--bar-top);
+  padding-bottom: var(--bar-bottom);
+}
+.pad-bar-top {
+  padding-top: var(--bar-top);
+}
+.pad-bar-bottom {
+  padding-bottom: var(--bar-bottom);
+}
+.rail-height {
+  height: calc(100dvh - var(--bar-top) - var(--bar-bottom) - 9rem);
 }
 
 .modal {

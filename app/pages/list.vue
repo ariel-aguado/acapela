@@ -39,7 +39,7 @@ async function useList() {
 </script>
 
 <template>
-  <div class="h-[calc(100dvh-64px-52px)] overflow-y-auto">
+  <div class="page-scroll">
     <div class="w-full max-w-2xl mx-auto px-4 py-6 flex flex-col gap-4">
       <template v-if="ids.length && (book || !bookId)">
         <div>

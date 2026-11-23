@@ -22,7 +22,7 @@ function favCount(id: string) {
 </script>
 
 <template>
-  <div class="h-[calc(100dvh-64px-52px)] overflow-y-auto">
+  <div class="page-scroll">
     <div class="w-full max-w-2xl mx-auto px-4 py-4 flex flex-col gap-8">
       <!-- Himnario -->
       <fieldset class="flex flex-col gap-2">

@@ -179,12 +179,12 @@ onMounted(async () => {
           >
             <article
               v-if="song"
-              class="hymn flex flex-col w-full h-[calc(100dvh-64px-52px)] overflow-y-auto"
+              class="hymn reader-scroll flex flex-col w-full overflow-y-auto"
               :data-song="song.songId"
               :aria-labelledby="`hymn-title-${song.songId}`"
             >
               <header
-                class="sticky top-0 z-10 bg-base-100/95 backdrop-blur-sm border-b border-base-200 px-4 pt-3 pb-2"
+                class="sticky top-0 z-10 mx-2 sm:mx-3 rounded-2xl bg-base-100 shadow-[0_8px_20px_-14px_rgb(20_12_60/0.5)] px-3 pt-2.5 pb-2"
               >
                 <div class="mx-auto w-full max-w-[38rem]">
                   <h2
@@ -205,7 +205,7 @@ onMounted(async () => {
                 </div>
               </header>
               <div
-                class="mx-auto w-full max-w-[40rem] font-lyric px-4 pt-5 pb-24 flex flex-col gap-5"
+                class="mx-auto w-full max-w-[40rem] font-lyric px-4 pt-4 flex flex-col gap-5"
                 :style="{ fontSize: `${fontSize}px`, lineHeight: 1.55 }"
               >
                 <template v-for="(block, bi) in song.blocks" :key="`b-${song.songId}-${bi}`">
@@ -232,12 +232,12 @@ onMounted(async () => {
          not depend on a hidden swipe gesture. -->
       <nav
         v-if="status !== 'loading' && total > 0"
-        class="absolute inset-x-0 bottom-0 z-20 flex items-center gap-2 px-2 py-2 bg-base-100/95 backdrop-blur-sm border-t border-base-300"
+        class="glass reader-pager absolute left-1/2 -translate-x-1/2 z-20 w-[calc(100%-1.5rem)] max-w-md h-[var(--pager-h)] rounded-full flex items-center gap-1 px-1.5"
         aria-label="Cambiar de himno"
       >
         <button
           type="button"
-          class="btn btn-ghost h-11 min-w-0 flex-1 justify-start gap-1 px-2"
+          class="btn btn-ghost h-11 min-w-0 flex-1 justify-start gap-1 px-3 rounded-full"
           :disabled="!hasPrev"
           :aria-label="hasPrev ? `Himno anterior, ${current - 1}` : 'No hay himno anterior'"
           @click="goPrev"
@@ -258,7 +258,7 @@ onMounted(async () => {
         </button>
         <button
           type="button"
-          class="btn btn-ghost h-11 min-w-0 flex-1 justify-end gap-1 px-2"
+          class="btn btn-ghost h-11 min-w-0 flex-1 justify-end gap-1 px-3 rounded-full"
           :disabled="!hasNext"
           :aria-label="hasNext ? `Himno siguiente, ${current + 1}` : 'No hay himno siguiente'"
           @click="goNext"
@@ -275,6 +275,16 @@ onMounted(async () => {
 </template>
 
 <style>
+/* Each hymn scrolls under the floating header, the pager and the nav. */
+.reader-scroll {
+  height: 100dvh;
+  padding-top: var(--bar-top);
+  padding-bottom: calc(var(--bar-bottom) + var(--pager-h) + 1.5rem);
+}
+.reader-pager {
+  bottom: calc(var(--bar-bottom) - 2px);
+}
+
 .swiper {
   width: 100%;
   height: 100%;

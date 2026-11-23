@@ -17,25 +17,20 @@ function isActive(match: string[]) {
 
 <template>
   <nav
-    class="h-[52px] flex items-stretch bg-base-100 border-t border-base-300 z-10"
+    class="glass float-bottom fixed left-1/2 -translate-x-1/2 z-30 w-[calc(100%-1.5rem)] max-w-md h-[60px] rounded-full flex items-stretch px-1.5"
     aria-label="Navegación principal"
   >
     <NuxtLink
       v-for="item in items"
       :key="item.to"
       :to="item.to"
-      class="flex-1 flex flex-col items-center justify-center gap-0.5 text-[11px] leading-none transition-colors"
+      class="flex-1 my-1.5 rounded-full flex flex-col items-center justify-center gap-0.5 text-[11px] leading-none transition-colors"
       :class="isActive(item.match)
-        ? 'text-primary font-bold'
-        : 'text-base-content/70 font-medium hover:text-base-content'"
+        ? 'bg-primary/15 text-primary font-bold'
+        : 'text-base-content/70 font-medium hover:text-base-content hover:bg-base-content/5'"
       :aria-current="isActive(item.match) ? 'page' : undefined"
     >
-      <span
-        class="flex items-center justify-center h-7 w-14 rounded-full"
-        :class="isActive(item.match) ? 'bg-primary/15' : ''"
-      >
-        <Icon :name="item.icon" size="22" />
-      </span>
+      <Icon :name="item.icon" size="22" />
       <span>{{ item.label }}</span>
     </NuxtLink>
   </nav>
