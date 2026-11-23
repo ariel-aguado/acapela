@@ -68,6 +68,10 @@ export default defineNuxtConfig({
       tailwindcss(),
     ],
   },
+  routeRules: {
+    // The service list was removed; links shared before open the app.
+    "/list": { redirect: "/" },
+  },
   colorMode: {
     dataValue: "theme",
   },

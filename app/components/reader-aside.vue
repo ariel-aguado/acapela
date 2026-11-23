@@ -1,11 +1,9 @@
 <script lang="ts" setup>
-// Left column of the reader on tablets and computers: the service list and
-// every hymn, filterable by number or title, with the open one highlighted.
+// Left column of the reader on tablets and computers: every hymn, filterable by number or title, with the open one highlighted.
 const props = defineProps<{ current: number }>();
 const emit = defineEmits<{ (e: "go", songId: number): void }>();
 
 const { songs } = storeToRefs(useSongStore());
-const presentation = usePresentationStore();
 const filter = ref("");
 const listRef = shallowRef<HTMLElement | null>(null);
 
@@ -18,10 +16,6 @@ const rows = computed(() => {
     return all.filter(r => String(r.id).startsWith(q));
   return all.filter(r => normalizeLyric(r.title).includes(q));
 });
-
-const setlist = computed(() =>
-  presentation.items.map(id => ({ id, title: songs.value[id - 1]?.title ?? "" })),
-);
 
 watch(
   () => props.current,
@@ -58,28 +52,6 @@ watch(
       </div>
     </div>
     <div ref="listRef" class="flex-1 overflow-y-auto">
-      <section v-if="setlist.length && !filter" aria-labelledby="aside-setlist">
-        <h3 id="aside-setlist" class="px-4 pt-3 pb-1 text-xs font-bold uppercase tracking-wider opacity-70 truncate">
-          {{ presentation.title }}
-        </h3>
-        <ol>
-          <li v-for="item in setlist" :key="`s-${item.id}`">
-            <button
-              type="button"
-              class="aside-row"
-              :class="{ 'aside-row--on': item.id === current }"
-              :aria-current="item.id === current ? 'true' : undefined"
-              @click="emit('go', item.id)"
-            >
-              <span class="aside-row__no">{{ item.id }}</span>
-              <span class="truncate">{{ item.title }}</span>
-            </button>
-          </li>
-        </ol>
-        <h3 class="px-4 pt-4 pb-1 text-xs font-bold uppercase tracking-wider opacity-70">
-          Todos los himnos
-        </h3>
-      </section>
       <ul>
         <li v-for="row in rows" :key="row.id">
           <button

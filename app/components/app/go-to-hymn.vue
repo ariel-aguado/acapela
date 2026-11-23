@@ -5,7 +5,7 @@
 // jumping instead of discovering a mistake afterwards.
 const props = withDefaults(defineProps<{
   open: boolean;
-  /** Dialog title, e.g. "Agregar a la lista". */
+  /** Dialog title. */
   heading?: string;
   /** Submit button label. */
   actionLabel?: string;

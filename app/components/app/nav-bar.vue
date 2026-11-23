@@ -11,7 +11,7 @@ const left = [
   { to: "/search", label: "Buscar", icon: "tabler:search", match: ["/search", "/fully-search"] },
 ];
 const right = [
-  { to: "/favorites", label: "Favoritos", icon: "tabler:heart", match: ["/favorites", "/list"] },
+  { to: "/favorites", label: "Favoritos", icon: "tabler:heart", match: ["/favorites"] },
   { to: "/settings", label: "Ajustes", icon: "tabler:settings", match: ["/settings", "/about"] },
 ];
 

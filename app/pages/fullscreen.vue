@@ -5,8 +5,8 @@ import type { ProjectorState } from "~/composables/use-projector-channel";
 import { PROJECTOR_WINDOW_NAME } from "~/composables/use-projector-channel";
 import { SCALE_MAX, SCALE_MIN, SCALE_STEP } from "~/stores/presentation";
 
-// Operator console. The person projecting sees what is live, what comes next
-// and the service list; the congregation sees only the slide, either in a
+// Operator console. The person projecting sees what is live and what comes
+// next; the congregation sees only the slide, either in a
 // separate projector window (synced over BroadcastChannel) or on this screen
 // in full screen.
 definePageMeta({ bare: true });
@@ -75,12 +75,11 @@ function loadHymn(id: number | null) {
   if (id && id >= 1 && id <= total.value)
     songId.value = id;
 }
-// In the list → its neighbour; otherwise the next / previous number.
 function nextHymn() {
-  loadHymn(presentation.neighbour(current.value, 1) ?? (presentation.has(current.value) ? null : current.value + 1));
+  loadHymn(current.value + 1);
 }
 function prevHymn() {
-  loadHymn(presentation.neighbour(current.value, -1) ?? (presentation.has(current.value) ? null : current.value - 1));
+  loadHymn(current.value - 1);
 }
 
 function changeScale(delta: number) {
@@ -88,16 +87,7 @@ function changeScale(delta: number) {
 }
 
 const atEnd = computed(() => slides.value.length > 0 && slideIndex.value === slides.value.length - 1);
-const nextHymnId = computed(() => presentation.neighbour(current.value, 1));
-
-// ------------------------------------------------------------ setlist
-const setlistSongs = computed(() =>
-  presentation.items.map(id => ({ id, title: songs.value[id - 1]?.title ?? "" })),
-);
-
-function addCurrent() {
-  presentation.add(current.value);
-}
+const nextHymnId = computed(() => (current.value < total.value ? current.value + 1 : null));
 
 // ------------------------------------------------------------ keyboard
 function blocked(e: KeyboardEvent) {
@@ -141,7 +131,7 @@ const shortcutGroups: ShortcutGroup[] = [
   {
     title: "Himnos",
     items: [
-      { keys: ["N"], label: "Siguiente himno de la lista (o el número siguiente)" },
+      { keys: ["N"], label: "Himno siguiente" },
       { keys: ["P"], label: "Himno anterior" },
       { keys: ["G"], label: "Ir a un himno por número" },
     ],
@@ -324,16 +314,13 @@ onMounted(() => songStore.getSongs());
         <p v-if="atEnd" class="text-sm opacity-80">
           Fin del himno.
           <template v-if="nextHymnId">
-            <kbd class="kbd kbd-xs">N</kbd> pasa al {{ nextHymnId }} de la lista.
-          </template>
-          <template v-else>
-            <kbd class="kbd kbd-xs">N</kbd> pasa al siguiente.
+            <kbd class="kbd kbd-xs">N</kbd> pasa al {{ nextHymnId }}.
           </template>
         </p>
       </section>
 
-      <!-- Next + service list -->
-      <aside class="flex flex-col gap-3 min-w-0 order-3" aria-label="Siguiente y lista del culto">
+      <!-- Next -->
+      <aside class="flex flex-col gap-3 min-w-0 order-3" aria-label="Siguiente">
         <div class="flex flex-col gap-1">
           <h2 class="text-xs font-bold uppercase tracking-wider opacity-70">
             Siguiente
@@ -352,43 +339,6 @@ onMounted(() => songStore.getSongs());
             </div>
           </div>
         </div>
-
-        <section class="flex flex-col gap-1 min-h-0" aria-labelledby="c-list">
-          <div class="flex items-center justify-between">
-            <h2 id="c-list" class="text-xs font-bold uppercase tracking-wider opacity-70 truncate">
-              {{ presentation.title }}
-            </h2>
-            <NuxtLink to="/favorites?tab=lista" class="btn btn-link btn-xs px-0">
-              Editar
-            </NuxtLink>
-          </div>
-          <ol v-if="setlistSongs.length" class="flex flex-col rounded-box bg-base-100 divide-y divide-base-200 overflow-y-auto">
-            <li v-for="item in setlistSongs" :key="item.id">
-              <button
-                type="button"
-                class="w-full flex items-center gap-2 px-3 py-2 text-start text-sm hover:bg-base-200"
-                :class="{ 'font-bold bg-primary/10': item.id === current }"
-                :aria-current="item.id === current ? 'true' : undefined"
-                @click="loadHymn(item.id)"
-              >
-                <span class="w-8 text-end font-semibold text-primary tabular-nums">{{ item.id }}</span>
-                <span class="flex-1 truncate">{{ item.title }}</span>
-              </button>
-            </li>
-          </ol>
-          <p v-else class="text-sm opacity-70 rounded-box bg-base-100 px-3 py-3">
-            Aún no hay himnos en la lista. Agrega el actual o prepárala desde Favoritos.
-          </p>
-          <button
-            v-if="!presentation.has(current)"
-            type="button"
-            class="btn btn-ghost btn-sm justify-start"
-            @click="addCurrent"
-          >
-            <Icon name="tabler:playlist-add" size="18" />
-            Agregar el {{ current }} a la lista
-          </button>
-        </section>
       </aside>
     </main>
 
