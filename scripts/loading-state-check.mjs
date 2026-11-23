@@ -4,7 +4,7 @@
 import { spawn } from "node:child_process"
 import { setTimeout as sleep } from "node:timers/promises"
 
-const PORT = 3500
+const PORT = 3600
 const URL = `http://localhost:${PORT}/`
 
 function log(label, value) {
