@@ -157,8 +157,8 @@ function run(action: () => void) {
               class="menu-row"
               @click="run(() => emit('update:open'))"
             >
-              <Icon name="tabler:text-size" size="22" aria-hidden="true" />
-              Tamaño de letra
+              <Icon name="tabler:letter-case" size="22" aria-hidden="true" />
+              Apariencia
             </button>
           </li>
           <li v-if="isLarge" role="none">

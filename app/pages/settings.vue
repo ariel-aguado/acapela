@@ -60,15 +60,16 @@ function favCount(id: string) {
         </p>
       </fieldset>
 
-      <!-- Lectura -->
-      <section class="flex flex-col gap-2" aria-labelledby="s-reading">
-        <h2 id="s-reading" class="sr-only">
-          Lectura
+      <!-- Apariencia: the same two controls as the reading view's panel -->
+      <section class="flex flex-col gap-4" aria-labelledby="s-appearance">
+        <h2 id="s-appearance" class="font-medium">
+          Apariencia
         </h2>
-        <AppFontSizeControl />
+        <div class="rounded-box border border-base-300 p-4 flex flex-col gap-6">
+          <AppFontSizeControl />
+          <AppThemeControl />
+        </div>
       </section>
-
-      <AppThemeControl />
 
       <!-- App -->
       <section class="flex flex-col gap-2" aria-labelledby="s-app">

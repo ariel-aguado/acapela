@@ -1,6 +1,7 @@
 <script setup lang="ts">
-// Bottom sheet for the reading view: same control as Ajustes, with a scrim
-// that makes it clearly modal and a visible "Listo" to close it.
+// "Apariencia" bottom sheet for the reading view (like the Aa panel of
+// reading apps): letter size and theme together, the same controls as in
+// Ajustes, with a scrim that makes it clearly modal and a visible "Listo".
 const props = defineProps<{ open: boolean }>();
 const emit = defineEmits(["update:open"]);
 
@@ -35,13 +36,16 @@ onKeyStroke("Escape", () => {
         <div class="mx-auto mb-3 h-1.5 w-10 rounded-full bg-base-300" aria-hidden="true" />
         <div class="flex items-center justify-between mb-3">
           <h2 id="font-sheet-title" class="text-lg font-bold">
-            Lectura
+            Apariencia
           </h2>
           <button type="button" class="btn btn-primary btn-sm h-10 px-5" @click="close">
             Listo
           </button>
         </div>
-        <AppFontSizeControl />
+        <div class="flex flex-col gap-6">
+          <AppFontSizeControl />
+          <AppThemeControl />
+        </div>
       </div>
     </Transition>
   </div>
