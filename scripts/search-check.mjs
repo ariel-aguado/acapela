@@ -100,6 +100,31 @@ async function cdpEval(wsUrl, expression, awaitPromise = false) {
   })
 }
 
+// Polls until `condition` (a JS expression) is true in the page, instead of
+// sleeping a fixed time: a cold start can take longer than any fixed wait,
+// and the check would then read the previous page. Errors while the page is
+// navigating count as "not yet".
+async function waitUntil(page, condition, label, timeoutMs = 30000) {
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    try {
+      const r = await cdpEval(page.webSocketDebuggerUrl, `(() => { try { return !!(${condition}) } catch { return false } })()`)
+      if (r.result?.value === true) return
+    }
+    catch { /* page navigating */ }
+    await sleep(250)
+  }
+  throw new Error(`timed out waiting for ${label}`)
+}
+
+// The app is on `path`, the page has loaded and the songbook is in the store.
+// Navigations below first set window.__leaving, so a page that has not been
+// replaced yet (e.g. /search → /search) is never taken as the new one.
+const appReady = path => `!window.__leaving
+  && location.pathname === ${JSON.stringify(path)}
+  && document.readyState === "complete"
+  && (document.querySelector("#__nuxt")?.__vue_app__?.config.globalProperties.$pinia?._s.get("useSongStore")?.songs.length ?? 0) > 0`
+
 const evalState = async (page, script) => {
   const result = (await cdpEval(page.webSocketDebuggerUrl, script, true)).result.value
   return JSON.parse(result)
@@ -116,10 +141,10 @@ try {
   // Wait for the manifest to load on first run, then seed the songbook
   // selection so the worker boots with a songbook (the app now requires the
   // user to pick one on first run).
-  await sleep(2000)
+  await waitUntil(page, `document.readyState === "complete" && document.querySelector("#__nuxt")?.__vue_app__`, "first load")
   await cdpEval(page.webSocketDebuggerUrl,
-    `localStorage.setItem('songbookId', 'songbook-montevideo'); location.reload();`)
-  await sleep(6000)
+    `window.__leaving = true; localStorage.setItem('songbookId', 'songbook-montevideo'); location.reload();`)
+  await waitUntil(page, appReady("/"), "songbook loaded on /")
 
   // ============================================================
   // 1. Worker is ready with 380 songs
@@ -239,9 +264,10 @@ try {
   // ============================================================
   console.log("\n=== Test 3: fully-search.vue page + worker integration ===")
   await cdpEval(page.webSocketDebuggerUrl, `(() => {
+    window.__leaving = true;
     window.location.assign("/fully-search");
   })()`)
-  await sleep(8000)
+  await waitUntil(page, `${appReady("/search")} && document.querySelector("input[type='search']")`, "/fully-search → /search")
 
   const fsPageState = await evalState(page, `(() => {
     const root = document.querySelector("#__nuxt");
@@ -320,9 +346,10 @@ try {
   // ============================================================
   console.log("\n=== Test 4: search.vue renders songs ===")
   await cdpEval(page.webSocketDebuggerUrl, `(() => {
+    window.__leaving = true;
     window.location.assign("/search");
   })()`)
-  await sleep(8000)
+  await waitUntil(page, `${appReady("/search")} && document.querySelector("input[type='search']")`, "/search")
 
   const searchPageState = await evalState(page, `(() => {
     const root = document.querySelector("#__nuxt");
