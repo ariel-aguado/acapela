@@ -20,6 +20,7 @@ const songStore = useSongStore();
     <button
       type="button"
       class="flex justify-center items-center bg-secondary hover:cursor-pointer font-bold text-xl text-white aspect-square w-12 h-12 p-2 rounded-full"
+      :aria-label="`Abrir himno ${song.songId}, ${song.title}`"
       @click="songStore.navigateToSong(song.songId)"
     >
       {{ song.songId }}
@@ -46,7 +47,12 @@ const songStore = useSongStore();
       <!-- Favorite -->
       <label class="swap p-4">
         <!-- this hidden checkbox controls the state -->
-        <input type="checkbox" :checked="song.favorite" @change="emit('favoriteOff', song)">
+        <input
+          type="checkbox"
+          :checked="song.favorite"
+          :aria-label="song.favorite ? `Quitar «${song.title}» de favoritos` : `Agregar «${song.title}» a favoritos`"
+          @change="emit('favoriteOff', song)"
+        >
 
         <!-- favorite on icon -->
         <Icon name="tabler:heart-filled" size="28" class="swap-on fill-current text-secondary" />

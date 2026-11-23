@@ -20,10 +20,20 @@ const emit = defineEmits(["update:open"]);
       </div>
     </div>
     <div class="navbar-end flex items-center gap-2">
+      <!-- Presentation is opened on purpose, only where it makes sense
+           (large screens), instead of an automatic redirect. -->
+      <NuxtLink
+        v-if="$route.path === '/'"
+        to="/fullscreen"
+        class="btn btn-sm rounded-full bg-primary-content text-primary border-0 hidden lg:inline-flex"
+      >
+        <Icon name="tabler:presentation" size="18" />
+        Proyectar
+      </NuxtLink>
       <button
         v-if="$route.path === '/'"
         class="btn btn-circle btn-ghost"
-        aria-label="Ajustar fuente"
+        aria-label="Tamaño de letra"
         @click="emit('update:open')"
       >
         <Icon name="tabler:text-size" size="28" class="text-white" />

@@ -108,7 +108,7 @@ watch(searchResult, () => {
 <template>
   <div class="flex flex-col h-[calc(100dvh-64px-52px)] max-w-screen min-w-0 md:min-w-2xl md:max-w-2xl md:mx-auto md:pt-8">
     <div class="sticky top-0 z-10 shadow-md md:shadow-none p-4 bg-base-100 dark:bg-content backdrop-blur-sm">
-      <span>Introduzca cualquier palabra:</span>
+      <label for="query">Busca una palabra o frase de la letra</label>
       <label class="input w-full mt-2">
         <Icon name="carbon:search" size="16" class="text-secondary" />
         <input
@@ -118,6 +118,7 @@ watch(searchResult, () => {
           v-focus
           type="search"
           autocomplete="off"
+          placeholder="Por ejemplo: cuán grande"
           @input="performMark"
           @blur="saveSearchHistory"
         >
@@ -152,10 +153,10 @@ watch(searchResult, () => {
         <span class="text-base font-normal">Búsquedas recientes</span>
         <button
           type="button"
-          class="btn btn-secondary rounded-full"
+          class="btn btn-ghost btn-sm"
           @click="clearSearchHistory"
         >
-          Limpiar
+          Borrar historial
         </button>
       </div>
       <div
@@ -165,7 +166,7 @@ watch(searchResult, () => {
       >
         <button
           type="button"
-          class="flex-1 btn btn-ghost btn-sm flex justify-start items-center gap-2 px-0"
+          class="flex-1 btn btn-ghost h-11 flex justify-start items-center gap-2 px-0"
           @click="setQuery(history)"
         >
           <Icon name="carbon:recently-viewed" size="20" class="text-secondary" />
@@ -173,7 +174,8 @@ watch(searchResult, () => {
         </button>
         <button
           type="button"
-          class="btn btn-ghost btn-sm px-0"
+          class="btn btn-ghost btn-square h-11 w-11"
+          :aria-label="`Quitar «${history}» del historial`"
           @click="removeSearchHistory(history)"
         >
           <Icon name="carbon:close-large" size="20" class="text-secondary" />
@@ -185,7 +187,8 @@ watch(searchResult, () => {
 
 <style>
 mark {
-  background: orange;
-  color: black;
+  background: var(--color-warning);
+  color: var(--color-warning-content);
+  border-radius: 2px;
 }
 </style>

@@ -59,7 +59,7 @@ const shouldRender = computed(() => props.status === "loading" || props.status =
           {{ message }}
         </p>
         <p v-if="status === 'error'" class="boot-loader__hint">
-          Verificá tu conexión y recargá la página.
+          Revisa tu conexión y vuelve a cargar la página.
         </p>
       </div>
     </div>

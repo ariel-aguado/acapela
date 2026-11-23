@@ -1,5 +1,14 @@
 <script setup lang="ts">
 const { show, applyUpdate } = useUpdateNotification();
+// Sit above the bottom navigation bar (52px) and, on the reading view,
+// above the hymn pager (64px) instead of covering them.
+const route = useRoute();
+const bottomOffset = computed(() => {
+  if (route.name === "fullscreen")
+    return "0.75rem";
+  const bars = route.name === "index" ? 52 + 64 : 52;
+  return `calc(${bars}px + 0.75rem + env(safe-area-inset-bottom, 0px))`;
+});
 </script>
 
 <template>
@@ -7,6 +16,7 @@ const { show, applyUpdate } = useUpdateNotification();
     <div
       v-if="show"
       class="update-toast"
+      :style="{ bottom: bottomOffset }"
       role="status"
       aria-live="polite"
     >
@@ -18,7 +28,7 @@ const { show, applyUpdate } = useUpdateNotification();
           Nueva versión disponible
         </p>
         <p class="update-toast__subtitle">
-          Recargá para ver el himnario actualizado
+          Vuelve a cargar para ver el himnario actualizado
         </p>
       </div>
       <div class="update-toast__actions">

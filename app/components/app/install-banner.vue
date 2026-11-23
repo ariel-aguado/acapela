@@ -1,12 +1,30 @@
 <script setup lang="ts">
 const { showBanner, install, dismiss } = usePwaInstall();
+// One notice at a time: the update notice wins because it affects the
+// content the user is reading right now.
+const { show: updatePending } = useUpdateNotification();
+const route = useRoute();
+// Never over the projected slides; the install option stays available
+// from every other view.
+const visible = computed(() =>
+  showBanner.value && !updatePending.value && route.name !== "fullscreen",
+);
+// Sit above the bottom navigation bar (52px) and, on the reading view,
+// above the hymn pager (64px) instead of covering them.
+const bottomOffset = computed(() => {
+  if (route.name === "fullscreen")
+    return "0.75rem";
+  const bars = route.name === "index" ? 52 + 64 : 52;
+  return `calc(${bars}px + 0.75rem + env(safe-area-inset-bottom, 0px))`;
+});
 </script>
 
 <template>
   <Transition name="banner-slide">
     <div
-      v-if="showBanner"
+      v-if="visible"
       class="install-banner"
+      :style="{ bottom: bottomOffset }"
       role="region"
       aria-label="Instalar aplicación"
     >

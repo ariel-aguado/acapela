@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { Navigation } from "swiper/modules";
 import { Swiper, SwiperSlide } from "swiper/vue";
-import { z } from "zod";
 // Swiper styles
 import "swiper/css";
 import "swiper/css/navigation";
@@ -20,76 +19,50 @@ const { status } = useSongbookWorker();
 const fontStore = useFontStore();
 const { fontSize } = storeToRefs(fontStore);
 
-// New song ID input
-const newSongId = ref<number | null>(null);
-
-// Html elements
-const newSongInput = shallowRef<HTMLInputElement | null>(null);
-const songNumberModal = shallowRef<HTMLDialogElement>();
-const showDialog = ref(false);
+// "Ir al himno" sheet
+const showGoTo = ref(false);
 
 // Swiper reference
-const swiper = shallowRef();
+const swiper = shallowRef<any>(null);
 let _ignoreNextActiveChange = false;
 
+const total = computed(() => songs.value.length);
+const current = computed(() => Number(songId.value) || 1);
+const hasPrev = computed(() => current.value > 1);
+const hasNext = computed(() => current.value < total.value);
+
 // Init swiper instance
-function onSwiper(swiper: any) {
-  swiper.value = swiper;
+function onSwiper(instance: any) {
+  swiper.value = instance;
   // Prevent the initial active-index-change event from overwriting the persisted songId
   _ignoreNextActiveChange = true;
-  swiper.value.slideTo((Number(songId.value) || 1) - 1, 0);
+  instance.slideTo(current.value - 1, 0);
 };
 
-// New song schema validation (dynamic max based on loaded songs)
-const maxSongId = computed(() => Math.max(songs.value.length, 1));
-const validationSchema = z.object({
-  newSongId: z.coerce
-    .number()
-    // Empty string coerces to NaN; treat as required error
-    .refine(val => !Number.isNaN(val), {
-      message: "El número del himno es requerido",
-    })
-    .min(1, { message: "El número del himno debe ser mayor que 0" })
-    .refine(val => val <= maxSongId.value, {
-      message: `El número del himno debe ser menor o igual a ${maxSongId.value}`,
-    }),
-});
-
-// Populate the validation composable
-const { validatePartial, isValid, getError, errors } = useValidation(
-  validationSchema,
-  { newSongId },
-  {
-    mode: "partial",
-  },
-);
-
-// Function to validate the new song ID
-async function validateSongId() {
-  await validatePartial({
-    newSongId: newSongId.value,
-  });
-}
-
-function navigateToSong() {
-  // Initialize the swiper for the first time
+function getSwiper() {
   if (!swiper.value) {
     const el = document.querySelector(".swiper") as any;
     if (el && el.swiper)
       swiper.value = el.swiper;
   }
-
-  // Navigate to the song with the given ID
-  swiper.value.slideTo(Number(newSongId.value) - 1, 0);
-
-  // Close the modal
-  songNumberModal.value?.close();
-
-  // Reset new song ID
-  newSongId.value = null;
+  return swiper.value;
 }
 
-async function onActiveIndexChange(swiper: any) {
+function goToSong(id: number) {
+  getSwiper()?.slideTo(id - 1, 0);
+}
+
+function goPrev() {
+  if (hasPrev.value)
+    getSwiper()?.slidePrev();
+}
+
+function goNext() {
+  if (hasNext.value)
+    getSwiper()?.slideNext();
+}
+
+async function onActiveIndexChange(instance: any) {
   setTimeout(() => {
     // If we set the slide programmatically during init, ignore the first event
     if (_ignoreNextActiveChange) {
@@ -98,46 +71,8 @@ async function onActiveIndexChange(swiper: any) {
     }
 
     // Update the current song index (coerce to number)
-    songId.value = Number(swiper.activeIndex) + 1;
+    songId.value = Number(instance.activeIndex) + 1;
   }, 50);
-}
-
-// Function to show the song number modal
-async function showUpSongNumberModal() {
-  errors.value = {};
-  showDialog.value = true;
-  await nextTick();
-  songNumberModal.value?.showModal();
-  // Wait for modal and transition to be fully visible before focusing
-  setTimeout(() => {
-    newSongInput.value?.focus();
-  }, 150);
-}
-
-// Function to hide the song number modal
-function cancelSongNumberModal() {
-  newSongId.value = null;
-  showDialog.value = false;
-  setTimeout(() => {
-    songNumberModal.value?.close();
-  }, 200); // Wait for animation
-}
-
-// Function to handle navigation to the song
-async function onNavigateToSong() {
-  // Validate the song ID
-  await validateSongId();
-
-  // If schema failed, stop; useValidation will surface the error
-  if (!isValid.value)
-    return;
-
-  // If the song ID is valid, navigate to the song
-  if (isValid.value) {
-    // Reset validation errors
-    errors.value = {};
-    navigateToSong();
-  }
 }
 
 onMounted(async () => {
@@ -170,6 +105,7 @@ onMounted(async () => {
         :slides-per-view="1"
         :space-between="0"
         :navigation="true"
+        :threshold="24"
         @active-index-change="onActiveIndexChange"
         @swiper="onSwiper"
       >
@@ -194,61 +130,47 @@ onMounted(async () => {
       </Swiper>
     </div>
 
-    <!-- Show the song number modal -->
-    <button
-      type="button"
-      class="btn btn-secondary btn-sm absolute w-14 h-14 aspect-square bottom-5 right-5 p-0 rounded-xl z-20"
-      @click="showUpSongNumberModal()"
+    <!-- Reading pager: visible prev / go-to / next, so changing hymn does
+         not depend on a hidden swipe gesture. -->
+    <nav
+      v-if="status !== 'loading' && total > 0"
+      class="absolute inset-x-0 bottom-0 z-20 flex items-center gap-2 px-2 py-2 bg-base-100/95 backdrop-blur-sm border-t border-base-300"
+      aria-label="Cambiar de himno"
     >
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        width="32"
-        height="32"
-        viewBox="0 0 24 24"
-      ><path fill="#e0e0e1" d="M20 9c0-.55-.45-1-1-1h-3V5c0-.55-.45-1-1-1s-1 .45-1 1v3h-4V5c0-.55-.45-1-1-1s-1 .45-1 1v3H5c-.55 0-1 .45-1 1s.45 1 1 1h3v4H5c-.55 0-1 .45-1 1s.45 1 1 1h3v3c0 .55.45 1 1 1s1-.45 1-1v-3h4v3c0 .55.45 1 1 1s1-.45 1-1v-3h3c.55 0 1-.45 1-1s-.45-1-1-1h-3v-4h3c.55 0 1-.45 1-1m-6 5h-4v-4h4z" /></svg>
-    </button>
+      <button
+        type="button"
+        class="btn btn-ghost h-11 min-w-0 flex-1 justify-start gap-1 px-2"
+        :disabled="!hasPrev"
+        :aria-label="hasPrev ? `Himno anterior, ${current - 1}` : 'No hay himno anterior'"
+        @click="goPrev"
+      >
+        <Icon name="tabler:chevron-left" size="24" />
+        <span v-if="hasPrev" class="tabular-nums">{{ current - 1 }}</span>
+      </button>
+      <button
+        type="button"
+        class="btn btn-primary h-11 rounded-full px-5 flex-none gap-2"
+        @click="showGoTo = true"
+      >
+        <Icon name="tabler:hash" size="20" />
+        <span class="flex flex-col items-start leading-tight">
+          <span>Ir al himno</span>
+          <span class="text-[11px] font-normal opacity-85 tabular-nums">{{ current }} de {{ total }}</span>
+        </span>
+      </button>
+      <button
+        type="button"
+        class="btn btn-ghost h-11 min-w-0 flex-1 justify-end gap-1 px-2"
+        :disabled="!hasNext"
+        :aria-label="hasNext ? `Himno siguiente, ${current + 1}` : 'No hay himno siguiente'"
+        @click="goNext"
+      >
+        <span v-if="hasNext" class="tabular-nums">{{ current + 1 }}</span>
+        <Icon name="tabler:chevron-right" size="24" />
+      </button>
+    </nav>
 
-    <!-- Song number modal with transition -->
-    <transition name="slide-down">
-      <dialog v-if="showDialog" ref="songNumberModal" class="modal">
-        <div class="modal-box">
-          <div class="flex justify-between items-center">
-            <h3 class="text-lg font-bold">
-              Elija un himno
-            </h3>
-            <button class="btn btn-ghost rounded-full p-0 w-8 h-8" @click="cancelSongNumberModal">
-              <Icon name="tabler:x" size="20" />
-            </button>
-          </div>
-          <p class="mt-2">
-            Por favor, escriba el número del himno:
-          </p>
-          <div class="modal-action w-full mt-2">
-            <form class="w-full" @submit.prevent="onNavigateToSong">
-              <input
-                ref="newSongInput"
-                v-model.number="newSongId"
-                name="newSongId"
-                type="number"
-                class="input w-full"
-                :class="{
-                  'input-error': !!getError('newSongId'),
-                }"
-              >
-              <small class="leading-4 label text-error">{{ getError('newSongId') }}</small>
-              <div class="flex justify-end gap-2 mt-4">
-                <button type="button" class="btn btn-ghost" @click="cancelSongNumberModal">
-                  Cancelar
-                </button>
-                <button type="submit" class="btn btn-secondary">
-                  OK
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      </dialog>
-    </transition>
+    <AppGoToHymn v-model:open="showGoTo" @go="goToSong" />
   </div>
 </template>
 
@@ -274,29 +196,5 @@ table td {
 .swiper-button-prev,
 .swiper-button-next {
   display: none;
-}
-
-/* Slide down transition for scroll title */
-.slide-down-enter-active {
-  transition: all 0.1s cubic-bezier(0.4, 0, 0.2, 1);
-}
-.slide-down-leave-active {
-  transition: all 0.1s cubic-bezier(0.4, 0, 0.2, 1);
-}
-.slide-down-enter-from {
-  opacity: 0;
-  transform: translateY(-32px);
-}
-.slide-down-enter-to {
-  opacity: 1;
-  transform: translateY(0);
-}
-.slide-down-leave-from {
-  opacity: 1;
-  transform: translateY(0);
-}
-.slide-down-leave-to {
-  opacity: 0;
-  transform: translateY(-32px);
 }
 </style>

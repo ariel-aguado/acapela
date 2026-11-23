@@ -1,24 +1,10 @@
 <script lang="ts" setup>
-const isLargeScreen = useMediaQuery("(min-width: 1024px)");
+// The screen width never decides the task: reading stays available on
+// laptops and tablets, and presentation is opened on purpose from the
+// header ("Proyectar") instead of by an automatic redirect.
 const route = useRoute();
-// const router = useRouter();
 
 const showFontSidebar = ref(false);
-
-watchEffect(async () => {
-  if (isLargeScreen.value) {
-    if (route.name === "index") {
-      // router.replace("/fullscreen");
-      navigateTo("/fullscreen");
-    }
-  }
-  else {
-    if (route.name === "fullscreen") {
-      // router.replace("/");
-      navigateTo("/");
-    }
-  }
-});
 </script>
 
 <template>

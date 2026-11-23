@@ -251,7 +251,7 @@ try {
     return JSON.stringify({
       url: window.location.pathname,
       hasSearchInput: !!document.querySelector("input[type='search']"),
-      hasIntroText: document.body.textContent.includes("Introduzca"),
+      hasIntroText: document.body.textContent.includes("Busca una palabra"),
       storeSongs: store.songs.length,
       searchHistoryCount: store.searchHistory.length,
     });
@@ -297,7 +297,7 @@ try {
       inputValue: document.querySelector("input[type='search']")?.value,
       storeSongs: store.songs.length,
       historyLen: store.searchHistory.length,
-      bodyHasSearchContent: document.body.textContent.includes("Introduzca") || document.body.textContent.includes("Buscar"),
+      bodyHasSearchContent: document.body.textContent.includes("Busca una palabra") || document.body.textContent.includes("Buscar"),
       emptyStateVisible: !!document.querySelector("img[alt='Empty state']"),
       contextContainerExists: !!document.querySelector(".context"),
       contextChildren: document.querySelector(".context")?.children?.length || 0,

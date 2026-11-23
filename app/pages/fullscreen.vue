@@ -1,9 +1,5 @@
 <script lang="ts" setup>
 import { marked } from "marked";
-import { z } from "zod";
-
-// Color mode
-const colorMode = useColorMode();
 
 // Song store
 const songStore = useSongStore();
@@ -23,8 +19,6 @@ const Reveal = ref<any>(null);
 const revealStyle = shallowRef<HTMLLinkElement | null>(null);
 // let themeStyle: HTMLLinkElement | null = null;
 
-const songNumberModal = shallowRef<HTMLDialogElement>();
-const newSongInput = shallowRef<HTMLInputElement | null>(null);
 const newSongId = ref<number | null>(null);
 const stanzaLineCounts = ref<number[]>([]);
 const isSongNumberDialogVisible = ref(false);
@@ -40,30 +34,6 @@ const stanzas = computed(() => {
     return [];
   return parseSong(song.lyric);
 });
-
-// New song schema validation (dynamic max based on loaded songs)
-const maxSongId = computed(() => Math.max(songs.value.length, 1));
-const validationSchema = z.object({
-  newSongId: z.coerce
-    .number()
-    // Empty string coerces to NaN; treat as required error
-    .refine(val => !Number.isNaN(val), {
-      message: "El número del himno es requerido",
-    })
-    .min(1, { message: "El número del himno debe ser mayor que 0" })
-    .refine(val => val <= maxSongId.value, {
-      message: `El número del himno debe ser menor o igual a ${maxSongId.value}`,
-    }),
-});
-
-// Populate the validation composable
-const { validatePartial, isValid, getError, errors } = useValidation(
-  validationSchema,
-  { newSongId },
-  {
-    mode: "partial",
-  },
-);
 
 // Load RevealJS Css
 function loadRevealCss() {
@@ -133,67 +103,32 @@ function parseSong(text: string): string[] {
   return intercalado;
 }
 
-// Validate the new song ID
-async function validateSongId() {
-  await validatePartial({
-    newSongId: newSongId.value,
-  });
-}
-
 // Navigate to the selected song
-async function navigateToSong() {
-  // Update the current song index
-  songId.value = JSON.parse(JSON.stringify(newSongId.value));
-
-  // Close the modal
-  songNumberModal.value?.close();
-
-  // Reset new song ID
-  newSongId.value = null;
-}
-
-// Handle navigation to the song
-async function onNavigateToSong() {
-  // Validate the song ID
-  await validateSongId();
-
-  // If schema failed, stop; useValidation will surface the error
-  if (!isValid.value)
+function navigateToSong() {
+  if (newSongId.value === null)
     return;
-
-  // If the song ID is valid, navigate to the song
-  if (isValid.value) {
-    // Reset validation errors
-    errors.value = {};
-    // Reset stanzas and font sizes
-    stanzaLineCounts.value = [];
-    fontSizes.value = [];
-    navigateToSong();
-    recreateRevealInstance();
-  }
-}
-
-// Hide the song number modal
-function cancelSongNumberModal() {
+  songId.value = newSongId.value;
   newSongId.value = null;
-  isSongNumberDialogVisible.value = false;
-  setTimeout(() => {
-    songNumberModal.value?.close();
-  }, 200); // Wait for animation
 }
 
-// Show the song number modal
-async function showUpSongNumberModal() {
-  errors.value = {};
+// Jump to a song chosen in the "Ir al himno" dialog
+function goToSong(id: number) {
+  newSongId.value = id;
+  stanzaLineCounts.value = [];
+  fontSizes.value = [];
+  navigateToSong();
+  recreateRevealInstance();
+}
+
+// Show the "Ir al himno" dialog
+function showUpSongNumberModal() {
   isSongNumberDialogVisible.value = true;
-  setTimeout(() => {
-    songNumberModal.value?.showModal();
-    newSongInput.value?.focus();
-  }, 50);
 }
 
 // Navigate to next song
 async function navigateToNextSong() {
+  if (songId.value >= songs.value.length)
+    return;
   newSongId.value = songId.value + 1;
   // Reset stanzas and font sizes
   stanzaLineCounts.value = [];
@@ -204,6 +139,8 @@ async function navigateToNextSong() {
 
 // Navigate to prev song
 async function navigateToPrevSong() {
+  if (songId.value <= 1)
+    return;
   newSongId.value = songId.value - 1;
   // Reset stanzas and font sizes
   stanzaLineCounts.value = [];
@@ -261,52 +198,40 @@ async function recreateRevealInstance() {
   Reveal.value.slide(0);
 }
 
-// Increase font size with up key
-onKeyStroke("ArrowUp", () => {
+// Single-key shortcuts must not fire while the "Ir al himno" dialog is open
+// or while the user is typing in a field.
+function shortcutsBlocked(e: KeyboardEvent) {
+  const target = e.target as HTMLElement | null;
+  const typing = !!target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable);
+  return isSongNumberDialogVisible.value || typing || e.ctrlKey || e.metaKey || e.altKey;
+}
+
+function shortcut(key: string, handler: () => void) {
+  onKeyStroke(key, (e) => {
+    if (shortcutsBlocked(e))
+      return;
+    handler();
+  }, { target: document, dedupe: true });
+}
+
+// Increase / decrease font size of the current stanza
+shortcut("ArrowUp", () => {
   const slideIndex = Reveal.value?.getIndices().h ?? 0;
   fontSizes.value[slideIndex] = fontSizes.value[slideIndex] + 2;
 });
-
-// Decrease font size with down key
-onKeyStroke("ArrowDown", () => {
+shortcut("ArrowDown", () => {
   const slideIndex = Reveal.value?.getIndices().h ?? 0;
   fontSizes.value[slideIndex] = Math.max(fontSizes.value[slideIndex] - 2, 12);
 });
 
-// Navigate to about page
-onKeyStroke("a", () => {
-  navigateTo("/about");
-}, { target: document, dedupe: true });
-
-// Navigate to search songs by number and title
-onKeyStroke("t", () => {
-  navigateTo("/search");
-}, { target: document, dedupe: true });
-
-// Navigate to full text search songs
-onKeyStroke("s", () => {
-  navigateTo("/fully-search");
-}, { target: document, dedupe: true });
-
-// Go to next song with n key
-onKeyStroke("n", () => {
-  navigateToNextSong();
-}, { target: document, dedupe: true });
-
-// Go to prev song with p key
-onKeyStroke("p", () => {
-  navigateToPrevSong();
-}, { target: document, dedupe: true });
-
-// Show up number modal with g key
-onKeyStroke("g", () => {
-  showUpSongNumberModal();
-}, { target: document, dedupe: true });
+shortcut("a", () => navigateTo("/about"));
+shortcut("t", () => navigateTo("/search"));
+shortcut("s", () => navigateTo("/fully-search"));
+shortcut("n", () => navigateToNextSong());
+shortcut("p", () => navigateToPrevSong());
+shortcut("g", () => showUpSongNumberModal());
 
 onMounted(async () => {
-  // Set light mode in fullscreen by default
-  colorMode.preference = "light";
-
   await songStore.getSongs();
 
   if (status.value !== "loading") {
@@ -408,7 +333,12 @@ watchEffect(() => {
     <!-- Fab Navigation -->
     <div v-if="isFabNavVisible" class="fab bottom-18 right-8">
       <!-- a focusable div with tabindex is necessary to work on all browsers. role="button" is necessary for accessibility -->
-      <div tabindex="0" role="button" class="btn btn-lg btn-circle btn-secondary">
+      <div
+        tabindex="0"
+        role="button"
+        class="btn btn-lg btn-circle btn-secondary"
+        aria-label="Opciones de presentación"
+      >
         <Icon name="tabler:brand-netease-music" size="32" />
       </div>
 
@@ -423,7 +353,12 @@ watchEffect(() => {
           Presiona
           <kbd class="kbd">n</kbd>
         </div>
-        <button :disabled="songs.length === songId" class="btn btn-circle btn-lg" @click="navigateToNextSong()">
+        <button
+          :disabled="songs.length === songId"
+          class="btn btn-circle btn-lg"
+          aria-label="Himno siguiente"
+          @click="navigateToNextSong()"
+        >
           <Icon name="tabler:player-track-next-filled" size="24" />
         </button>
       </div>
@@ -435,6 +370,7 @@ watchEffect(() => {
         <button
           :disabled="songId === 1"
           class="btn btn-circle btn-lg"
+          aria-label="Himno anterior"
           @click="navigateToPrevSong()"
         >
           <Icon name="tabler:player-track-prev-filled" size="24" />
@@ -445,7 +381,7 @@ watchEffect(() => {
           Presiona
           <kbd class="kbd">g</kbd>
         </div>
-        <button class="btn btn-circle btn-lg" @click="showUpSongNumberModal()">
+        <button class="btn btn-circle btn-lg" aria-label="Ir al himno" @click="showUpSongNumberModal()">
           <svg
             xmlns="http://www.w3.org/2000/svg"
             width="32"
@@ -459,19 +395,16 @@ watchEffect(() => {
           Presiona
           <kbd class="kbd">t</kbd>
         </p>
-        <button class="btn btn-circle btn-lg" @click="navigateTo('/search')">
+        <button class="btn btn-circle btn-lg" aria-label="Buscar por número o título" @click="navigateTo('/search')">
           <Icon name="tabler:music-search" size="24" />
         </button>
       </div>
-      <!-- <button class="btn btn-circle btn-lg" @click="navigateTo('/fully-search')">
-        <Icon name="tabler:search" size="24" />
-      </button> -->
       <div class="flex items-center gap-2">
         <div>
           Presiona
           <kbd class="kbd">s</kbd>
         </div>
-        <button class="btn btn-circle btn-lg" @click="navigateTo('/fully-search')">
+        <button class="btn btn-circle btn-lg" aria-label="Buscar en la letra" @click="navigateTo('/fully-search')">
           <Icon name="tabler:search" size="24" />
         </button>
       </div>
@@ -480,53 +413,21 @@ watchEffect(() => {
           Presiona
           <kbd class="kbd">a</kbd>
         </div>
-        <button class="btn btn-circle btn-lg" @click="navigateTo('/about')">
+        <button class="btn btn-circle btn-lg" aria-label="Acerca de Acapela" @click="navigateTo('/about')">
           <Icon name="tabler:music-cog" size="24" />
+        </button>
+      </div>
+      <div class="flex items-center gap-2">
+        <div>
+          Salir de la presentación
+        </div>
+        <button class="btn btn-circle btn-lg" aria-label="Salir de la presentación" @click="navigateTo('/')">
+          <Icon name="tabler:arrow-back-up" size="24" />
         </button>
       </div>
     </div>
 
-    <!-- Song number modal with transition -->
-    <transition name="modal-fade">
-      <dialog v-if="isSongNumberDialogVisible" ref="songNumberModal" class="modal">
-        <div class="modal-box">
-          <div class="flex justify-between items-center">
-            <h3 class="text-lg font-bold">
-              Elija un himno
-            </h3>
-            <button class="btn btn-ghost rounded-full p-0 w-8 h-8" @click="isSongNumberDialogVisible = false">
-              <Icon name="tabler:x" size="20" />
-            </button>
-          </div>
-          <p class="mt-2">
-            Por favor, escriba el número del himno:
-          </p>
-          <div class="modal-action w-full mt-2">
-            <form class="w-full" @submit.prevent="onNavigateToSong">
-              <input
-                ref="newSongInput"
-                v-model.number="newSongId"
-                name="newSongId"
-                type="number"
-                class="input w-full"
-                :class="{
-                  'input-error': !!getError('newSongId'),
-                }"
-              >
-              <small class="leading-4 label text-error mt-2">{{ getError('newSongId') }}</small>
-              <div class="flex justify-end gap-2 mt-4">
-                <button type="button" class="btn btn-ghost" @click="cancelSongNumberModal">
-                  Cancelar
-                </button>
-                <button type="submit" class="btn btn-secondary">
-                  OK
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      </dialog>
-    </transition>
+    <AppGoToHymn v-model:open="isSongNumberDialogVisible" @go="goToSong" />
   </div>
 </template>
 

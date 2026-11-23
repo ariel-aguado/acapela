@@ -185,15 +185,15 @@ watch(isSearching, (searching) => {
         <span v-if="isFiltering" class="px-2 mr-auto">Buscar por título:</span>
       </Transition>
 
-      <label class="swap relative">
-        <input v-model="isFiltering" type="checkbox">
+      <label class="swap relative w-12 h-12">
+        <input v-model="isFiltering" type="checkbox" aria-label="Buscar por título">
         <Icon name="tabler:filter-off" size="28" class="swap-on fill-current text-secondary" />
         <Icon name="tabler:filter" size="28" class="swap-off fill-current text-secondary" />
         <div v-if="query.length > 0" class="badge badge-xs bg-primary absolute -top-1 -right-1" />
       </label>
 
-      <label class="swap">
-        <input v-model="isFavorites" type="checkbox">
+      <label class="swap w-12 h-12">
+        <input v-model="isFavorites" type="checkbox" aria-label="Mostrar solo favoritos">
         <Icon name="tabler:heart-filled" size="28" class="swap-on fill-current text-primary" />
         <Icon name="tabler:heart" size="28" class="swap-off fill-current text-secondary" />
       </label>
@@ -210,6 +210,8 @@ watch(isSearching, (searching) => {
             v-focus
             type="search"
             autocomplete="off"
+            aria-label="Número o título del himno"
+            placeholder="Número o título"
             @input="performMark"
           >
         </label>
