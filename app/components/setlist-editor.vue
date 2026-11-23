@@ -19,6 +19,21 @@ const rows = computed(() =>
   })),
 );
 
+// One row menu open at a time ("⋯": Subir, Bajar, Quitar).
+const openMenu = ref<number | null>(null);
+const listRef = shallowRef<HTMLElement | null>(null);
+onClickOutside(listRef, () => (openMenu.value = null));
+onKeyStroke("Escape", () => (openMenu.value = null));
+
+function toggleMenu(id: number) {
+  openMenu.value = openMenu.value === id ? null : id;
+}
+
+function rowAction(action: () => void) {
+  openMenu.value = null;
+  action();
+}
+
 function saveTitle() {
   presentation.title = titleDraft.value;
 }
@@ -93,43 +108,72 @@ function project() {
       >
     </div>
 
-    <ol v-if="rows.length" class="rounded-box border border-base-300 divide-y divide-base-300 overflow-hidden">
-      <li v-for="row in rows" :key="row.id" class="flex items-center gap-1 pl-3 pr-1">
-        <span class="w-6 text-xs opacity-60 tabular-nums">{{ row.index + 1 }}.</span>
+    <ol v-if="rows.length" ref="listRef" class="rounded-box border border-base-300 divide-y divide-base-300">
+      <li
+        v-for="row in rows"
+        :key="row.id"
+        class="relative flex items-center gap-1 pl-4 pr-1.5"
+      >
         <button
           type="button"
-          class="flex-1 min-w-0 flex items-center gap-3 py-2.5 text-start"
+          class="flex-1 min-w-0 flex items-center gap-3 py-3.5 text-start"
           @click="songStore.navigateToSong(row.id)"
         >
-          <span class="w-9 text-end text-lg font-semibold text-primary tabular-nums">{{ row.id }}</span>
-          <span class="flex-1 min-w-0 font-semibold leading-snug line-clamp-2">{{ row.title }}</span>
+          <span class="shrink-0 min-w-11 text-end text-xl font-bold text-primary tabular-nums leading-none">{{ row.id }}</span>
+          <span class="min-w-0 text-base font-semibold leading-snug">{{ row.title }}</span>
         </button>
         <button
           type="button"
-          class="btn btn-ghost btn-square h-11 w-11"
-          :aria-label="`Subir el ${row.id}`"
-          :disabled="row.index === 0"
-          @click="presentation.move(row.id, -1)"
+          class="btn btn-ghost btn-circle h-11 w-11 shrink-0"
+          :aria-label="`Opciones para el ${row.id}, ${row.title}`"
+          aria-haspopup="menu"
+          :aria-expanded="openMenu === row.id"
+          @click="toggleMenu(row.id)"
         >
-          <Icon name="tabler:arrow-up" size="20" />
+          <Icon name="tabler:dots-vertical" size="22" />
         </button>
-        <button
-          type="button"
-          class="btn btn-ghost btn-square h-11 w-11"
-          :aria-label="`Bajar el ${row.id}`"
-          :disabled="row.index === rows.length - 1"
-          @click="presentation.move(row.id, 1)"
+
+        <ul
+          v-if="openMenu === row.id"
+          class="absolute right-2 top-[calc(100%-0.25rem)] z-20 w-56 rounded-2xl bg-base-100 border border-base-300 shadow-xl p-1.5"
+          role="menu"
         >
-          <Icon name="tabler:arrow-down" size="20" />
-        </button>
-        <button
-          type="button"
-          class="btn btn-ghost btn-square h-11 w-11"
-          :aria-label="`Quitar el ${row.id} de la lista`"
-          @click="remove(row.id)"
-        >
-          <Icon name="tabler:x" size="20" />
-        </button>
+          <li role="none">
+            <button
+              type="button"
+              role="menuitem"
+              class="row-menu-item"
+              :disabled="row.index === 0"
+              @click="rowAction(() => presentation.move(row.id, -1))"
+            >
+              <Icon name="tabler:arrow-up" size="20" aria-hidden="true" />
+              Subir
+            </button>
+          </li>
+          <li role="none">
+            <button
+              type="button"
+              role="menuitem"
+              class="row-menu-item"
+              :disabled="row.index === rows.length - 1"
+              @click="rowAction(() => presentation.move(row.id, 1))"
+            >
+              <Icon name="tabler:arrow-down" size="20" aria-hidden="true" />
+              Bajar
+            </button>
+          </li>
+          <li role="none">
+            <button
+              type="button"
+              role="menuitem"
+              class="row-menu-item text-error"
+              @click="rowAction(() => remove(row.id))"
+            >
+              <Icon name="tabler:x" size="20" aria-hidden="true" />
+              Quitar de la lista
+            </button>
+          </li>
+        </ul>
       </li>
     </ol>
     <div v-else class="rounded-box border border-dashed border-base-300 px-4 py-8 text-center flex flex-col items-center gap-2">
@@ -188,3 +232,25 @@ function project() {
     />
   </div>
 </template>
+
+<style scoped>
+.row-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.75rem;
+  text-align: start;
+}
+.row-menu-item:hover:not(:disabled),
+.row-menu-item:focus-visible {
+  background: var(--color-base-200);
+  outline: none;
+}
+.row-menu-item:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+</style>

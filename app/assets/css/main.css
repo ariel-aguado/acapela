@@ -5,6 +5,14 @@
     dark --prefersdark;
 }
 
+/* Rounded buttons and fields everywhere, matching the floating capsules.
+   Doubled :root so it outranks the built-in light/dark theme selectors,
+   which are emitted after this file's @plugin blocks. */
+:root:root,
+:root:root[data-theme] {
+  --radius-field: 2rem;
+}
+
 @theme {
   --font-display: "Inter", "sans-serif";
   --font-lyric: "Literata", Georgia, "Times New Roman", serif;

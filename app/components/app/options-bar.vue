@@ -24,19 +24,11 @@ const title = computed(() => titles[route.path] ?? "Acapela");
 
 // ------------------------------------------------------------ hymn capsule
 // While reading, the top-left capsule shows the brand and the open hymn's
-// number, and moves to the previous / next hymn. Tapping it opens "Ir al
-// himno". The title itself is at the top of the lyric.
+// number; tapping it opens "Ir al himno". The title is at the top of the
+// lyric. Changing hymn: swipe, the # button, or ← → on a keyboard.
 const current = computed(() => songStore.currentSong);
 const total = computed(() => songs.value.length);
 const number = computed(() => Number(songId.value) || 1);
-const hasPrev = computed(() => number.value > 1);
-const hasNext = computed(() => number.value < total.value);
-
-function step(delta: -1 | 1) {
-  const next = number.value + delta;
-  if (next >= 1 && next <= total.value)
-    songId.value = next;
-}
 
 // ------------------------------------------------------------ actions
 const currentIsFavorite = computed(() => (current.value ? isFavorite(current.value.songId) : false));
@@ -89,19 +81,10 @@ function run(action: () => void) {
       v-if="isReading && current"
       class="pointer-events-auto h-12 inline-flex items-center rounded-full bg-primary text-primary-content px-1 shadow-[0_10px_28px_-10px_rgb(40_20_150/0.65)]"
     >
-      <button
-        type="button"
-        class="btn btn-ghost btn-circle h-10 w-10 text-primary-content hover:bg-white/15 disabled:bg-transparent disabled:text-primary-content/40"
-        :disabled="!hasPrev"
-        :aria-label="hasPrev ? `Himno anterior, ${number - 1}` : 'No hay himno anterior'"
-        @click="step(-1)"
-      >
-        <Icon name="tabler:chevron-left" size="24" />
-      </button>
       <!-- Brand + hymn number; the title is already at the top of the lyric. -->
       <button
         type="button"
-        class="h-10 pl-1.5 pr-1 inline-flex items-center gap-1.5 rounded-full hover:bg-white/10"
+        class="h-10 pl-1.5 pr-1.5 inline-flex items-center gap-1.5 rounded-full hover:bg-white/10"
         :aria-label="`Acapela, himno ${number} de ${total}: ${current.title}. Ir a otro himno`"
         @click="showGoTo"
       >
@@ -110,15 +93,6 @@ function run(action: () => void) {
         <span class="ml-0.5 min-w-8 h-7 px-2 inline-flex items-center justify-center rounded-full bg-white/20 text-base font-bold tabular-nums">
           {{ number }}
         </span>
-      </button>
-      <button
-        type="button"
-        class="btn btn-ghost btn-circle h-10 w-10 text-primary-content hover:bg-white/15 disabled:bg-transparent disabled:text-primary-content/40"
-        :disabled="!hasNext"
-        :aria-label="hasNext ? `Himno siguiente, ${number + 1}` : 'No hay himno siguiente'"
-        @click="step(1)"
-      >
-        <Icon name="tabler:chevron-right" size="24" />
       </button>
     </div>
 
