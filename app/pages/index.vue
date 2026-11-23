@@ -207,7 +207,8 @@ onMounted(async () => {
               :aria-labelledby="`hymn-title-${song.songId}`"
             >
               <header
-                class="px-4 pt-2"
+                class="pt-2"
+                :style="{ paddingInline: 'var(--reading-margin)' }"
               >
                 <div class="mx-auto w-full max-w-[38rem]">
                   <h2
@@ -228,8 +229,8 @@ onMounted(async () => {
                 </div>
               </header>
               <div
-                class="mx-auto w-full max-w-[40rem] font-lyric px-4 pt-4 flex flex-col gap-5"
-                :style="{ fontSize: `${fontSize}px`, lineHeight: 1.55 }"
+                class="mx-auto w-full max-w-[40rem] font-lyric pt-4 flex flex-col gap-5"
+                :style="{ fontSize: `${fontSize}px`, lineHeight: 'var(--reading-line-height)', paddingInline: 'var(--reading-margin)' }"
               >
                 <template v-for="(block, bi) in song.blocks" :key="`b-${song.songId}-${bi}`">
                   <section

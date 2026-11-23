@@ -190,7 +190,7 @@ async function screenshots(cdp) {
   const captions = {
     reading: "Lee y canta cada himno con letra grande y clara",
     search: "Encuentra un himno por número, título o una frase",
-    dark: "Tamaño de letra y tema oscuro a tu medida",
+    dark: "Tamaño, interlineado y letra a tu medida",
   }
   // Narrow: 360×640 CSS px at 3× = 1080×1920.
   for (const [name, src] of Object.entries(shots)) {

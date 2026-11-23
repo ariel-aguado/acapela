@@ -74,13 +74,13 @@ const songbookItems = computed(() => manifest.value.map((sb) => {
         </p>
       </fieldset>
 
-      <!-- Apariencia: the same two controls as the reading view's panel -->
+      <!-- Apariencia: the same controls as the reading view's "Aa" sheet -->
       <section class="flex flex-col gap-4" aria-labelledby="s-appearance">
         <h2 id="s-appearance" class="font-medium">
           Apariencia
         </h2>
         <div class="rounded-2xl border border-default p-4 flex flex-col gap-6">
-          <AppFontSizeControl />
+          <AppReadingSettings />
           <AppThemeControl />
         </div>
       </section>

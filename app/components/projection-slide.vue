@@ -129,7 +129,8 @@ onMounted(async () => {
   top: 0;
   left: 0;
   transform-origin: top left;
-  font-family: var(--font-display);
+  /* Fixed: the congregation's slides do not follow the interface font. */
+  font-family: "Inter", sans-serif;
 }
 .projection-bg {
   position: absolute;

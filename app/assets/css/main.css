@@ -33,14 +33,79 @@
 /* The name "Acapela" is set in the lyric face (Literata): the brand reads
    like a hymnal while the interface stays in Inter. */
 .wordmark {
-  font-family: var(--font-lyric);
+  font-family: "Literata", Georgia, serif;
   font-weight: 600;
   letter-spacing: -0.005em;
 }
 
 @theme {
-  --font-display: "Inter", "sans-serif";
+  --font-display: "Inter", sans-serif;
   --font-lyric: "Literata", Georgia, "Times New Roman", serif;
+}
+
+/* Reading settings (see use-reading-preferences.ts, set on <html> by
+   app.vue). html[...] outranks :root. */
+html[data-reading-font="roboto-serif"] {
+  --font-lyric: "Roboto Serif", Georgia, serif;
+}
+html[data-reading-font="merriweather"] {
+  --font-lyric: "Merriweather", Georgia, serif;
+}
+html[data-reading-font="roboto"] {
+  --font-lyric: "Roboto", system-ui, sans-serif;
+}
+html[data-reading-font="open-sans"] {
+  --font-lyric: "Open Sans", system-ui, sans-serif;
+}
+html[data-reading-font="figtree"] {
+  --font-lyric: "Figtree", system-ui, sans-serif;
+}
+
+html[data-app-font="sistema"] {
+  --font-display: ui-sans-serif, system-ui, sans-serif;
+}
+html[data-app-font="figtree"] {
+  --font-display: "Figtree", ui-sans-serif, system-ui, sans-serif;
+}
+html[data-app-font="roboto"] {
+  --font-display: "Roboto", ui-sans-serif, system-ui, sans-serif;
+}
+html[data-app-font="open-sans"] {
+  --font-display: "Open Sans", ui-sans-serif, system-ui, sans-serif;
+}
+html[data-app-font="atkinson"] {
+  --font-display: "Atkinson Hyperlegible", ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Line spacing of the lyrics: 1.3 → 2.1. */
+:root {
+  --reading-line-height: 1.5;
+  --reading-margin: 1rem;
+}
+html[data-reading-line-height="0"] {
+  --reading-line-height: 1.3;
+}
+html[data-reading-line-height="2"] {
+  --reading-line-height: 1.7;
+}
+html[data-reading-line-height="3"] {
+  --reading-line-height: 1.9;
+}
+html[data-reading-line-height="4"] {
+  --reading-line-height: 2.1;
+}
+/* Distance from the screen edge: 8 → 40 px. */
+html[data-reading-margin="0"] {
+  --reading-margin: 0.5rem;
+}
+html[data-reading-margin="2"] {
+  --reading-margin: 1.5rem;
+}
+html[data-reading-margin="3"] {
+  --reading-margin: 2rem;
+}
+html[data-reading-margin="4"] {
+  --reading-margin: 2.5rem;
 }
 
 :root {

@@ -84,22 +84,75 @@ export default defineNuxtConfig({
       sizeLimitKb: 256,
     },
   },
+  // Downloaded at build time and served from our own origin (offline-first).
+  // `global: true`: the active face comes from a CSS variable set by the
+  // reading settings (see main.css), so the module's scan would not find
+  // the others. Latin only (Spanish lyrics); the lyric faces with italic,
+  // used by the choruses.
   fonts: {
+    defaults: {
+      subsets: ["latin"],
+    },
     families: [
+      // Interface (default) and lyrics (default).
       {
         name: "Inter",
         provider: "google",
+        global: true,
         weights: [300, 400, 500, 700, 900],
         styles: ["normal", "italic"],
-        subsets: ["latin"],
       },
       {
-        // Reading face for hymn lyrics (designed for long reading on screens).
         name: "Literata",
         provider: "google",
+        global: true,
         weights: [400, 600],
         styles: ["normal", "italic"],
-        subsets: ["latin"],
+      },
+      // Lyrics (Ajustes › Letra › Himnos).
+      {
+        name: "Roboto Serif",
+        provider: "google",
+        global: true,
+        weights: [400, 600],
+        styles: ["normal", "italic"],
+      },
+      {
+        name: "Merriweather",
+        provider: "google",
+        global: true,
+        weights: [400, 600],
+        styles: ["normal", "italic"],
+      },
+      // Lyrics and interface.
+      {
+        name: "Roboto",
+        provider: "google",
+        global: true,
+        weights: [400, 500, 600, 700],
+        styles: ["normal", "italic"],
+      },
+      {
+        name: "Open Sans",
+        provider: "google",
+        global: true,
+        weights: [400, 500, 600, 700],
+        styles: ["normal", "italic"],
+      },
+      {
+        name: "Figtree",
+        provider: "google",
+        global: true,
+        weights: [400, 500, 600, 700],
+        styles: ["normal", "italic"],
+      },
+      // Interface only (made for low vision).
+      {
+        name: "Atkinson Hyperlegible",
+        provider: "google",
+        global: true,
+        weights: [400, 700],
+        styles: ["normal"],
       },
     ],
   },
@@ -165,7 +218,7 @@ export default defineNuxtConfig({
           sizes: "1080x1920",
           type: "image/png",
           form_factor: "narrow",
-          label: "Tamaño de letra y tema oscuro a tu medida",
+          label: "Tamaño, interlineado y letra a tu medida",
         },
         {
           src: "screenshots/wide.png",
