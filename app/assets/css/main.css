@@ -237,3 +237,23 @@ html[data-reading-margin="4"] {
   border-start-end-radius: 0;
   border-end-end-radius: 0;
 }
+
+/* A row that scrolls sideways (v-scroll-fade-x, plugins/scroll-fade.ts):
+   the edge that still has content fades out, as in Superbiblia. */
+.scroll-fade-x {
+  --fade-start: 2rem;
+  --fade-end: 3rem;
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 var(--fade-start),
+    #000 calc(100% - var(--fade-end)),
+    transparent 100%
+  );
+}
+.scroll-fade-x.at-start {
+  --fade-start: 0px;
+}
+.scroll-fade-x.at-end {
+  --fade-end: 0px;
+}

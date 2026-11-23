@@ -228,7 +228,7 @@ const FEATURES = [
         <h3 id="home-recent" class="home__heading">
           Recientes
         </h3>
-        <ul class="recents -mx-5 px-5 flex gap-2 overflow-x-auto pb-1">
+        <ul v-scroll-fade-x class="recents -mx-5 px-5 flex gap-2 overflow-x-auto pb-1">
           <li v-for="song in recents" :key="song.songId" class="shrink-0">
             <button
               type="button"

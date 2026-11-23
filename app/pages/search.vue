@@ -405,16 +405,30 @@ onMounted(async () => {
           <h3 id="g-recent" class="group-title">
             Recientes
           </h3>
-          <ul>
+          <!-- Phone: one sideways row (as on the home page), so the full
+               list below shows up without scrolling past five rows. -->
+          <ul v-scroll-fade-x class="sm:hidden flex gap-2 overflow-x-auto px-4 pb-1 no-scrollbar">
+            <li v-for="song in recentSongs" :key="`rm-${song.songId}`" class="shrink-0">
+              <button
+                type="button"
+                class="w-40 text-start rounded-2xl border border-default px-3 py-2.5 hover:bg-elevated"
+                @click="songStore.navigateToSong(song.songId)"
+              >
+                <span class="block text-lg font-bold text-primary tabular-nums leading-tight">{{ song.songId }}</span>
+                <span class="block text-sm truncate">{{ song.title }}</span>
+              </button>
+            </li>
+          </ul>
+          <ul class="hidden sm:block">
             <li v-for="song in recentSongs" :key="`r-${song.songId}`" class="border-t border-muted first:border-t-0">
               <SongItem :song />
             </li>
           </ul>
         </section>
 
-        <section v-if="searchHistory.length" aria-labelledby="g-history" class="px-4 pb-2">
-          <div class="flex items-center justify-between">
-            <h3 id="g-history" class="group-title px-0">
+        <section v-if="searchHistory.length" aria-labelledby="g-history" class="pb-2">
+          <div class="flex items-center justify-between px-4">
+            <h3 id="g-history" class="group-title px-0!">
               Búsquedas recientes
             </h3>
             <UButton
@@ -426,14 +440,15 @@ onMounted(async () => {
               @click="clearHistory"
             />
           </div>
-          <div class="flex flex-wrap gap-2">
+          <!-- Phone: one sideways row instead of wrapped lines. -->
+          <div v-scroll-fade-x class="flex gap-2 overflow-x-auto px-4 no-scrollbar sm:flex-wrap sm:overflow-visible">
             <UButton
               v-for="entry in searchHistory"
               :key="entry"
               color="neutral"
               variant="outline"
               icon="i-tabler-clock"
-              class="h-9 font-normal"
+              class="h-9 shrink-0 font-normal"
               :label="entry"
               data-history-entry
               @click="useHistory(entry)"
@@ -444,7 +459,8 @@ onMounted(async () => {
         <section aria-labelledby="g-all">
           <div class="flex items-center justify-between gap-2 px-4 pt-4 pb-2">
             <h3 id="g-all" class="text-xs font-bold uppercase tracking-wider opacity-70">
-              Todos los himnos · {{ songs.length }}
+              Todos los himnos
+              <span class="block font-normal normal-case tracking-normal tabular-nums">{{ songs.length }} himnos</span>
             </h3>
             <div class="segmented" role="radiogroup" aria-label="Ordenar">
               <label
@@ -486,6 +502,12 @@ onMounted(async () => {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   opacity: 0.7;
+}
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }
 </style>
 
