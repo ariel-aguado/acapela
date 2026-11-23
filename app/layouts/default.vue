@@ -5,15 +5,17 @@
 const route = useRoute();
 
 const showFontSidebar = ref(false);
+// Projection screens (console and projector window) have no app chrome.
+const bare = computed(() => route.meta.bare === true);
 </script>
 
 <template>
   <div class="flex flex-col h-screen max-h-screen relative">
-    <AppOptionsBar v-if="route.name !== 'fullscreen'" @update:open="showFontSidebar = !showFontSidebar" />
+    <AppOptionsBar v-if="!bare" @update:open="showFontSidebar = !showFontSidebar" />
     <main class="flex-1 flex flex-col">
       <slot />
     </main>
-    <AppNavBar v-if="route.name !== 'fullscreen'" />
-    <AppFontSidebar v-if="route.name !== 'fullscreen'" :open="showFontSidebar" @update:open="showFontSidebar = $event" />
+    <AppNavBar v-if="!bare" />
+    <AppFontSidebar v-if="!bare" :open="showFontSidebar" @update:open="showFontSidebar = $event" />
   </div>
 </template>

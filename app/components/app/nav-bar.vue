@@ -6,7 +6,7 @@ const route = useRoute();
 const items = [
   { to: "/", label: "Cantar", icon: "tabler:music", match: ["/", "/fullscreen"] },
   { to: "/search", label: "Buscar", icon: "tabler:search", match: ["/search", "/fully-search"] },
-  { to: "/favorites", label: "Favoritos", icon: "tabler:heart", match: ["/favorites"] },
+  { to: "/favorites", label: "Favoritos", icon: "tabler:heart", match: ["/favorites", "/list"] },
   { to: "/settings", label: "Ajustes", icon: "tabler:settings", match: ["/settings", "/about"] },
 ];
 

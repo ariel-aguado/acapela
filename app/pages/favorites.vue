@@ -6,6 +6,16 @@ const songbookStore = useSongbookStore();
 const { songs, favoriteSongs } = storeToRefs(songStore);
 const { currentSongbook } = storeToRefs(songbookStore);
 const { status } = useSongbookWorker();
+const presentation = usePresentationStore();
+const route = useRoute();
+const router = useRouter();
+
+// Two views of "my hymns": saved favorites and the list for the next service.
+type Tab = "favoritos" | "lista";
+const tab = computed<Tab>({
+  get: () => (route.query.tab === "lista" ? "lista" : "favoritos"),
+  set: t => router.replace({ query: t === "lista" ? { tab: "lista" } : {} }),
+});
 
 const favorites = computed<FilteredSong[]>(() =>
   favoriteSongs.value
@@ -22,7 +32,46 @@ const favorites = computed<FilteredSong[]>(() =>
 
 <template>
   <div class="flex flex-col h-[calc(100dvh-64px-52px)] w-full max-w-2xl mx-auto min-w-0 overflow-y-auto">
-    <div v-if="status === 'loading'" class="flex justify-center py-10">
+    <div role="tablist" aria-label="Mis himnos" class="tabs tabs-border shrink-0 border-b border-base-200 px-2">
+      <button
+        id="tab-favoritos"
+        type="button"
+        role="tab"
+        class="tab h-12 flex-1"
+        :class="{ 'tab-active font-semibold': tab === 'favoritos' }"
+        :aria-selected="tab === 'favoritos'"
+        aria-controls="panel-mis-himnos"
+        @click="tab = 'favoritos'"
+      >
+        Favoritos
+        <span class="ml-1.5 opacity-60 tabular-nums">{{ favoriteSongs.length }}</span>
+      </button>
+      <button
+        id="tab-lista"
+        type="button"
+        role="tab"
+        class="tab h-12 flex-1"
+        :class="{ 'tab-active font-semibold': tab === 'lista' }"
+        :aria-selected="tab === 'lista'"
+        aria-controls="panel-mis-himnos"
+        @click="tab = 'lista'"
+      >
+        Lista del culto
+        <span class="ml-1.5 opacity-60 tabular-nums">{{ presentation.items.length }}</span>
+      </button>
+    </div>
+
+    <div
+      v-if="tab === 'lista'"
+      id="panel-mis-himnos"
+      role="tabpanel"
+      aria-labelledby="tab-lista"
+      class="p-4"
+    >
+      <SetlistEditor />
+    </div>
+
+    <div v-else-if="status === 'loading'" class="flex justify-center py-10">
       <span class="loading loading-spinner loading-lg" aria-label="Cargando" />
     </div>
 

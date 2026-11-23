@@ -4,7 +4,7 @@ const { show, applyUpdate } = useUpdateNotification();
 // above the hymn pager (64px) instead of covering them.
 const route = useRoute();
 const bottomOffset = computed(() => {
-  if (route.name === "fullscreen")
+  if (route.meta.bare === true)
     return "0.75rem";
   const bars = route.name === "index" ? 52 + 64 : 52;
   return `calc(${bars}px + 0.75rem + env(safe-area-inset-bottom, 0px))`;
@@ -14,7 +14,7 @@ const bottomOffset = computed(() => {
 <template>
   <Transition name="toast-slide">
     <div
-      v-if="show"
+      v-if="show && route.name !== 'projector'"
       class="update-toast"
       :style="{ bottom: bottomOffset }"
       role="status"

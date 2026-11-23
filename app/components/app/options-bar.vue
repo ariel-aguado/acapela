@@ -4,6 +4,8 @@ const emit = defineEmits(["update:open"]);
 const route = useRoute();
 const songStore = useSongStore();
 const { toggle, isFavorite } = useFavoriteToggle();
+const presentation = usePresentationStore();
+const { show: toast } = useUndoToast();
 
 const isReading = computed(() => route.path === "/");
 
@@ -15,6 +17,7 @@ const titles: Record<string, string> = {
   "/favorites": "Favoritos",
   "/settings": "Ajustes",
   "/about": "Acerca de",
+  "/list": "Lista compartida",
 };
 const title = computed(() => titles[route.path] ?? "Acapela");
 // The songbook matters wherever hymns are listed.
@@ -22,6 +25,28 @@ const showSongbook = computed(() => ["/", "/search", "/favorites"].includes(rout
 
 const current = computed(() => songStore.currentSong);
 const currentIsFavorite = computed(() => (current.value ? isFavorite(current.value.songId) : false));
+const inSetlist = computed(() => (current.value ? presentation.has(current.value.songId) : false));
+
+function toggleSetlist() {
+  const song = current.value;
+  if (!song)
+    return;
+  if (presentation.has(song.songId)) {
+    const before = presentation.items.slice();
+    presentation.remove(song.songId);
+    toast("Quitado de la lista del culto", {
+      label: "Deshacer",
+      run: () => presentation.replace({ title: presentation.title, items: before }),
+    });
+  }
+  else {
+    presentation.add(song.songId);
+    toast(`Agregado a «${presentation.title}»`, {
+      label: "Deshacer",
+      run: () => presentation.remove(song.songId),
+    });
+  }
+}
 </script>
 
 <template>
@@ -61,6 +86,17 @@ const currentIsFavorite = computed(() => (current.value ? isFavorite(current.val
           @click="toggle(current)"
         >
           <Icon :name="currentIsFavorite ? 'tabler:heart-filled' : 'tabler:heart'" size="26" />
+        </button>
+        <button
+          v-if="current"
+          type="button"
+          class="btn btn-circle btn-ghost h-12 w-12"
+          :aria-label="inSetlist ? 'Quitar de la lista del culto' : 'Agregar a la lista del culto'"
+          :title="inSetlist ? 'Quitar de la lista del culto' : 'Agregar a la lista del culto'"
+          :aria-pressed="inSetlist"
+          @click="toggleSetlist"
+        >
+          <Icon :name="inSetlist ? 'tabler:playlist-x' : 'tabler:playlist-add'" size="26" />
         </button>
         <button
           type="button"

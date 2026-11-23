@@ -3,7 +3,16 @@
 // view (fullscreen). Shows the valid range up front and a live preview of
 // the hymn title while typing, so the user recognizes the hymn before
 // jumping instead of discovering a mistake afterwards.
-const props = defineProps<{ open: boolean }>();
+const props = withDefaults(defineProps<{
+  open: boolean;
+  /** Dialog title, e.g. "Agregar a la lista". */
+  heading?: string;
+  /** Submit button label. */
+  actionLabel?: string;
+}>(), {
+  heading: "Ir al himno",
+  actionLabel: "Ir al himno",
+});
 const emit = defineEmits<{
   (e: "update:open", value: boolean): void;
   (e: "go", songId: number): void;
@@ -92,7 +101,7 @@ watch(
       <form class="flex flex-col gap-3" @submit.prevent="submit">
         <div class="flex justify-between items-center">
           <h3 id="go-to-hymn-title" class="text-lg font-bold">
-            Ir al himno
+            {{ heading }}
           </h3>
           <button
             type="button"
@@ -153,7 +162,7 @@ watch(
             Cancelar
           </button>
           <button type="submit" class="btn btn-primary" :disabled="!canGo">
-            Ir al himno
+            {{ actionLabel }}
           </button>
         </div>
       </form>

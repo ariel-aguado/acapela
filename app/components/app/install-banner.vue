@@ -12,12 +12,12 @@ const route = useRoute();
 const songStore = useSongStore();
 const engaged = computed(() => songStore.recentSongIds.length >= 3);
 const visible = computed(() =>
-  showBanner.value && engaged.value && !updatePending.value && route.name !== "fullscreen",
+  showBanner.value && engaged.value && !updatePending.value && route.meta.bare !== true,
 );
 // Sit above the bottom navigation bar (52px) and, on the reading view,
 // above the hymn pager (64px) instead of covering them.
 const bottomOffset = computed(() => {
-  if (route.name === "fullscreen")
+  if (route.meta.bare === true)
     return "0.75rem";
   const bars = route.name === "index" ? 52 + 64 : 52;
   return `calc(${bars}px + 0.75rem + env(safe-area-inset-bottom, 0px))`;

@@ -2,7 +2,7 @@ import { CacheableResponsePlugin } from "workbox-cacheable-response";
 import { ExpirationPlugin } from "workbox-expiration";
 import { precacheAndRoute } from "workbox-precaching";
 import { registerRoute } from "workbox-routing";
-import { CacheFirst, NetworkFirst, StaleWhileRevalidate } from "workbox-strategies";
+import { CacheFirst, StaleWhileRevalidate } from "workbox-strategies";
 
 declare const self: ServiceWorkerGlobalScope;
 
@@ -67,19 +67,6 @@ registerRoute(
     cacheName: "google-fonts-webfonts-v1",
     plugins: [
       new ExpirationPlugin({ maxEntries: 30, maxAgeSeconds: 60 * 60 * 24 * 365 }),
-      new CacheableResponsePlugin({ statuses: [0, 200] }),
-    ],
-  }),
-  "GET",
-);
-
-// Reveal.js (lazy)
-registerRoute(
-  ({ url }) => url.pathname === "/styles/reveal.css" || url.pathname.includes("/reveal.js"),
-  new NetworkFirst({
-    cacheName: "reveal-runtime-v1",
-    networkTimeoutSeconds: 5,
-    plugins: [
       new CacheableResponsePlugin({ statuses: [0, 200] }),
     ],
   }),
