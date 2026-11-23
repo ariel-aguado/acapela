@@ -3,6 +3,7 @@ const songbookStore = useSongbookStore();
 const { manifest, currentId } = storeToRefs(songbookStore);
 const { status } = useSongbookWorker();
 const { canInstall, install, isInstalled } = usePwaInstall();
+const { shareApp } = useShareApp();
 
 // Favorites are kept per songbook; read the stored map directly so each
 // songbook shows its own count, not the current one's.
@@ -109,6 +110,18 @@ const songbookItems = computed(() => manifest.value.map((sb) => {
               @click="install"
             />
           </div>
+          <button type="button" class="w-full flex items-center gap-3 px-4 min-h-14 text-start hover:bg-muted" @click="shareApp">
+            <Icon
+              name="tabler:share"
+              size="22"
+              class="opacity-70 shrink-0"
+              aria-hidden="true"
+            />
+            <span class="flex-1 flex flex-col">
+              <span class="font-semibold">Compartir Acapela</span>
+              <span class="text-sm opacity-70">Envía el enlace a quien quieras.</span>
+            </span>
+          </button>
           <NuxtLink to="/about" class="flex items-center gap-3 px-4 min-h-14 hover:bg-muted">
             <Icon
               name="tabler:info-circle"

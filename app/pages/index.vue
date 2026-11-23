@@ -11,6 +11,7 @@ const { manifest, currentId, currentSongbook } = storeToRefs(songbookStore);
 const { status } = useSongbookWorker();
 const { show: showGoTo } = useGoToHymn();
 const { canInstall, install, isInstalled } = usePwaInstall();
+const { shareApp } = useShareApp();
 const isLarge = useMediaQuery("(min-width: 1024px)");
 const favoritesBySongbook = useLocalStorage<Record<string, number[]>>("favoritesBySongbook", {});
 
@@ -133,7 +134,7 @@ const FEATURES = [
             Cantemos juntos, <em>a capela.</em>
           </h2>
           <p class="mt-3 max-w-md text-base/relaxed opacity-90">
-            Sin instrumentos y a una voz: el himnario de tu iglesia con letra grande y clara, sin conexión y gratis.
+            Sin instrumentos y a una voz.
           </p>
 
           <!-- Back to singing: the main action. -->
@@ -324,7 +325,16 @@ const FEATURES = [
         <p class="mt-1">
           Himnos y cánticos espirituales
         </p>
-        <p class="mt-1">
+        <UButton
+          color="neutral"
+          variant="outline"
+          size="lg"
+          class="mt-4"
+          icon="i-tabler-share"
+          label="Compartir Acapela"
+          @click="shareApp"
+        />
+        <p class="mt-4">
           <NuxtLink to="/about" class="text-primary underline underline-offset-2">
             Acerca de
           </NuxtLink>
