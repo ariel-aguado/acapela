@@ -1,5 +1,7 @@
 <script lang="ts" setup>
 useHead({ title: "Acerca de" });
+
+const CONTACT_EMAIL = "ariel.841207@gmail.com";
 </script>
 
 <template>
@@ -25,13 +27,47 @@ useHead({ title: "Acerca de" });
           rel="noopener noreferrer"
         >GitHub</a>.
       </p>
-      <p class="md:max-w-2xl md:mx-auto text-left md:text-center mt-4 leading-8">
-        Si necesitas ayuda, tienes alguna sugerencia o encuentras algún error, puedes contactar a través de la siguiente dirección de correo electrónico al:
-        <a
-          class="text-primary underline underline-offset-2"
-          href="mailto:ariel.841207@gmail.com"
-        >Desarrollador de Acapela</a>.
-      </p>
+      <!-- The one highlighted block of the page: contact (as in Superbiblia). -->
+      <section aria-labelledby="about-opinion" class="mt-10 mb-6 rounded-2xl border border-default bg-muted p-5 text-left">
+        <h3 id="about-opinion" class="text-lg font-semibold leading-snug">
+          Me gustaría conocer tu opinión
+        </h3>
+        <p class="mt-3 text-base leading-relaxed">
+          Si tienes alguna sugerencia, conoces un himnario que podría sumarse, encontraste un error en la letra de algún himno o algo que podemos mejorar, o simplemente deseas compartir una idea, estaré encantado de recibir tu mensaje.
+        </p>
+        <p class="mt-3 text-base leading-relaxed">
+          Cada observación puede ayudar a que Acapela continúe creciendo y cumpla mejor su propósito.
+        </p>
+
+        <dl class="mt-5 space-y-3 text-sm">
+          <div>
+            <dt class="text-muted">
+              Desarrollador
+            </dt>
+            <dd class="font-medium">
+              Ariel Aguado Albear
+            </dd>
+          </div>
+          <div>
+            <dt class="text-muted">
+              Correo electrónico
+            </dt>
+            <dd>
+              <a :href="`mailto:${CONTACT_EMAIL}`" class="font-medium break-all underline decoration-(--ui-primary) underline-offset-4">{{ CONTACT_EMAIL }}</a>
+            </dd>
+          </div>
+        </dl>
+
+        <UButton
+          :to="`mailto:${CONTACT_EMAIL}`"
+          external
+          label="Escribir por correo"
+          icon="i-tabler-mail"
+          size="lg"
+          class="mt-5 h-12 justify-center"
+          block
+        />
+      </section>
     </div>
   </div>
 </template>
