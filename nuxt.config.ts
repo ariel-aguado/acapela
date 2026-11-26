@@ -71,6 +71,25 @@ export default defineNuxtConfig({
     plugins: [
       tailwindcss(),
     ],
+    // The Bible worker imports sqlite-wasm, which loads its own wasm and
+    // worker with import.meta.url: module workers, and no esbuild
+    // pre-bundle (it breaks those URLs).
+    worker: { format: "es" },
+    optimizeDeps: {
+      exclude: ["@sqlite.org/sqlite-wasm"],
+    },
+  },
+  hooks: {
+    // The Bible worker (SQLite, a few hundred KB) runs in its own thread and
+    // only once a Bible is used: not a modulepreload of every page.
+    "build:manifest": (manifest) => {
+      for (const chunk of Object.values(manifest)) {
+        if (/bible\.worker|sqlite3-worker1|sqlite3-opfs/.test(chunk.file)) {
+          chunk.preload = false;
+          chunk.prefetch = false;
+        }
+      }
+    },
   },
   routeRules: {
     // The service list was removed; links shared before open the app.

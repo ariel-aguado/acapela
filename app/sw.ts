@@ -2,7 +2,9 @@ import { CacheableResponsePlugin } from "workbox-cacheable-response";
 import { ExpirationPlugin } from "workbox-expiration";
 import { precacheAndRoute } from "workbox-precaching";
 import { registerRoute } from "workbox-routing";
-import { CacheFirst, StaleWhileRevalidate } from "workbox-strategies";
+import { CacheFirst, NetworkFirst, StaleWhileRevalidate } from "workbox-strategies";
+
+import { BIBLE_MANIFEST_CACHE_NAME } from "../lib/bible";
 
 declare const self: ServiceWorkerGlobalScope;
 
@@ -48,6 +50,43 @@ registerRoute(
         maxEntries: 1,
         maxAgeSeconds: 60 * 60 * 24 * 30,
       }),
+    ],
+  }),
+  "GET",
+);
+
+// Bibles. The .sqlite files do NOT go through the service worker: the Bible
+// worker downloads, caches and imports them itself (app/workers/bible.worker.ts),
+// because Workbox caches with response.clone() while the download is still
+// arriving, and reading two copies at once crashes the tab in Firefox.
+//
+// The version list and each book index: network first, so a new build of a
+// version is seen at once; the cached copy when offline.
+registerRoute(
+  ({ url }) => url.pathname === "/bibles/manifest.json" || /^\/bibles\/.+\.books\.json$/i.test(url.pathname),
+  new NetworkFirst({
+    cacheName: BIBLE_MANIFEST_CACHE_NAME,
+    networkTimeoutSeconds: 3,
+    plugins: [
+      new CacheableResponsePlugin({
+        statuses: [0, 200],
+      }),
+    ],
+  }),
+  "GET",
+);
+
+// SQLite's wasm (hashed name): not precached, since the hymnal never needs
+// it, but kept the first time a Bible is used so it opens offline later.
+registerRoute(
+  ({ url }) => url.origin === self.location.origin && /\/_nuxt\/.+\.wasm$/i.test(url.pathname),
+  new CacheFirst({
+    cacheName: "wasm-cache-v1",
+    plugins: [
+      new CacheableResponsePlugin({
+        statuses: [200],
+      }),
+      new ExpirationPlugin({ maxEntries: 4 }),
     ],
   }),
   "GET",

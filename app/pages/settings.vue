@@ -86,6 +86,8 @@ const songbookItems = computed(() => manifest.value.map((sb) => {
         </div>
       </section>
 
+      <AppBibleVersions />
+
       <!-- App -->
       <section class="flex flex-col gap-2" aria-labelledby="s-app">
         <h2 id="s-app" class="font-medium">

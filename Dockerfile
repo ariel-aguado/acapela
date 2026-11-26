@@ -24,9 +24,13 @@ COPY . .
 RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
     pnpm install --offline --frozen-lockfile --ignore-scripts
 
-# El índice de himnarios se regenera con los .txt que haya en public/songs/.
+# El índice de himnarios se regenera con los .txt que haya en public/songs/, y
+# las Biblias con las bases que haya en data/biblias/ (ver su README).
 ENV NODE_ENV=production
-RUN node scripts/generate-songbook-manifest.mjs && pnpm exec nuxt generate
+RUN node scripts/generate-songbook-manifest.mjs && node scripts/build-bibles.mjs && pnpm exec nuxt generate
+# Las Biblias (7-25 MB cada una) van también comprimidas: nginx sirve el .gz
+# a quien lo acepta (gzip_static) y se descarga menos de la mitad.
+RUN find .output/public/bibles -name '*.sqlite' -exec gzip -k -9 {} \;
 
 # ---- runtime -------------------------------------------------------------
 FROM nginxinc/nginx-unprivileged:1.28-alpine AS runtime
