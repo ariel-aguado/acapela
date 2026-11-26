@@ -1,6 +1,8 @@
 <script lang="ts" setup>
 const songStore = useSongStore();
 const { filteredSongIdsByNumber, filteredSongsByNumber } = storeToRefs(songStore);
+// Every hymn of the list: the side index moves through them one by one.
+const allIds = computed(() => filteredSongsByNumber.value.map(s => s.songId));
 </script>
 
 <template>
@@ -22,6 +24,7 @@ const { filteredSongIdsByNumber, filteredSongsByNumber } = storeToRefs(songStore
     <SidebarAnchors
       :ids="filteredSongIdsByNumber"
       :sections="15"
+      :steps="allIds"
       @jump="songStore.jumpToSong"
     />
   </div>

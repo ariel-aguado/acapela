@@ -84,6 +84,12 @@ async function render(cdp, html, width, height, { scale = 1, transparent = false
     frameId: result.frameTree.frame.id,
     html: `<!doctype html><html><head><meta charset="utf-8">${FONTS}<style>html,body{margin:0;width:${width}px;height:${height}px;overflow:hidden;${transparent ? "background:transparent" : ""}}</style></head><body>${html}</body></html>`,
   })
+  // `document.fonts.status` reads "loaded" before the stylesheet has even
+  // requested the faces (and display=block hides the text meanwhile), so
+  // wait for the stylesheet and then load the faces explicitly.
+  await cdp.ev(`Promise.all([...document.querySelectorAll("link[rel=stylesheet]")].map(l => l.sheet ? 0 : new Promise(r => { l.onload = r; l.onerror = r })))
+    .then(() => Promise.all(["700 20px Literata", "600 20px Literata", "400 20px Inter", "600 20px Inter", "700 20px Inter"].map(f => document.fonts.load(f))))
+    .then(() => document.fonts.ready).then(() => true)`)
   await waitUntil(cdp, `document.fonts.status === "loaded" && [...document.images].every(i => i.complete)`, "fonts and images")
   await sleep(100)
   const shot = await cdp.send("Page.captureScreenshot", { format: "png", clip: { x: 0, y: 0, width, height, scale: 1 } })
