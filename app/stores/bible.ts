@@ -4,9 +4,6 @@ import type { ParsedBibleReference } from "~/utils/bible/parse-bible-reference";
 import type { BibleWorkerApi } from "~/workers/bible.worker";
 import type { BibleVersionStatus, DownloadProgress, VerseRow } from "~~/lib/bible";
 
-import { bookMatcher } from "~/utils/bible/books";
-import { parseBibleReference } from "~/utils/bible/parse-bible-reference";
-
 export type BiblePassage = {
   versionId: string;
   /** "Salmos 46:1-7" */
@@ -91,8 +88,7 @@ export const useBibleStore = defineStore("bible", () => {
   /** Understands a typed reference ("jn 3:16", "Sal 46:1-7") against a version's books. */
   async function parse(input: string, versionId?: string): Promise<ParsedBibleReference> {
     const id = await resolveVersionId(versionId);
-    const matcher = await bookMatcher(id);
-    return parseBibleReference(input, matcher.match, matcher.structure);
+    return useBibleWorker().parseReference(id, input);
   }
 
   /** The given version, or the one in use once the list is known. */

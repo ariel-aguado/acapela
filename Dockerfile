@@ -11,8 +11,12 @@ ARG NODE_VERSION=24
 FROM node:${NODE_VERSION}-slim AS build
 WORKDIR /app
 
-# Misma versión de pnpm que packageManager en package.json.
-RUN npm install -g pnpm@10.15.0 && pnpm --version
+# Misma versión de pnpm que packageManager en package.json. git y ssh, para
+# traer las Biblias del repo privado (más abajo).
+RUN npm install -g pnpm@10.15.0 && pnpm --version \
+ && apt-get update -qq \
+ && apt-get install -y -qq --no-install-recommends git openssh-client ca-certificates >/dev/null \
+ && rm -rf /var/lib/apt/lists/*
 
 COPY package.json pnpm-lock.yaml ./
 RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
@@ -24,8 +28,28 @@ COPY . .
 RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
     pnpm install --offline --frozen-lockfile --ignore-scripts
 
+# Biblias: las bases tienen derechos de autor y viven en un repo privado (ver
+# data/biblias/README.md). Dokploy pasa una deploy key de solo lectura como
+# build secret BIBLES_DEPLOY_KEY (la clave privada, o en base64 en una
+# línea). Sin el secreto el build sigue igual, sin Biblias.
+ARG BIBLES_REPO=git@github.com:ariel-aguado/acapela-biblias.git
+RUN --mount=type=secret,id=BIBLES_DEPLOY_KEY \
+    if [ -s /run/secrets/BIBLES_DEPLOY_KEY ]; then \
+      set -e; \
+      if grep -q "BEGIN OPENSSH PRIVATE KEY" /run/secrets/BIBLES_DEPLOY_KEY; then \
+        cp /run/secrets/BIBLES_DEPLOY_KEY /tmp/bibles_key; \
+      else base64 -d /run/secrets/BIBLES_DEPLOY_KEY > /tmp/bibles_key; fi; \
+      chmod 600 /tmp/bibles_key; \
+      echo "github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl" > /tmp/known_hosts; \
+      GIT_SSH_COMMAND="ssh -i /tmp/bibles_key -o IdentitiesOnly=yes -o UserKnownHostsFile=/tmp/known_hosts" \
+        git clone -q --depth 1 "$BIBLES_REPO" /tmp/biblias; \
+      cp /tmp/biblias/*.sqlite data/biblias/; \
+      rm -rf /tmp/bibles_key /tmp/known_hosts /tmp/biblias; \
+      ls -la data/biblias; \
+    else echo "Sin BIBLES_DEPLOY_KEY: se construye sin Biblias"; fi
+
 # El índice de himnarios se regenera con los .txt que haya en public/songs/, y
-# las Biblias con las bases que haya en data/biblias/ (ver su README).
+# las Biblias con las bases que haya en data/biblias/.
 ENV NODE_ENV=production
 RUN node scripts/generate-songbook-manifest.mjs && node scripts/build-bibles.mjs && pnpm exec nuxt generate
 # Las Biblias (7-25 MB cada una) van también comprimidas: nginx sirve el .gz

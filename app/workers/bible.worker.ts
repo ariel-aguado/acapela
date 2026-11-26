@@ -26,7 +26,11 @@ import type {
 
 import { BIBLE_DB_CACHE_NAME, BIBLE_MANIFEST_CACHE_NAME } from "~~/lib/bible";
 
+import type { ParsedBibleReference } from "../utils/bible/parse-bible-reference";
+
+import { bookMatcher } from "../utils/bible/books";
 import { buildFtsMatchQuery } from "../utils/bible/build-fts-match-query";
+import { parseBibleReference } from "../utils/bible/parse-bible-reference";
 
 const BIBLES_DIR = "/bibles";
 const VFS_NAME = "acapela-bible-sahpool";
@@ -482,7 +486,19 @@ async function search(
   ) as VerseRow[];
 }
 
+/**
+ * Understands a typed reference ("jn 3:16", "Sal 46:1-7") against a
+ * version's book index (<id>.books.json, no SQLite: the version need not
+ * be downloaded). Here and not on the main thread so Fuse.js, which ranks
+ * the book names, stays in workers, as the hymnal search does.
+ */
+async function parseReference(versionId: string, input: string): Promise<ParsedBibleReference> {
+  const matcher = await bookMatcher(versionId);
+  return parseBibleReference(input, matcher.match, matcher.structure);
+}
+
 const api = {
+  parseReference,
   getPoolStatus,
   listAvailableVersions,
   loadVersion: (versionId: string, onProgress?: (progress: DownloadProgress) => void) =>

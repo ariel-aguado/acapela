@@ -73,6 +73,7 @@ function createFollowerApi(): BibleWorkerApi {
   const relayed = Comlink.wrap<BibleWorkerApi>(new BroadcastChannel(CHANNEL_NAME)) as Remote<BibleWorkerApi>;
   const r = relayWithLeaderRetry;
   return {
+    parseReference: (versionId, input) => r(() => relayed.parseReference(versionId, input)),
     getPoolStatus: () => r(() => relayed.getPoolStatus()),
     listAvailableVersions: () => r(() => relayed.listAvailableVersions()),
     loadVersion: versionId => r(() => relayed.loadVersion(versionId)),

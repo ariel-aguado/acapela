@@ -15,7 +15,20 @@ que se usa y desde ahí funciona sin conexión.
 | `lbla.sqlite`    | La Biblia de las Américas        |
 | `dhh.sqlite`     | Dios Habla Hoy                   |
 
-Los `.sqlite` no están en este repositorio, que es público: son textos con
-derechos de autor. Sin ellos la app compila y funciona igual, solo que sin
-versiones de la Biblia para elegir. Para tenerlas, copia los archivos a esta
-carpeta.
+## De dónde salen
+
+Son textos con derechos de autor, así que los `.sqlite` no están en este
+repositorio (que es público): viven en el repositorio privado
+`acapela-biblias`.
+
+- **En el build (Dokploy):** el Dockerfile lo clona con una deploy key de solo
+  lectura que Dokploy pasa como build secret `BIBLES_DEPLOY_KEY`.
+- **En local:** con acceso al repositorio privado,
+
+  ```sh
+  git clone --depth 1 git@github.com:ariel-aguado/acapela-biblias.git /tmp/acapela-biblias
+  cp /tmp/acapela-biblias/*.sqlite data/biblias/
+  ```
+
+Sin ellas la app compila y funciona igual, solo que sin versiones de la
+Biblia para elegir.

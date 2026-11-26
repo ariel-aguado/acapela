@@ -214,7 +214,9 @@ try {
   const path = await import("node:path")
   const dir = `${process.cwd()}/.output/public/_nuxt`
   const files = fs.readdirSync(dir).filter(f => f.endsWith(".js"))
-  const mainFiles = files.filter(f => !f.includes("songbook.worker") && !f.includes("workbox"))
+  // Every web worker bundle is off the main thread (the Bible worker also
+  // ranks book names with Fuse); only the hymnal worker must have it.
+  const mainFiles = files.filter(f => !/\.worker-/.test(f) && !f.includes("workbox"))
   const workerFiles = files.filter(f => f.includes("songbook.worker"))
 
   let mainHasFuse = false
