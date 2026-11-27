@@ -587,6 +587,18 @@ function focusEditorField() {
 function mapLabelBasis(label: string | undefined) {
   return Math.max(1.25, (label?.length ?? 0) * 0.42 + 0.5);
 }
+/** A reading's name in the map: its passage, which says more than «Lectura». */
+function mapName(item: CultoItem) {
+  return item.kind === "reading"
+    ? item.reference.trim() || "Lectura"
+    : looks.value.get(item.id)?.label ?? "";
+}
+/** Room for one element of a section in the map: a reading's name, or a segment. */
+function mapItemBasis(item: CultoItem) {
+  return item.kind === "reading"
+    ? mapLabelBasis(mapName(item))
+    : 1.25;
+}
 
 // ------------------------------------------------------------ order, with sections
 // The order in blocks: an element on its own, or a section (the Lord's
@@ -857,24 +869,34 @@ onMounted(() => {
             v-if="block.kind === 'section'"
             class="flex min-w-0 flex-col gap-1"
             :class="`moment--${momentTone(block.section.moment)}`"
-            :style="{ flexGrow: block.items.length, flexBasis: `${block.items.length * 1.25}rem` }"
+            :style="{ flexGrow: block.items.length, flexBasis: `${block.items.reduce((sum, e) => sum + mapItemBasis(e.item), 0)}rem` }"
           >
             <span class="map-label truncate text-(--m-label)">{{ block.section.title }}</span>
-            <span class="flex gap-1">
-              <button
+            <!-- Its elements; a reading also says its passage over its segment. -->
+            <span class="flex items-end gap-1">
+              <span
                 v-for="entry in block.items"
                 :key="`map-${entry.item.id}`"
-                type="button"
-                class="map-seg"
-                :class="[`moment--${looks.get(entry.item.id)?.tone}`, { 'map-seg--on': entry.item.id === selectedId }]"
-                :aria-label="spokenLabel(entry)"
-                :aria-current="entry.item.id === selectedId ? 'true' : undefined"
-                :title="spokenLabel(entry)"
-                @click="choose(entry.item.id)"
+                class="flex min-w-0 flex-col gap-1"
+                :class="`moment--${looks.get(entry.item.id)?.tone}`"
+                :style="{ flexGrow: 1, flexBasis: `${mapItemBasis(entry.item)}rem` }"
               >
-                <span v-if="entry.item.kind === 'hymn'" class="map-seg__mark">{{ entry.item.songId }}</span>
-                <UIcon v-else :name="looks.get(entry.item.id)?.icon ?? ''" class="map-seg__mark size-4" />
-              </button>
+                <span v-if="entry.item.kind === 'reading'" class="map-label truncate text-(--m-label)">{{ mapName(entry.item) }}</span>
+                <span class="flex">
+                  <button
+                    type="button"
+                    class="map-seg"
+                    :class="[`moment--${looks.get(entry.item.id)?.tone}`, { 'map-seg--on': entry.item.id === selectedId }]"
+                    :aria-label="spokenLabel(entry)"
+                    :aria-current="entry.item.id === selectedId ? 'true' : undefined"
+                    :title="spokenLabel(entry)"
+                    @click="choose(entry.item.id)"
+                  >
+                    <span v-if="entry.item.kind === 'hymn'" class="map-seg__mark">{{ entry.item.songId }}</span>
+                    <UIcon v-else :name="looks.get(entry.item.id)?.icon ?? ''" class="map-seg__mark size-4" />
+                  </button>
+                </span>
+              </span>
             </span>
           </div>
           <!-- A hymn shows its number; any other element on its own, its
@@ -896,9 +918,9 @@ onMounted(() => {
             v-else
             class="flex min-w-0 flex-col gap-1"
             :class="`moment--${looks.get(block.entry.item.id)?.tone}`"
-            :style="{ flexGrow: 1, flexBasis: `${mapLabelBasis(looks.get(block.entry.item.id)?.label)}rem` }"
+            :style="{ flexGrow: 1, flexBasis: `${mapLabelBasis(mapName(block.entry.item))}rem` }"
           >
-            <span class="map-label truncate text-(--m-label)">{{ looks.get(block.entry.item.id)?.label }}</span>
+            <span class="map-label truncate text-(--m-label)">{{ mapName(block.entry.item) }}</span>
             <span class="flex">
               <button
                 type="button"
