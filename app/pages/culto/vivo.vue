@@ -922,10 +922,16 @@ function saveAsService() {
           </template>
           <nav aria-label="Orden del culto" class="flex flex-col gap-1">
             <template v-for="block in orderBlocks" :key="block.kind === 'item' ? block.item.id : `s:${block.section.id}`">
-              <p v-if="block.kind === 'section'" class="mt-2 px-3 text-[0.7rem] font-bold uppercase tracking-wider text-(--m-label)" :class="`moment--${momentTone(block.section.moment)}`">
-                {{ block.section.title }}
-              </p>
-              <div :class="block.kind === 'section' ? ['ms-2 border-s-2 border-(--m-seg) ps-1 flex flex-col gap-1', `moment--${momentTone(block.section.moment)}`] : 'contents'">
+              <!-- A section: its name and a rail in its colour in the panel's
+                   margin, outside the rows, so numbers, tiles and titles stay
+                   aligned with the rest of the order. -->
+              <div :class="block.kind === 'section' ? ['relative mt-1.5 flex flex-col gap-1', `moment--${momentTone(block.section.moment)}`] : 'contents'">
+                <template v-if="block.kind === 'section'">
+                  <span class="absolute -start-1.5 top-0.5 bottom-0.5 w-[3px] rounded-full bg-(--m-seg)" aria-hidden="true" />
+                  <p class="px-3 pt-0.5 text-[0.7rem] font-bold uppercase tracking-wider text-(--m-label)">
+                    {{ block.section.title }}
+                  </p>
+                </template>
                 <div
                   v-for="{ entry, index: i } in (block.kind === 'item' ? [block.item] : block.items)"
                   :key="entry.item.id"
