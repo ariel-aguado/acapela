@@ -607,6 +607,15 @@ function mapName(item: CultoItem) {
   }
   return looks.value.get(item.id)?.label ?? "";
 }
+/** Room for an element of a section in the map: the section's name over the first, a passage over a reading. */
+function sectionItemBasis(title: string, item: CultoItem, index: number) {
+  if (index === 0) {
+    return mapLabelBasis(item.kind === "reading"
+      ? `${title} · ${mapName(item)}`
+      : title);
+  }
+  return mapItemBasis(item);
+}
 /** Room for one element of a section in the map: a reading's name, or a segment. */
 function mapItemBasis(item: CultoItem) {
   return item.kind === "reading"
@@ -881,35 +890,37 @@ onMounted(() => {
         <template v-for="block in dragBlocks" :key="`map-${block.key}`">
           <div
             v-if="block.kind === 'section'"
-            class="flex min-w-0 flex-col gap-1"
-            :class="`moment--${momentTone(block.section.moment)}`"
-            :style="{ flexGrow: block.items.length, flexBasis: `${block.items.reduce((sum, e) => sum + mapItemBasis(e.item), 0)}rem` }"
+            class="flex min-w-0 gap-1"
+            :style="{ flexGrow: block.items.length, flexBasis: `${block.items.reduce((sum, e, i) => sum + sectionItemBasis(block.section.title, e.item, i), 0)}rem` }"
           >
-            <span class="map-label truncate text-(--m-label)">{{ block.section.title }}</span>
-            <!-- Its elements; a reading also says its passage over its segment. -->
-            <span class="flex items-end gap-1">
+            <!-- One line of names for the whole map: the section's over its
+              first element, a reading's passage over its own segment. -->
+            <span
+              v-for="(entry, i) in block.items"
+              :key="`map-${entry.item.id}`"
+              class="flex min-w-0 flex-col justify-end gap-1"
+              :class="`moment--${looks.get(entry.item.id)?.tone}`"
+              :style="{ flexGrow: 1, flexBasis: `${sectionItemBasis(block.section.title, entry.item, i)}rem` }"
+            >
               <span
-                v-for="entry in block.items"
-                :key="`map-${entry.item.id}`"
-                class="flex min-w-0 flex-col gap-1"
-                :class="`moment--${looks.get(entry.item.id)?.tone}`"
-                :style="{ flexGrow: 1, flexBasis: `${mapItemBasis(entry.item)}rem` }"
-              >
-                <span v-if="entry.item.kind === 'reading'" class="map-label map-label--ref truncate text-(--m-label)">{{ mapName(entry.item) }}</span>
-                <span class="flex">
-                  <button
-                    type="button"
-                    class="map-seg"
-                    :class="[`moment--${looks.get(entry.item.id)?.tone}`, { 'map-seg--on': entry.item.id === selectedId }]"
-                    :aria-label="spokenLabel(entry)"
-                    :aria-current="entry.item.id === selectedId ? 'true' : undefined"
-                    :title="spokenLabel(entry)"
-                    @click="choose(entry.item.id)"
-                  >
-                    <span v-if="entry.item.kind === 'hymn'" class="map-seg__mark">{{ entry.item.songId }}</span>
-                    <UIcon v-else :name="looks.get(entry.item.id)?.icon ?? ''" class="map-seg__mark size-4" />
-                  </button>
-                </span>
+                v-if="i === 0"
+                class="map-label truncate text-(--m-label)"
+                :class="`moment--${momentTone(block.section.moment)}`"
+              >{{ block.section.title }}<template v-if="entry.item.kind === 'reading'"> · <span class="map-label--ref">{{ mapName(entry.item) }}</span></template></span>
+              <span v-else-if="entry.item.kind === 'reading'" class="map-label map-label--ref truncate text-(--m-label)">{{ mapName(entry.item) }}</span>
+              <span class="flex">
+                <button
+                  type="button"
+                  class="map-seg"
+                  :class="[`moment--${looks.get(entry.item.id)?.tone}`, { 'map-seg--on': entry.item.id === selectedId }]"
+                  :aria-label="spokenLabel(entry)"
+                  :aria-current="entry.item.id === selectedId ? 'true' : undefined"
+                  :title="spokenLabel(entry)"
+                  @click="choose(entry.item.id)"
+                >
+                  <span v-if="entry.item.kind === 'hymn'" class="map-seg__mark">{{ entry.item.songId }}</span>
+                  <UIcon v-else :name="looks.get(entry.item.id)?.icon ?? ''" class="map-seg__mark size-4" />
+                </button>
               </span>
             </span>
           </div>
@@ -1319,7 +1330,7 @@ onMounted(() => {
 }
 /* The names over the service's map: sections and lone elements, small. */
 .map-label {
-  font-size: 0.6rem;
+  font-size: 0.56rem;
   font-weight: 700;
   letter-spacing: 0.06em;
   line-height: 1.2;
@@ -1327,7 +1338,7 @@ onMounted(() => {
 }
 /* A passage keeps its letters as written: «Ap 3:2-5», not «AP 3:2-5». */
 .map-label--ref {
-  font-size: 0.66rem;
+  font-size: 0.6rem;
   letter-spacing: 0.02em;
   text-transform: none;
 }
