@@ -137,7 +137,10 @@ watch(
     :ui="{ description: 'sr-only' }"
   >
     <template #body>
-      <form id="go-to-hymn-form" class="flex flex-col gap-3" @submit.prevent="submit">
+      <!-- Not a <form>, and the field has no name: Chrome on Android shows
+        its autofill strip (passwords, cards, addresses) above the keyboard
+        for form fields, covering the "Ir" button. Enter is handled here. -->
+      <div class="flex flex-col gap-3">
         <label for="go-to-hymn-input" class="text-sm">
           Número del himno
         </label>
@@ -145,12 +148,15 @@ watch(
           id="go-to-hymn-input"
           ref="inputComp"
           :model-value="value"
-          name="songId"
           type="text"
           inputmode="numeric"
           pattern="[0-9]*"
           enterkeyhint="go"
           autocomplete="off"
+          autocorrect="off"
+          spellcheck="false"
+          data-1p-ignore
+          data-lpignore="true"
           size="xl"
           class="w-full"
           :color="error ? 'error' : 'primary'"
@@ -159,6 +165,7 @@ watch(
           :aria-invalid="!!error"
           aria-describedby="go-to-hymn-hint"
           @input="onInput"
+          @keydown.enter.prevent="submit"
         />
         <p
           id="go-to-hymn-hint"
@@ -184,7 +191,7 @@ watch(
             Aquí verás el título del himno
           </span>
         </div>
-      </form>
+      </div>
     </template>
     <template #footer>
       <div class="flex justify-end gap-2 w-full">
@@ -196,11 +203,10 @@ watch(
           @click="close"
         />
         <UButton
-          type="submit"
-          form="go-to-hymn-form"
           size="lg"
           :label="actionLabel"
           :disabled="!canGo"
+          @click="submit"
         />
       </div>
     </template>
