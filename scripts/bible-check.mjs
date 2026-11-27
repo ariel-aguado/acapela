@@ -61,6 +61,8 @@ const PROFILE = "/tmp/pwa-chrome-validation-bible"
 rmSync(PROFILE, { recursive: true, force: true })
 const chrome = spawn("/usr/bin/google-chrome", [
   "--headless=new",
+  // Desktop width: Bibles and Culto are only shown on large screens.
+  "--window-size=1280,900",
   "--disable-gpu",
   "--no-sandbox",
   "--disable-dev-shm-usage",

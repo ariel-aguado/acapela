@@ -9,6 +9,10 @@ const { shareApp } = useShareApp();
 // songbook shows its own count, not the current one's.
 const favoritesBySongbook = useLocalStorage<Record<string, number[]>>("favoritesBySongbook", {});
 
+// Bibles feed Culto's readings, a desktop task: on the phone Ajustes stays
+// about the hymnal (same breakpoint as the Culto button in the header).
+const isLarge = useMediaQuery("(min-width: 1024px)");
+
 const isIos = import.meta.client && /iphone|ipad|ipod/i.test(navigator.userAgent);
 
 async function choose(id: string) {
@@ -86,7 +90,7 @@ const songbookItems = computed(() => manifest.value.map((sb) => {
         </div>
       </section>
 
-      <AppBibleVersions />
+      <AppBibleVersions v-if="isLarge" />
 
       <!-- App -->
       <section class="flex flex-col gap-2" aria-labelledby="s-app">

@@ -62,6 +62,8 @@ const PROFILE = "/tmp/pwa-chrome-validation-culto"
 rmSync(PROFILE, { recursive: true, force: true })
 const chrome = spawn("/usr/bin/google-chrome", [
   "--headless=new",
+  // Desktop width: Bibles and Culto are only shown on large screens.
+  "--window-size=1280,900",
   "--disable-gpu",
   "--no-sandbox",
   "--disable-dev-shm-usage",
@@ -219,6 +221,9 @@ try {
   await page.evaluate(`[...document.querySelectorAll('[role=dialog] button')].find(b => b.innerText.trim() === 'Insertar').click()`)
   await page.waitFor(`document.querySelector('#v-live').innerText.includes('JUAN 3:16')`, 20000)
   pass("insertado ahora: en pantalla Juan 3:16")
+  // The console ignores keys while a dialog is open, and it is still
+  // closing (its leave transition) right after "Insertar".
+  await page.waitFor(`!document.querySelector('[role=dialog]')`, 5000)
   await right(page)
   const after = await liveLabel(page)
   check(after.includes("12") && after !== before, `→ vuelve al himno donde estaba: ${after}`)
