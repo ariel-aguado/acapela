@@ -1,6 +1,6 @@
 import type { Slide } from "~/utils/slides";
 import type { VerseRow } from "~~/lib/bible";
-import type { Look, ScreenLayout, TextAlign } from "~~/lib/culto";
+import type { FieldStyle, Look, ScreenLayout, TextAlign, TextField } from "~~/lib/culto";
 
 import type { PageItem } from "./paginate";
 
@@ -35,6 +35,8 @@ export type Screen
     mediaId?: string;
     /** Chosen alignment of the text; none: the layout's own. */
     align?: TextAlign;
+    /** A style of their own for some of the texts. */
+    styles?: Partial<Record<TextField, FieldStyle>>;
     look?: Look;
   }
   | {
@@ -58,22 +60,38 @@ export function escapeHtml(text: string): string {
  * The markup of a page on the stage. The same string is used to draw it and
  * to measure it while paginating, so what was measured is what is shown.
  */
+const SELF: Record<TextAlign, string> = { start: "flex-start", center: "center", end: "flex-end" };
+
+/** The inline style of a text with a style of its own (alignment, size). */
+function fieldStyle(style: FieldStyle | undefined): string {
+  if (!style)
+    return "";
+  const css: string[] = [];
+  if (style.align)
+    css.push(`text-align:${style.align}`, `align-self:${SELF[style.align]}`);
+  if (style.scale && style.scale !== 1)
+    css.push(`zoom:${style.scale}`);
+  return css.length
+    ? ` style="${css.join(";")}"`
+    : "";
+}
+
 export function renderPage(screen: Extract<Screen, { type: "page" }>, body = screen.html): string {
   const align = screen.align
     ? ` page--align-${screen.align}`
     : "";
   const parts = [`<div class="page page--${screen.layout}${align}" style="--page-body:${Math.round(PAGE_BODY_PX * screen.scale)}px">`];
   if (screen.eyebrow)
-    parts.push(`<p class="page-eyebrow">${escapeHtml(screen.eyebrow)}</p>`);
+    parts.push(`<p class="page-eyebrow"${fieldStyle(screen.styles?.eyebrow)}>${escapeHtml(screen.eyebrow)}</p>`);
   parts.push(`<div class="page-main">`);
   if (screen.layout === "logo" && screen.mediaId)
     parts.push(`<img class="page-logo" data-media="${escapeHtml(screen.mediaId)}" alt="">`);
   if (screen.title)
-    parts.push(`<h2 class="page-title">${escapeHtml(screen.title)}</h2>`);
+    parts.push(`<h2 class="page-title"${fieldStyle(screen.styles?.title)}>${escapeHtml(screen.title)}</h2>`);
   if (screen.reference)
-    parts.push(`<p class="page-reference">${escapeHtml(screen.reference)}</p>`);
+    parts.push(`<p class="page-reference"${fieldStyle(screen.styles?.reference)}>${escapeHtml(screen.reference)}</p>`);
   if (screen.layout === "text")
-    parts.push(`<div class="page-body">${body}</div>`);
+    parts.push(`<div class="page-body"${fieldStyle(screen.styles?.body)}>${body}</div>`);
   if (screen.layout === "image" && screen.mediaId)
     parts.push(`<img class="page-media" data-media="${escapeHtml(screen.mediaId)}" alt="">`);
   parts.push(`</div>`);

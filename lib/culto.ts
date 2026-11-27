@@ -92,6 +92,11 @@ export type HymnItem = ItemBase & {
 export type ScreenLayout = "title" | "quote" | "text" | "image" | "logo";
 export type TextAlign = "start" | "center" | "end";
 
+/** The texts of a screen that can have a style of their own. */
+export type TextField = "eyebrow" | "title" | "reference" | "body";
+/** A text's own style, over the screen's: its alignment and size (1 = as the layout makes it). */
+export type FieldStyle = { align?: TextAlign; scale?: number };
+
 /**
  * Which moment of the service a screen is: it decides how the screen is told
  * apart in the order (icon and colour). Set by the template it came from or
@@ -141,6 +146,8 @@ export type ScreenItem = ItemBase & {
   moment?: ScreenMoment;
   /** How its text lines up; none: centred for a title, to the left otherwise. */
   align?: TextAlign;
+  /** A style of its own for some of its texts, over the screen's. */
+  styles?: Partial<Record<TextField, FieldStyle>>;
   /** @deprecated Moved into a section on load. */
   parts?: MomentPart[];
   /** Small label on top ("SANTA CENA"). */

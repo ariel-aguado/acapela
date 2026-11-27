@@ -1,4 +1,7 @@
 <script lang="ts" setup>
+import type { DateValue } from "@internationalized/date";
+
+import { getLocalTimeZone, parseDate, today } from "@internationalized/date";
 import { VueDraggable } from "vue-draggable-plus";
 
 import type { ItemScreens } from "~/composables/use-culto-screens";
@@ -63,11 +66,26 @@ const titleModel = computed({
   get: () => current.value?.title ?? "",
   set: (title: string) => culto.patch({ title }),
 });
-const dateModel = computed({
-  get: () => current.value?.date ?? "",
-  set: (date: string) => {
-    if (date)
-      culto.patch({ date });
+// The date, with Nuxt UI's calendar (a button with the date that opens it).
+const dateOpen = ref(false);
+const calendarDate = computed({
+  get: () => {
+    try {
+      return current.value?.date
+        ? parseDate(current.value.date)
+        : today(getLocalTimeZone());
+    }
+    catch {
+      return today(getLocalTimeZone());
+    }
+  },
+  set: (value: DateValue | undefined) => {
+    if (value) {
+      culto.patch({
+        date: value.toString(),
+      });
+    }
+    dateOpen.value = false;
   },
 });
 
@@ -444,12 +462,20 @@ onMounted(() => {
               :ui="{ base: 'text-lg font-semibold' }"
               aria-label="Nombre del culto"
             />
-            <UInput
-              v-model="dateModel"
-              type="date"
-              size="xl"
-              aria-label="Fecha"
-            />
+            <UPopover v-model:open="dateOpen">
+              <UButton
+                color="neutral"
+                variant="outline"
+                size="xl"
+                icon="i-tabler-calendar"
+                class="first-letter:uppercase"
+                :label="current ? formatCultoDate(current.date) : 'Fecha'"
+                :aria-label="current ? `Fecha del culto: ${formatCultoDate(current.date)}. Cambiarla` : 'Fecha del culto'"
+              />
+              <template #content>
+                <UCalendar v-model="calendarDate" class="p-2" />
+              </template>
+            </UPopover>
           </div>
           <p class="text-sm opacity-70">
             {{ items.length }} {{ items.length === 1 ? 'elemento' : 'elementos' }} · {{ totalScreens }} pantallas

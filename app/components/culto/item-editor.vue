@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import type { ItemScreens } from "~/composables/use-culto-screens";
 import type { ImportProgress } from "~/utils/culto/import-slides";
-import type { Background, CultoItem, ReadingMode, ScreenLayout, ScreenMoment, TextAlign } from "~~/lib/culto";
+import type { Background, CultoItem, FieldStyle, ReadingMode, ScreenLayout, ScreenMoment, TextAlign, TextField } from "~~/lib/culto";
 
+import { GALLERY } from "~/utils/culto/backgrounds";
 import { importSlides } from "~/utils/culto/import-slides";
 import { importImage, mediaUrl } from "~/utils/culto/media";
 import { itemLook, screenMoment } from "~/utils/culto/moment";
@@ -40,6 +41,8 @@ const title = field("title");
 const reference = field("reference");
 const body = field("body");
 const notes = field("notes");
+/** The texts' models, by field (refs inside an object stay refs in the template). */
+const fieldModels = { eyebrow, title, reference, body };
 
 const { sections } = storeToRefs(culto);
 const sectionItems = computed(() => [
@@ -65,6 +68,24 @@ const songId = computed({
 });
 
 // How the text of a screen lines up; a title is centred unless chosen.
+/** The texts of a screen, in the order they are shown. */
+const textFields: { field: TextField; label: string; name: string; help?: string }[] = [
+  {
+    field: "eyebrow",
+    label: "Etiqueta",
+    name: "la etiqueta",
+    help: "Arriba, en letra pequeña: «Santa Cena», «Anuncios»…",
+  },
+  { field: "title", label: "Título", name: "el título" },
+  { field: "reference", label: "Referencia o subtítulo", name: "la referencia" },
+  {
+    field: "body",
+    label: "Texto",
+    name: "el texto",
+    help: "Si no cabe, sigue en otras pantallas. Una línea en blanco separa párrafos.",
+  },
+];
+
 const alignItems: { label: string; value: TextAlign; icon: string }[] = [
   { label: "Izquierda", value: "start", icon: "i-tabler-align-left" },
   { label: "Centro", value: "center", icon: "i-tabler-align-center" },
@@ -172,6 +193,70 @@ async function onPages(e: Event) {
 const scalePercent = computed({
   get: () => Math.round((item.value.scale ?? 1) * 100),
   set: (value: number) => set({ scale: Math.round(value) / 100 }),
+});
+
+// ------------------------------------------------------------ styles
+// Content first, then what changes how it looks (NN/g: proximity, forms in
+// the order of the task, progressive disclosure): each text has its own
+// style right under it, behind «Aa»; the whole screen's, the size and the
+// background are in «Presentación», folded with a summary.
+
+/** «de el título» → «del título». */
+function ofName(name: string) {
+  return name.startsWith("el ")
+    ? `del ${name.slice(3)}`
+    : `de ${name}`;
+}
+
+const openStyles = ref(new Set<TextField>());
+function toggleStyle(field: TextField) {
+  const next = new Set(openStyles.value);
+  if (next.has(field))
+    next.delete(field);
+  else
+    next.add(field);
+  openStyles.value = next;
+}
+function styleOf(field: TextField): FieldStyle | undefined {
+  return item.value.kind === "screen"
+    ? item.value.styles?.[field]
+    : undefined;
+}
+function setStyle(field: TextField, value: FieldStyle | undefined) {
+  if (item.value.kind !== "screen")
+    return;
+  const styles = { ...item.value.styles };
+  if (value)
+    styles[field] = value;
+  else
+    delete styles[field];
+  set({
+    styles: Object.keys(styles).length
+      ? styles
+      : undefined,
+  } as Partial<CultoItem>);
+}
+
+const presentationOpen = ref(false);
+const backgroundName = computed(() => {
+  const b = background.value;
+  if (!b)
+    return "Fondo del tema";
+  if (b.kind === "acapela")
+    return "La cruz al amanecer";
+  if (b.kind === "gallery")
+    return GALLERY.find(g => g.id === b.id)?.label ?? "Galería";
+  return b.kind === "color"
+    ? "Color"
+    : "Imagen propia";
+});
+const presentationSummary = computed(() => {
+  const parts = [backgroundName.value];
+  if (item.value.kind !== "hymn")
+    parts.push(`letra ${scalePercent.value} %`);
+  if (item.value.kind === "screen" && (item.value.layout === "title" || item.value.layout === "quote" || item.value.layout === "text"))
+    parts.push(alignItems.find(a => a.value === screenAlign.value)!.label.toLowerCase());
+  return parts.join(" · ");
 });
 
 onMounted(() => {
@@ -306,22 +391,6 @@ onMounted(() => {
           @update:model-value="v => set({ layout: v as ScreenLayout })"
         />
       </UFormField>
-      <UFormField v-if="item.layout === 'title' || item.layout === 'quote' || item.layout === 'text'" label="Alineación">
-        <UFieldGroup role="radiogroup" aria-label="Alineación del texto">
-          <UButton
-            v-for="a in alignItems"
-            :key="a.value"
-            color="neutral"
-            :variant="screenAlign === a.value ? 'solid' : 'outline'"
-            size="lg"
-            :icon="a.icon"
-            :label="a.label"
-            role="radio"
-            :aria-checked="screenAlign === a.value"
-            @click="set({ align: a.value })"
-          />
-        </UFieldGroup>
-      </UFormField>
       <UFormField v-if="item.layout === 'image'" label="Imagen" help="Un afiche, una foto: se muestra entera.">
         <div class="flex items-center gap-3">
           <img
@@ -349,35 +418,112 @@ onMounted(() => {
       <p v-if="item.layout === 'logo'" class="text-sm opacity-75">
         El logo y el nombre son los del tema de la iglesia (en el menú ⋯ del culto).
       </p>
-      <UFormField label="Etiqueta" help="Arriba, en letra pequeña: «Santa Cena», «Anuncios»…">
-        <UInput v-model="eyebrow" size="lg" class="w-full" />
-      </UFormField>
-      <UFormField label="Título">
-        <UTextarea
-          v-model="title"
-          :rows="2"
-          autoresize
-          size="lg"
-          class="w-full"
-        />
-      </UFormField>
-      <UFormField label="Referencia o subtítulo">
-        <UInput v-model="reference" size="lg" class="w-full" />
-      </UFormField>
-      <UFormField
-        v-if="item.layout === 'text'"
-        label="Texto"
-        help="Si no cabe, sigue en otras pantallas. Una línea en blanco separa párrafos."
-      >
-        <UTextarea
-          v-model="body"
-          :rows="6"
-          autoresize
-          size="lg"
-          class="w-full"
-        />
-      </UFormField>
+      <!-- What it says: each text with its own style right under it. -->
+      <h3 class="-mb-2 border-t border-muted pt-4 text-xs font-bold uppercase tracking-wider opacity-70">
+        Contenido
+      </h3>
+      <template v-for="f in textFields" :key="f.field">
+        <UFormField
+          v-if="f.field !== 'body' || item.layout === 'text'"
+          :label="f.label"
+          :help="f.help"
+        >
+          <template #hint>
+            <UButton
+              color="neutral"
+              :variant="openStyles.has(f.field) ? 'soft' : 'ghost'"
+              size="xs"
+              class="relative font-semibold"
+              :aria-expanded="openStyles.has(f.field)"
+              :aria-label="`Estilo ${ofName(f.name)}${styleOf(f.field) ? ' (cambiado)' : ''}`"
+              :title="`Alineación y tamaño ${ofName(f.name)}`"
+              @click="toggleStyle(f.field)"
+            >
+              Aa
+              <span v-if="styleOf(f.field)" class="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-primary" aria-hidden="true" />
+            </UButton>
+          </template>
+          <div class="flex flex-col gap-2">
+            <UTextarea
+              v-if="f.field === 'title' || f.field === 'body'"
+              v-model="fieldModels[f.field].value"
+              :rows="f.field === 'title' ? 2 : 6"
+              autoresize
+              size="lg"
+              class="w-full"
+            />
+            <UInput
+              v-else
+              v-model="fieldModels[f.field].value"
+              size="lg"
+              class="w-full"
+            />
+            <CultoFieldStyle
+              v-if="openStyles.has(f.field)"
+              :model-value="styleOf(f.field)"
+              :name="f.name"
+              :inherited-align="screenAlign"
+              @update:model-value="v => setStyle(f.field, v)"
+            />
+          </div>
+        </UFormField>
+      </template>
     </template>
+
+    <!-- How it looks: folded, with a summary. -->
+    <UCollapsible v-if="item.kind !== 'slides'" v-model:open="presentationOpen" class="flex flex-col border-t border-muted pt-3">
+      <UButton
+        color="neutral"
+        variant="ghost"
+        class="-mx-2 justify-between text-start"
+        :trailing-icon="presentationOpen ? 'i-tabler-chevron-up' : 'i-tabler-chevron-down'"
+      >
+        <span class="flex min-w-0 flex-col items-start">
+          <span class="text-xs font-bold uppercase tracking-wider opacity-70">Presentación</span>
+          <span class="truncate text-sm text-muted">{{ presentationSummary }}</span>
+        </span>
+      </UButton>
+      <template #content>
+        <div class="flex flex-col gap-5 pt-3 pb-1">
+          <UFormField
+            v-if="item.kind === 'screen' && (item.layout === 'title' || item.layout === 'quote' || item.layout === 'text')"
+            label="Alineación de toda la pantalla"
+            help="Cada texto puede tener la suya con «Aa»."
+          >
+            <UFieldGroup role="radiogroup" aria-label="Alineación de toda la pantalla">
+              <UButton
+                v-for="a in alignItems"
+                :key="a.value"
+                color="neutral"
+                :variant="screenAlign === a.value ? 'solid' : 'outline'"
+                size="lg"
+                :icon="a.icon"
+                :label="a.label"
+                role="radio"
+                :aria-checked="screenAlign === a.value"
+                @click="set({ align: a.value })"
+              />
+            </UFieldGroup>
+          </UFormField>
+          <UFormField v-if="item.kind !== 'hymn'" :label="`Tamaño de letra · ${scalePercent} %`">
+            <USlider
+              v-model="scalePercent"
+              :min="60"
+              :max="150"
+              :step="5"
+            />
+          </UFormField>
+          <UFormField label="Fondo">
+            <CultoBackgroundPicker
+              v-model="background"
+              inherit
+              :moment="backgroundMoment?.moment"
+              :moment-label="backgroundMoment?.label"
+            />
+          </UFormField>
+        </div>
+      </template>
+    </UCollapsible>
 
     <!-- The section it belongs to (the Lord's supper, the offering…). -->
     <UFormField
@@ -403,24 +549,6 @@ onMounted(() => {
           @click="culto.groupInSection(item.id)"
         />
       </div>
-    </UFormField>
-
-    <UFormField v-if="item.kind !== 'slides'" label="Fondo">
-      <CultoBackgroundPicker
-        v-model="background"
-        inherit
-        :moment="backgroundMoment?.moment"
-        :moment-label="backgroundMoment?.label"
-      />
-    </UFormField>
-
-    <UFormField v-if="item.kind !== 'hymn' && item.kind !== 'slides'" :label="`Tamaño de letra · ${scalePercent} %`">
-      <USlider
-        v-model="scalePercent"
-        :min="60"
-        :max="150"
-        :step="5"
-      />
     </UFormField>
 
     <UFormField label="Notas para quien dirige" help="No se proyectan; se ven en la consola.">
