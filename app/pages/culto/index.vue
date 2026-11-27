@@ -5,9 +5,12 @@ import { getLocalTimeZone, parseDate, parseTime, today } from "@internationalize
 import { VueDraggable } from "vue-draggable-plus";
 
 import type { ItemScreens } from "~/composables/use-culto-screens";
+import type { BibleBook } from "~~/lib/bible";
 import type { CultoItem, CultoSection, ScreenItem } from "~~/lib/culto";
 
 import { cultoWhen, formatCultoDate, partOfDay, SCREEN_TEMPLATES } from "~/stores/culto";
+import { fetchBooks } from "~/utils/bible/books";
+import { shortReference } from "~/utils/bible/short-book-names";
 import { importSlides, titleFromFiles } from "~/utils/culto/import-slides";
 import { itemLook, momentTone, spokenLabel } from "~/utils/culto/moment";
 import { blocksOf } from "~/utils/culto/sections";
@@ -587,11 +590,22 @@ function focusEditorField() {
 function mapLabelBasis(label: string | undefined) {
   return Math.max(1.25, (label?.length ?? 0) * 0.42 + 0.5);
 }
-/** A reading's name in the map: its passage, which says more than «Lectura». */
+/** A reading's name in the map: its passage, short («Ap 3:2-5»), which says more than «Lectura». */
+const bibleBooks = shallowRef<BibleBook[]>([]);
+onMounted(async () => {
+  const bible = useBibleStore();
+  if (!bible.loaded)
+    await bible.refresh().catch(() => {});
+  if (bible.currentId)
+    bibleBooks.value = await fetchBooks(bible.currentId).catch(() => []);
+});
 function mapName(item: CultoItem) {
-  return item.kind === "reading"
-    ? item.reference.trim() || "Lectura"
-    : looks.value.get(item.id)?.label ?? "";
+  if (item.kind === "reading") {
+    return item.reference.trim()
+      ? shortReference(item.reference, bibleBooks.value)
+      : "Lectura";
+  }
+  return looks.value.get(item.id)?.label ?? "";
 }
 /** Room for one element of a section in the map: a reading's name, or a segment. */
 function mapItemBasis(item: CultoItem) {
@@ -881,7 +895,7 @@ onMounted(() => {
                 :class="`moment--${looks.get(entry.item.id)?.tone}`"
                 :style="{ flexGrow: 1, flexBasis: `${mapItemBasis(entry.item)}rem` }"
               >
-                <span v-if="entry.item.kind === 'reading'" class="map-label truncate text-(--m-label)">{{ mapName(entry.item) }}</span>
+                <span v-if="entry.item.kind === 'reading'" class="map-label map-label--ref truncate text-(--m-label)">{{ mapName(entry.item) }}</span>
                 <span class="flex">
                   <button
                     type="button"
@@ -920,7 +934,7 @@ onMounted(() => {
             :class="`moment--${looks.get(block.entry.item.id)?.tone}`"
             :style="{ flexGrow: 1, flexBasis: `${mapLabelBasis(mapName(block.entry.item))}rem` }"
           >
-            <span class="map-label truncate text-(--m-label)">{{ mapName(block.entry.item) }}</span>
+            <span class="map-label truncate text-(--m-label)" :class="{ 'map-label--ref': block.entry.item.kind === 'reading' && block.entry.item.reference.trim() }">{{ mapName(block.entry.item) }}</span>
             <span class="flex">
               <button
                 type="button"
@@ -1310,5 +1324,11 @@ onMounted(() => {
   letter-spacing: 0.06em;
   line-height: 1.2;
   text-transform: uppercase;
+}
+/* A passage keeps its letters as written: «Ap 3:2-5», not «AP 3:2-5». */
+.map-label--ref {
+  font-size: 0.66rem;
+  letter-spacing: 0.02em;
+  text-transform: none;
 }
 </style>
