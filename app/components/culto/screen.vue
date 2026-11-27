@@ -59,6 +59,7 @@ const vars = computed(() => lookVars(look.value, backgroundUrl.value));
       :title="screen?.title ?? ''"
       :scale="screen?.scale ?? 1"
       :size="screen?.type === 'lyric' ? screen.size : undefined"
+      :title-corner="screen?.type === 'lyric' ? screen.look?.titleCorner : undefined"
       :black="black"
       :badge="badge"
       @overflow="$emit('overflow', $event)"

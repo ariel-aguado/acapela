@@ -64,6 +64,9 @@ export const DEFAULT_TRANSITIONS = {
   element: { kind: "fade", speed: "normal" } as ScreenTransition,
 };
 
+/** Where a hymn's number and title go on its screens. */
+export type TitleCorner = "bottom-start" | "bottom-end" | "top-start" | "top-end";
+
 export type ProjectionTheme = {
   churchName: string;
   logoId?: string;
@@ -73,6 +76,8 @@ export type ProjectionTheme = {
   font: ProjectionFont;
   /** Between the screens of an element, and when the next element begins. */
   transitions?: { screen: ScreenTransition; element: ScreenTransition };
+  /** A hymn's number and title; none: bottom left. */
+  titleCorner?: TitleCorner;
 };
 
 export const DEFAULT_THEME: ProjectionTheme = {
@@ -90,6 +95,8 @@ export type Look = {
   font: string;
   /** Dark text, for a light background. */
   darkText: boolean;
+  /** A hymn's number and title; none: bottom left. */
+  titleCorner?: TitleCorner;
 };
 
 type ItemBase = {

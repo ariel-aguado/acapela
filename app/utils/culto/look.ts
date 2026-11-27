@@ -27,7 +27,13 @@ export function resolveLook(theme: ProjectionTheme, item?: Pick<CultoItem, "back
     ? "#1b1a22"
     : theme.accent;
   const font = PROJECTION_FONTS.find(f => f.id === theme.font)?.css ?? PROJECTION_FONTS[0]!.css;
-  return { background, accent, font, darkText };
+  return {
+    background,
+    accent,
+    font,
+    darkText,
+    titleCorner: theme.titleCorner,
+  };
 }
 
 /**

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Slide } from "~/utils/slides";
+import type { TitleCorner } from "~~/lib/culto";
 
 // A projected slide drawn on a fixed 1920×1080 stage and scaled to its box,
 // so the operator's preview and the projector window show exactly the same
@@ -16,15 +17,19 @@ const props = withDefaults(defineProps<{
   size?: number;
   /** Small text in the corner for the operator's previews ("Siguiente"…). */
   badge?: string;
+  /** Where the number and title go (the church's theme). */
+  titleCorner?: TitleCorner;
 }>(), {
   number: null,
   title: "",
   black: false,
   scale: 1,
   badge: "",
+  titleCorner: "bottom-start",
 });
-
 const emit = defineEmits<{ (e: "overflow", value: boolean): void }>();
+const titleOnTop = computed(() => props.titleCorner.startsWith("top"));
+const titleAtEnd = computed(() => props.titleCorner.endsWith("end"));
 
 const STAGE_W = 1920;
 const STAGE_H = 1080;
@@ -106,7 +111,12 @@ onMounted(async () => {
     >
       <template v-if="!black">
         <div class="projection-bg" aria-hidden="true" />
-        <div v-if="slide" ref="areaRef" class="projection-area">
+        <div
+          v-if="slide"
+          ref="areaRef"
+          class="projection-area"
+          :class="{ 'projection-area--title-top': titleOnTop }"
+        >
           <span v-if="slide.kind === 'chorus'" class="projection-tag">Coro</span>
           <div
             ref="lyricRef"
@@ -116,7 +126,11 @@ onMounted(async () => {
             v-html="slide.html"
           />
         </div>
-        <p v-if="number && title" class="projection-footer">
+        <p
+          v-if="number && title"
+          class="projection-footer"
+          :class="{ 'projection-footer--top': titleOnTop, 'projection-footer--end': titleAtEnd }"
+        >
           {{ number }}. {{ title }}
         </p>
       </template>
@@ -215,6 +229,18 @@ onMounted(async () => {
   text-overflow: ellipsis;
   text-shadow: var(--proj-shadow, 0 2px 8px rgba(0, 0, 0, 0.8));
   opacity: 0.92;
+}
+/* The title at the top: the lyric's room keeps its size (the sizes are
+   measured with it), only its margins swap. */
+.projection-area--title-top {
+  inset: 170px 120px 90px;
+}
+.projection-footer--top {
+  top: 56px;
+  bottom: auto;
+}
+.projection-footer--end {
+  text-align: right;
 }
 .projection-badge {
   position: absolute;
