@@ -3,7 +3,7 @@ import type { ShortcutGroup } from "~/components/app/shortcuts-help.vue";
 import type { InsertWhere } from "~/components/culto/insert-dialog.vue";
 import type { ProjectorState } from "~/composables/use-projector-channel";
 import type { Screen } from "~/utils/culto/screens";
-import type { CultoItem } from "~~/lib/culto";
+import type { CultoItem, ScreenTransition } from "~~/lib/culto";
 
 import { QUICK_POSITION_KEY } from "~/composables/use-project-hymn";
 import { PROJECTOR_WINDOW_NAME } from "~/composables/use-projector-channel";
@@ -12,6 +12,7 @@ import { SCALE_MAX, SCALE_MIN, SCALE_STEP } from "~/stores/presentation";
 import { resolveLook } from "~/utils/culto/look";
 import { momentTone } from "~/utils/culto/moment";
 import { blocksOf } from "~/utils/culto/sections";
+import { DEFAULT_TRANSITIONS } from "~~/lib/culto";
 
 // The live console of a service: every screen of every element in order,
 // so → goes from the last verse of a hymn to the next reading without
@@ -272,9 +273,37 @@ const onAir = computed(() => showLogo.value
   ? logoScreen.value
   : live.value?.screen ?? null);
 
+// The transition of each change: the element's own, or the theme's between
+// its screens or when a new element begins; the logo, a short fade.
+const onAirKey = computed(() => (showLogo.value
+  ? "logo"
+  : live.value
+    ? `${live.value.itemId}:${live.value.screenKey}`
+    : ""));
+const onAirTransition = ref<ScreenTransition>(DEFAULT_TRANSITIONS.screen);
+let lastItemId = "";
+let lastWasLogo = false;
+watch(onAirKey, (key) => {
+  const itemId = live.value?.itemId ?? "";
+  const own = liveEntry.value?.item.transition;
+  const theme = culto.theme.transitions ?? DEFAULT_TRANSITIONS;
+  onAirTransition.value = key === "logo" || lastWasLogo
+    ? { kind: "fade", speed: "fast" }
+    : own ?? (itemId !== lastItemId
+      ? theme.element
+      : theme.screen);
+  lastWasLogo = key === "logo";
+  if (key !== "logo")
+    lastItemId = itemId;
+}, { flush: "sync", immediate: true });
+/** The operator asked for less motion: the console cuts (the projector does not). */
+const reducedMotion = usePreferredReducedMotion();
+
 const liveState = computed<ProjectorState>(() => ({
   screen: onAir.value,
   black: black.value,
+  key: onAirKey.value,
+  transition: onAirTransition.value,
 }));
 const { connected } = useProjectorSender(liveState);
 
@@ -621,7 +650,13 @@ function saveAsService() {
             :class="black ? 'ring-inverted/40' : 'ring-error'"
             @click="isFullscreen && next()"
           >
-            <CultoScreen :screen="onAir" :black="black" />
+            <CultoLiveScreen
+              :screen="onAir"
+              :black="black"
+              :screen-key="onAirKey"
+              :transition="onAirTransition"
+              :animate="reducedMotion !== 'reduce'"
+            />
             <div v-if="black && !isFullscreen" class="absolute inset-0 grid place-items-center text-white/80 text-sm font-semibold pointer-events-none">
               Pantalla en negro · B para volver
             </div>

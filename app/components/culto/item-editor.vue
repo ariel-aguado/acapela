@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import type { ItemScreens } from "~/composables/use-culto-screens";
 import type { ImportProgress } from "~/utils/culto/import-slides";
-import type { Background, CultoItem, FieldStyle, ReadingMode, ScreenLayout, ScreenMoment, TextAlign, TextField } from "~~/lib/culto";
+import type { Background, CultoItem, FieldStyle, ReadingMode, ScreenLayout, ScreenMoment, ScreenTransition, TextAlign, TextField } from "~~/lib/culto";
 
 import { GALLERY } from "~/utils/culto/backgrounds";
 import { importSlides } from "~/utils/culto/import-slides";
 import { importImage, mediaUrl } from "~/utils/culto/media";
 import { itemLook, screenMoment } from "~/utils/culto/moment";
-import { ITEM_KIND_LABELS, SCREEN_LAYOUT_LABELS, SCREEN_MOMENT_LABELS } from "~~/lib/culto";
+import { DEFAULT_TRANSITIONS, ITEM_KIND_LABELS, SCREEN_LAYOUT_LABELS, SCREEN_MOMENT_LABELS, TRANSITION_LABELS, TRANSITION_SPEED_LABELS } from "~~/lib/culto";
 
 // The fields of one element of the service, by kind. Every change is saved
 // at once (the store writes to this device) and the screens re-flow.
@@ -250,12 +250,30 @@ const backgroundName = computed(() => {
     ? "Color"
     : "Imagen propia";
 });
+// Its own transition, entering it and between its screens; none: the theme's.
+const themeTransitions = computed(() => useCultoStore().theme.transitions ?? DEFAULT_TRANSITIONS);
+const transition = computed({
+  get: () => item.value.transition,
+  set: (value: ScreenTransition | undefined) => set({ transition: value } as Partial<CultoItem>),
+});
+const transitionName = computed(() => {
+  const t = transition.value;
+  if (!t)
+    return "transición del tema";
+  return t.kind === "cut"
+    ? "corte"
+    : `${TRANSITION_LABELS[t.kind].toLowerCase()} ${TRANSITION_SPEED_LABELS[t.speed].toLowerCase()}`;
+});
+
 const presentationSummary = computed(() => {
+  if (item.value.kind === "slides")
+    return transitionName.value;
   const parts = [backgroundName.value];
   if (item.value.kind !== "hymn")
     parts.push(`letra ${scalePercent.value} %`);
   if (item.value.kind === "screen" && (item.value.layout === "title" || item.value.layout === "quote" || item.value.layout === "text"))
     parts.push(alignItems.find(a => a.value === screenAlign.value)!.label.toLowerCase());
+  parts.push(transitionName.value);
   return parts.join(" · ");
 });
 
@@ -471,7 +489,7 @@ onMounted(() => {
     </template>
 
     <!-- How it looks: folded, with a summary. -->
-    <UCollapsible v-if="item.kind !== 'slides'" v-model:open="presentationOpen" class="flex flex-col border-t border-muted pt-3">
+    <UCollapsible v-model:open="presentationOpen" class="flex flex-col border-t border-muted pt-3">
       <UButton
         color="neutral"
         variant="ghost"
@@ -480,7 +498,7 @@ onMounted(() => {
       >
         <span class="flex min-w-0 flex-col items-start">
           <span class="text-xs font-bold uppercase tracking-wider opacity-70">Presentación</span>
-          <span class="truncate text-sm text-muted">{{ presentationSummary }}</span>
+          <span class="text-sm font-normal text-muted text-pretty">{{ presentationSummary }}</span>
         </span>
       </UButton>
       <template #content>
@@ -513,12 +531,20 @@ onMounted(() => {
               :step="5"
             />
           </UFormField>
-          <UFormField label="Fondo">
+          <UFormField v-if="item.kind !== 'slides'" label="Fondo">
             <CultoBackgroundPicker
               v-model="background"
               inherit
               :moment="backgroundMoment?.moment"
               :moment-label="backgroundMoment?.label"
+            />
+          </UFormField>
+          <UFormField label="Transición" help="Al entrar a este elemento y entre sus pantallas.">
+            <CultoTransitionPicker
+              v-model="transition"
+              inherit
+              :inherited="themeTransitions.element"
+              label="Transición de este elemento"
             />
           </UFormField>
         </div>

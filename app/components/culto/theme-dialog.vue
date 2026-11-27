@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import type { Screen } from "~/utils/culto/screens";
-import type { Background, ProjectionFont } from "~~/lib/culto";
+import type { Background, ProjectionFont, ScreenTransition } from "~~/lib/culto";
 
 import { resolveLook } from "~/utils/culto/look";
 import { importImage, mediaUrl } from "~/utils/culto/media";
-import { PROJECTION_FONTS } from "~~/lib/culto";
+import { DEFAULT_TRANSITIONS, PROJECTION_FONTS } from "~~/lib/culto";
 
 // The church's look on the projector: name, logo, background, accent and
 // letter, for every service on this device. The preview shows it on a
@@ -31,6 +31,15 @@ const background = computed({
   get: () => theme.value.background,
   set: (value: Background | undefined) => culto.setTheme({ background: value ?? { kind: "acapela" } }),
 });
+const transitions = computed(() => theme.value.transitions ?? DEFAULT_TRANSITIONS);
+function setTransition(which: "screen" | "element", value: ScreenTransition | undefined) {
+  if (value) {
+    culto.setTheme({
+      transitions: { ...transitions.value, [which]: value },
+    });
+  }
+}
+
 const fontItems = PROJECTION_FONTS.map(f => ({ label: f.label, value: f.id }));
 
 const logoInput = useTemplateRef<HTMLInputElement>("logo");
@@ -149,6 +158,21 @@ const logoSample = computed<Screen>(() => ({
               size="lg"
               class="w-64"
               @update:model-value="v => culto.setTheme({ font: v as ProjectionFont })"
+            />
+          </UFormField>
+
+          <UFormField label="Transición entre pantallas" help="De una estrofa a la siguiente: mejor casi imperceptible.">
+            <CultoTransitionPicker
+              :model-value="transitions.screen"
+              label="Transición entre pantallas"
+              @update:model-value="v => setTransition('screen', v)"
+            />
+          </UFormField>
+          <UFormField label="Transición al cambiar de elemento" help="Del himno a la lectura, a la oración… Cada elemento puede tener la suya.">
+            <CultoTransitionPicker
+              :model-value="transitions.element"
+              label="Transición al cambiar de elemento"
+              @update:model-value="v => setTransition('element', v)"
             />
           </UFormField>
         </div>

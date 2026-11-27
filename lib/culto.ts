@@ -32,6 +32,38 @@ export const PROJECTION_FONTS: { id: ProjectionFont; label: string; css: string 
  * its name (bottom of the screens), logo, background, accent and letter.
  * Only fonts the app ships, so the projector shows them offline.
  */
+/**
+ * How one screen gives way to the next on the projector: few and calm, for
+ * a congregation (cut, fade, slide like a page, rise, a slight zoom).
+ */
+export type TransitionKind = "cut" | "fade" | "slide" | "rise" | "zoom";
+export type TransitionSpeed = "fast" | "normal" | "slow";
+export type ScreenTransition = { kind: TransitionKind; speed: TransitionSpeed };
+
+export const TRANSITION_LABELS: Record<TransitionKind, string> = {
+  cut: "Corte",
+  fade: "Fundido",
+  slide: "Deslizar",
+  rise: "Subir",
+  zoom: "Acercar",
+};
+export const TRANSITION_SPEED_LABELS: Record<TransitionSpeed, string> = {
+  fast: "Rápida",
+  normal: "Normal",
+  slow: "Lenta",
+};
+export const TRANSITION_MS: Record<TransitionSpeed, number> = {
+  fast: 300,
+  normal: 600,
+  slow: 1000,
+};
+
+/** Almost unseen between stanzas, a little more marked between moments. */
+export const DEFAULT_TRANSITIONS = {
+  screen: { kind: "fade", speed: "fast" } as ScreenTransition,
+  element: { kind: "fade", speed: "normal" } as ScreenTransition,
+};
+
 export type ProjectionTheme = {
   churchName: string;
   logoId?: string;
@@ -39,6 +71,8 @@ export type ProjectionTheme = {
   /** Small labels on top ("SANTA CENA"). */
   accent: string;
   font: ProjectionFont;
+  /** Between the screens of an element, and when the next element begins. */
+  transitions?: { screen: ScreenTransition; element: ScreenTransition };
 };
 
 export const DEFAULT_THEME: ProjectionTheme = {
@@ -68,6 +102,8 @@ type ItemBase = {
   inserted?: boolean;
   /** The section it belongs to (Culto.sections); none: on its own in the order. */
   sectionId?: string;
+  /** Its own transition (entering it and between its screens); none: the theme's. */
+  transition?: ScreenTransition;
   /** Text size for this element, 1 = automatic (0.6–1.5). */
   scale?: number;
   /**

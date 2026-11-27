@@ -1,4 +1,5 @@
 import type { Screen } from "~/utils/culto/screens";
+import type { ScreenTransition } from "~~/lib/culto";
 
 /**
  * What the projector window needs to draw: nothing else crosses the channel.
@@ -8,6 +9,10 @@ import type { Screen } from "~/utils/culto/screens";
 export type ProjectorState = {
   screen: Screen | null;
   black: boolean;
+  /** What is on air, so the projector knows when it changes. */
+  key?: string;
+  /** How it gives way to the next one. */
+  transition?: ScreenTransition;
 };
 
 type Message
