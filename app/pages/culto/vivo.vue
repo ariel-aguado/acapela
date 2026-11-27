@@ -321,8 +321,9 @@ watch(onAirKey, (key) => {
 /** The operator asked for less motion: the console cuts (the projector does not). */
 const reducedMotion = usePreferredReducedMotion();
 
-// ------------------------------------------------------------ correcting a passage
-// A wrong passage is corrected right here (C, or the pencil in the order).
+// ------------------------------------------------------------ correcting live
+// A wrong passage, or a screen's texts, is corrected right here (C, or the
+// pencil in the order).
 // On air, «Aplicar y mostrar» shows its first corrected screen at once;
 // «Aplicar al pasar» keeps the screen the congregation sees until → (which
 // then shows the corrected element from its start).
@@ -335,9 +336,15 @@ const showFix = computed({
   },
 });
 const fixEntry = computed(() => entries.value.find(e => e.item.id === fixingId.value) ?? null);
-/** It has a passage or a reference to correct. */
+/** A reading (its passage) or a screen (its texts) can be edited live. */
 function canFix(item: CultoItem | undefined) {
-  return item?.kind === "reading" || (item?.kind === "screen" && !!item.reference.trim());
+  return item?.kind === "reading" || item?.kind === "screen";
+}
+/** What its pencil does: a passage is corrected, a screen edited. */
+function fixLabel(item: CultoItem | undefined) {
+  return item?.kind === "reading"
+    ? "Corregir la cita"
+    : "Editar la pantalla";
 }
 function fix(itemId: string | undefined) {
   if (itemId && canFix(entries.value.find(e => e.item.id === itemId)?.item))
@@ -353,9 +360,12 @@ function applyFix(changes: Partial<CultoItem>, show: "now" | "later" | "none") {
   culto.updateItem(item.id, changes, liveCulto.value?.id);
   if (show === "now")
     position.value = { itemId: item.id, key: "" };
+  const done = item.kind === "reading"
+    ? "Se corrigió la cita"
+    : "Se actualizó la pantalla";
   toast(show === "later"
-    ? "Se corrigió la cita: se verá al pasar."
-    : "Se corrigió la cita.", {
+    ? `${done}: se verá al pasar.`
+    : `${done}.`, {
     label: "Deshacer",
     run: () => culto.updateItem(item.id, before, liveCulto.value?.id),
   });
@@ -473,7 +483,7 @@ const serviceShortcuts: ShortcutGroup[] = [
       },
       {
         keys: ["C"],
-        label: "Corregir la cita de lo que está en pantalla",
+        label: "Corregir la cita o editar la pantalla de lo que está en el proyector",
       },
     ],
   },
@@ -725,7 +735,7 @@ function saveAsService() {
               color="warning"
               variant="soft"
               icon="i-tabler-clock-pause"
-              label="Corregida: se verá al pasar"
+              label="Cambiado: se verá al pasar"
             />
             <UButton
               v-if="canFix(liveEntry?.item)"
@@ -735,7 +745,7 @@ function saveAsService() {
               icon="i-tabler-pencil"
               @click="fix(liveEntry?.item.id)"
             >
-              Corregir cita <UKbd value="C" size="sm" />
+              {{ liveEntry?.item.kind === 'reading' ? 'Corregir cita' : 'Editar' }} <UKbd value="C" size="sm" />
             </UButton>
           </template>
           <!-- As large as the room left allows, always 16:9. -->
@@ -967,8 +977,8 @@ function saveAsService() {
                     square
                     icon="i-tabler-pencil"
                     class="order-fix absolute end-1.5 top-1/2 -translate-y-1/2"
-                    :aria-label="`Corregir la cita de ${entry.label}`"
-                    title="Corregir la cita"
+                    :aria-label="`${fixLabel(entry.item)}: ${entry.label}`"
+                    :title="fixLabel(entry.item)"
                     @click="fix(entry.item.id)"
                   />
                 </div>

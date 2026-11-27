@@ -145,8 +145,10 @@ export function textPieces(text: string, idPrefix: string): PageItem[] {
 }
 
 /**
- * Pieces for Bible verses: one per verse, split by sentences, the number
- * only on its first part. `idPrefix` keeps them apart when one element has
+ * Pieces for Bible verses: one per verse, kept whole on a screen (a verse is
+ * not cut to fill the end of one). One too long for a whole screen is split
+ * by sentences, and its continuation keeps the number ("¹⁶ …"), so no screen
+ * starts with text whose verse cannot be told. `idPrefix` keeps them apart when one element has
  * several passages (a moment's).
  */
 export function versePieces(verses: VerseRow[], oneEach: boolean, idPrefix = ""): PageItem[] {
@@ -159,13 +161,14 @@ export function versePieces(verses: VerseRow[], oneEach: boolean, idPrefix = "")
         ? `${v.verse}-${v.verseRangeEnd}`
         : String(v.verse);
       const render = (inner: string, continued: boolean) => continued
-        ? `<p class="cont" data-v="${v.verse}">${inner}</p>`
+        ? `<p class="cont" data-v="${v.verse}"><sup>${number}</sup>…${inner}</p>`
         : `<p data-v="${v.verse}"><sup>${number}</sup>${inner}</p>`;
       return {
         id: `${idPrefix}v${v.chapter}:${v.verse}`,
         key: `${idPrefix}v${v.chapter}:${v.verse}`,
         html: render(split.join(" "), false),
         keepNext: false,
+        keepWhole: true,
         breakBefore: oneEach && i > 0,
         split: split.length > 1
           ? split

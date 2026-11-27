@@ -3,7 +3,9 @@
 // the body of an invisible test screen, the same size and style as the real
 // one, until something overflows.
 //
-// - A paragraph that does not fit is split by sentences and fills what is left.
+// - A paragraph that does not fit is split by sentences and fills what is left;
+//   one that is kept whole (a Bible verse) goes to the next screen instead,
+//   and is only split when it does not fit even on a screen of its own.
 // - Labels and titles (keepNext) never stay alone at the bottom: they move
 //   to the next screen with what they introduce.
 // - A piece bigger than a whole screen is accepted anyway (it is cut
@@ -19,6 +21,8 @@ export type PageItem = {
   key: string;
   html: string;
   keepNext: boolean;
+  /** Not split to fill the end of a screen: whole on the next one (a verse). */
+  keepWhole?: boolean;
   breakBefore: boolean;
   /** Sentences (HTML) still to show, when it can be split. */
   split: string[] | null;
@@ -77,8 +81,10 @@ export function paginate(body: HTMLElement, items: PageItem[], onPage?: (index: 
     }
     el?.remove();
 
-    // Fill what is left sentence by sentence.
-    if (item.split && item.split.length > 1) {
+    // Fill what is left sentence by sentence; a piece kept whole only when
+    // the screen holds nothing else (it does not fit even alone).
+    const alone = !page.some(p => !p.keepNext);
+    if (item.split && item.split.length > 1 && (!item.keepWhole || alone)) {
       let fit = 0;
       for (let i = 1; i < item.split.length; i++) {
         const probe = put(partOf(item, 0, i, true));
