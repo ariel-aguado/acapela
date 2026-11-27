@@ -939,16 +939,13 @@ function saveAsService() {
           </template>
           <nav aria-label="Orden del culto" class="flex flex-col gap-1">
             <template v-for="block in orderBlocks" :key="block.kind === 'item' ? block.item.id : `s:${block.section.id}`">
-              <!-- A section: its name and a rail in its colour in the panel's
-                   margin, outside the rows, so numbers, tiles and titles stay
-                   aligned with the rest of the order. -->
-              <div :class="block.kind === 'section' ? ['relative mt-1.5 flex flex-col gap-1', `moment--${momentTone(block.section.moment)}`] : 'contents'">
-                <template v-if="block.kind === 'section'">
-                  <span class="absolute -start-1.5 top-0.5 bottom-0.5 w-[3px] rounded-full bg-(--m-seg)" aria-hidden="true" />
-                  <p class="px-3 pt-0.5 text-[0.7rem] font-bold uppercase tracking-wider text-(--m-label)">
-                    {{ block.section.title }}
-                  </p>
-                </template>
+              <!-- A section: a band in its colour, as in the editor, with its
+                   name inside. It adds no indent, so numbers, tiles and titles
+                   stay aligned with the rest of the order. -->
+              <div :class="block.kind === 'section' ? ['order-band my-0.5 flex flex-col gap-1 rounded-2xl py-1', `moment--${momentTone(block.section.moment)}`] : 'contents'">
+                <p v-if="block.kind === 'section'" class="px-3 pt-0.5 text-[0.7rem] font-bold uppercase tracking-wider text-(--m-label)">
+                  {{ block.section.title }}
+                </p>
                 <div
                   v-for="{ entry, index: i } in (block.kind === 'item' ? [block.item] : block.items)"
                   :key="entry.item.id"
@@ -1024,6 +1021,11 @@ function saveAsService() {
 </template>
 
 <style>
+/* A section in the order: the editor's tint (.section-box), full width. */
+.order-band {
+  background: color-mix(in oklab, var(--m-seg) 12%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--m-seg) 30%, transparent);
+}
 /* The pencil of a row in the order: shown on hover or focus, always on touch. */
 @media (hover: hover) {
   .order-fix-row .order-fix {
