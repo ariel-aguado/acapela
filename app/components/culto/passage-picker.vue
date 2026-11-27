@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import type { ReferenceSuggestion } from "~/utils/bible/predict-reference";
 import type { BibleBook } from "~~/lib/bible";
 
 import { bookPartOf, searchBooks } from "~/utils/bible/book-search";
@@ -22,16 +23,19 @@ const bible = useBibleStore();
 const open = ref(false);
 
 // ------------------------------------------------------------ what was understood
-// As SúperBiblia's search bar (NN/g, visibility of system status): under the
-// field, while typing, the passage understood ("→ 1 Corintios 11:23-26 ·
-// 4 versículos") and the start of its first verse; for an ambiguous book
-// ("jn": Juan, Jonás…) the books to choose from; for an unknown one,
-// "¿Quisiste decir…?". Tab writes the understood reference in full.
-type Understood
-  = | { kind: "passage"; label: string; count?: number; snippet?: string; choices: string[] }
-    | { kind: "book"; label: string; choices: string[] }
-    | { kind: "unknown"; suggestions: string[] };
-const understood = ref<Understood | null>(null);
+// As SúperBiblia's search bar (its predictive "Ir a"; NN/g, visibility of
+// system status and recognition rather than recall): under the field, while
+// typing, every passage what is typed can be, each checked against the real
+// chapters and verses ("jn123" → Juan 1:23 · Juan 12:3; "jn" → Juan, Jonás,
+// Joel…), with how many verses and how it starts. ↑↓ choose, Enter or Tab
+// writes it in full, and the text is read again from there. Once the field
+// holds one of them exactly, only that one stays. For an unknown book,
+// "¿Quisiste decir…?".
+type Suggestion = ReferenceSuggestion & { count?: number; snippet?: string };
+const suggestions = ref<Suggestion[]>([]);
+const active = ref(0);
+const unknown = ref<string[] | null>(null);
+const listId = useId();
 
 function snippetOf(text: string) {
   const plain = text.replace(/\s+/g, " ").trim();
@@ -40,54 +44,56 @@ function snippetOf(text: string) {
     : plain;
 }
 
+function sameReference(a: string, b: string) {
+  return normalizeText(a.trim()) === normalizeText(b.trim());
+}
+
+/** The field already holds one of the readings, written in full. */
+const chosen = computed(() => suggestions.value.find(s => !s.isBook && sameReference(s.label, model.value)) ?? null);
+/** The readings to choose from; none once one is written. */
+const choices = computed(() => (chosen.value
+  ? []
+  : suggestions.value));
+
 watchDebounced(model, async (value) => {
   const typed = value.trim();
   if (!typed) {
-    understood.value = null;
+    suggestions.value = [];
+    unknown.value = null;
     return;
   }
   const versionId = props.versionId || undefined;
-  const parsed = await bible.parse(typed, versionId).catch(() => null);
-  if (model.value.trim() !== typed)
+  const list = await bible.predict(typed, versionId).catch(() => null);
+  if (model.value.trim() !== typed || !list)
     return;
-  if (!parsed) {
-    understood.value = null;
-    return;
-  }
-  const book = parsed.book ?? parsed.bookCandidates?.[parsed.activeCandidateIndex];
-  if (parsed.status === "invalid" || parsed.status === "idle" || !book) {
+  if (!list.length) {
+    suggestions.value = [];
     const books = await fetchBooks(versionId || bible.currentId).catch(() => []);
     const part = bookPartOf(typed);
-    understood.value = {
-      kind: "unknown",
-      suggestions: part
-        ? searchBooks(books, part).slice(0, 3).map(r => r.book.name)
-        : [],
-    };
+    unknown.value = part
+      ? searchBooks(books, part).slice(0, 3).map(r => r.book.name)
+      : [];
     return;
   }
-  const choices = parsed.status === "ambiguous"
-    ? (parsed.bookCandidates ?? []).slice(0, 4).map(c => c.name)
-    : [];
-  if (!parsed.chapter) {
-    understood.value = { kind: "book", label: book.name, choices };
-    return;
-  }
-  const label = parsed.canonicalLabel ?? `${book.name} ${parsed.chapter}`;
-  understood.value = { kind: "passage", label, choices };
-  // The passage itself: how many verses and how it starts.
-  const passage = await bible.passage(typed, versionId).catch(() => null);
-  if (model.value.trim() !== typed || understood.value?.kind !== "passage")
-    return;
-  if (passage?.verses.length) {
-    understood.value = {
-      ...understood.value,
-      label: passage.label,
+  unknown.value = null;
+  // Keep the one chosen with the arrows if it is still there.
+  const previous = suggestions.value[active.value]?.label;
+  suggestions.value = list;
+  active.value = Math.max(0, list.findIndex(s => s.label === previous));
+  // Each passage: how many verses and how it starts.
+  await Promise.all(list.map(async (s, i) => {
+    if (s.isBook)
+      return;
+    const passage = await bible.passage(s.label, versionId).catch(() => null);
+    if (model.value.trim() !== typed || suggestions.value[i]?.key !== s.key || !passage?.verses.length)
+      return;
+    suggestions.value[i] = {
+      ...s,
       count: passage.verses.length,
       snippet: snippetOf(passage.verses[0]!.text),
     };
-  }
-}, { debounce: 200 });
+  }));
+}, { debounce: 150 });
 
 /** Another book for what was typed, keeping its chapter and verses. */
 function useBook(name: string) {
@@ -97,15 +103,30 @@ function useBook(name: string) {
     : `${name} `;
 }
 
-/** Tab: the understood reference, written in full. */
-function complete(event: KeyboardEvent) {
-  const u = understood.value;
-  if (!u || u.kind === "unknown" || model.value.trim() === u.label)
+/** A reading, written in full: a book waits for its chapter. */
+function choose(s: Suggestion) {
+  model.value = s.isBook
+    ? `${s.label} `
+    : s.label;
+  active.value = 0;
+}
+
+/** ↑↓ among the readings; Enter or Tab writes the one chosen. */
+function onKeydown(event: KeyboardEvent) {
+  const list = choices.value;
+  if (!list.length)
     return;
-  event.preventDefault();
-  model.value = u.kind === "book"
-    ? `${u.label} `
-    : u.label;
+  if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+    event.preventDefault();
+    const step = event.key === "ArrowDown"
+      ? 1
+      : -1;
+    active.value = (active.value + step + list.length) % list.length;
+  }
+  else if ((event.key === "Enter" || (event.key === "Tab" && !event.shiftKey)) && list[active.value]) {
+    event.preventDefault();
+    choose(list[active.value]!);
+  }
 }
 const books = shallowRef<BibleBook[]>([]);
 const failed = ref(false);
@@ -219,7 +240,11 @@ function use() {
         class="flex-1 min-w-0"
         autocomplete="off"
         :placeholder="placeholder ?? 'Sal 46:1-7, jn 3:16, 1co 11:23-26…'"
-        @keydown.tab="complete"
+        role="combobox"
+        :aria-expanded="choices.length > 0"
+        :aria-controls="listId"
+        :aria-activedescendant="choices.length ? `${listId}-${active}` : undefined"
+        @keydown="onKeydown"
       />
       <UPopover v-model:open="open" :content="{ align: 'end', sideOffset: 6 }">
         <UButton
@@ -346,45 +371,62 @@ function use() {
 
     <!-- What was understood -->
     <div class="min-h-5 px-1 text-xs text-muted" aria-live="polite">
-      <p v-if="understood?.kind === 'passage'" class="truncate">
+      <p v-if="chosen" class="truncate">
         <UIcon name="i-tabler-arrow-right" class="size-3.5 align-[-2px] text-primary" />
-        <b class="font-semibold text-highlighted">{{ understood.label }}</b>
-        <template v-if="understood.count">
-          · {{ understood.count }} {{ understood.count === 1 ? 'versículo' : 'versículos' }}
+        <b class="font-semibold text-highlighted">{{ chosen.label }}</b>
+        <template v-if="chosen.count">
+          · {{ chosen.count }} {{ chosen.count === 1 ? 'versículo' : 'versículos' }}
         </template>
-        <span v-if="understood.snippet" class="font-lyric italic"> — {{ understood.snippet }}</span>
-        <span v-if="model.trim() !== understood.label"> · Tab para completar</span>
+        <span v-if="chosen.snippet" class="font-lyric italic"> — {{ chosen.snippet }}</span>
       </p>
-      <p v-else-if="understood?.kind === 'book'">
-        <UIcon name="i-tabler-arrow-right" class="size-3.5 align-[-2px] text-primary" />
-        <b class="font-semibold text-highlighted">{{ understood.label }}</b> · escribe el capítulo y, si quieres, los versículos
-      </p>
-      <p v-else-if="understood?.kind === 'unknown'" class="text-warning">
-        <template v-if="understood.suggestions.length">
+      <ul
+        v-else-if="choices.length"
+        :id="listId"
+        role="listbox"
+        aria-label="Citas posibles"
+        class="-mx-1 flex flex-col"
+      >
+        <li
+          v-for="(s, i) in choices"
+          :id="`${listId}-${i}`"
+          :key="s.key"
+          role="option"
+          :aria-selected="i === active"
+          class="flex min-w-0 cursor-pointer items-baseline gap-1.5 rounded-md px-1.5 py-1"
+          :class="i === active ? 'bg-primary/10' : 'hover:bg-elevated'"
+          @mousedown.prevent
+          @mouseenter="active = i"
+          @click="choose(s)"
+        >
+          <UIcon
+            :name="s.isBook ? 'i-tabler-book-2' : 'i-tabler-arrow-right'"
+            class="size-3.5 shrink-0 self-center"
+            :class="i === active ? 'text-primary' : 'opacity-50'"
+          />
+          <b class="shrink-0 font-semibold text-highlighted">{{ s.label }}</b>
+          <span v-if="s.isBook" class="truncate">· escribe el capítulo y, si quieres, los versículos</span>
+          <span v-else class="min-w-0 truncate">
+            <template v-if="s.count">· {{ s.count }} {{ s.count === 1 ? 'versículo' : 'versículos' }}</template>
+            <span v-if="s.snippet" class="font-lyric italic"> — {{ s.snippet }}</span>
+          </span>
+          <kbd v-if="i === active" class="ms-auto shrink-0 self-center rounded border border-default px-1 text-[0.65rem] font-sans not-italic">
+            Enter
+          </kbd>
+        </li>
+      </ul>
+      <p v-else-if="unknown" class="text-warning">
+        <template v-if="unknown.length">
           No reconozco ese libro. ¿Quisiste decir
-          <template v-for="(name, i) in understood.suggestions" :key="name">
+          <template v-for="(name, i) in unknown" :key="name">
             <button type="button" class="font-semibold underline hover:no-underline" @click="useBook(name)">
               {{ name }}
-            </button>{{ i < understood.suggestions.length - 1 ? ', ' : '' }}
+            </button>{{ i < unknown.length - 1 ? ', ' : '' }}
           </template>?
         </template>
         <template v-else>
           No reconozco esa cita. Prueba «Juan 3:16» o elige con «Elegir».
         </template>
       </p>
-      <div v-if="understood && understood.kind !== 'unknown' && understood.choices.length > 1" class="mt-1.5 flex flex-wrap items-center gap-1.5">
-        <span>¿Qué libro?</span>
-        <UButton
-          v-for="(name, i) in understood.choices"
-          :key="name"
-          :label="name"
-          size="xs"
-          color="neutral"
-          :variant="i === 0 ? 'solid' : 'soft'"
-          class="rounded-full"
-          @click="useBook(name)"
-        />
-      </div>
     </div>
   </div>
 </template>

@@ -1,6 +1,7 @@
 import * as Comlink from "comlink";
 
 import type { ParsedBibleReference } from "~/utils/bible/parse-bible-reference";
+import type { ReferenceSuggestion } from "~/utils/bible/predict-reference";
 import type { BibleWorkerApi } from "~/workers/bible.worker";
 import type { BibleVersionStatus, DownloadProgress, VerseRow } from "~~/lib/bible";
 
@@ -91,6 +92,12 @@ export const useBibleStore = defineStore("bible", () => {
     return useBibleWorker().parseReference(id, input);
   }
 
+  /** Every valid passage what is typed could be, the likeliest first. */
+  async function predict(input: string, versionId?: string): Promise<ReferenceSuggestion[]> {
+    const id = await resolveVersionId(versionId);
+    return useBibleWorker().predictReference(id, input);
+  }
+
   /** The given version, or the one in use once the list is known. */
   async function resolveVersionId(versionId?: string): Promise<string> {
     if (!loaded.value)
@@ -153,6 +160,7 @@ export const useBibleStore = defineStore("bible", () => {
     remove,
     select,
     parse,
+    predict,
     passage,
   };
 });
