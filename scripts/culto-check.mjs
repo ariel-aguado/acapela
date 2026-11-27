@@ -31,7 +31,7 @@ function fail(msg) {
 // The static site, as in production (Dockerfile: nuxt generate + nginx):
 // files from .output/public, unknown paths fall back to the SPA shell.
 const PUBLIC = path.resolve(".output/public")
-const TYPES = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".json": "application/json", ".wasm": "application/wasm", ".webmanifest": "application/manifest+json", ".svg": "image/svg+xml", ".png": "image/png", ".txt": "text/plain; charset=utf-8" }
+const TYPES = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript", ".css": "text/css", ".json": "application/json", ".wasm": "application/wasm", ".webmanifest": "application/manifest+json", ".svg": "image/svg+xml", ".png": "image/png", ".txt": "text/plain; charset=utf-8" }
 const server = createServer(async (req, res) => {
   const urlPath = decodeURIComponent(new URL(req.url, ORIGIN).pathname)
   let file = path.join(PUBLIC, urlPath)
@@ -89,9 +89,14 @@ async function connect(wsUrl) {
     }
   })
   await new Promise(r => ws.addEventListener("open", r, { once: true }))
+  // A page that stops answering fails the check instead of hanging it.
   const send = (method, params = {}) => new Promise((resolve, reject) => {
     const msgId = ++id
-    pending.set(msgId, { resolve, reject })
+    const timer = setTimeout(() => {
+      pending.delete(msgId)
+      reject(new Error(`${method}: la página no respondió en 30 s`))
+    }, 30000)
+    pending.set(msgId, { resolve: (v) => { clearTimeout(timer); resolve(v) }, reject: (e) => { clearTimeout(timer); reject(e) } })
     ws.send(JSON.stringify({ id: msgId, method, params }))
   })
   const evaluate = async (expression) => {
@@ -111,6 +116,9 @@ async function connect(wsUrl) {
     throw new Error(`timeout esperando: ${expression}`)
   }
   const goto = async (url) => {
+    // In front, as for the person using it: a hidden tab gets no animation
+    // frames (dragging, pdf.js, screenshots wait on them).
+    await send("Page.bringToFront")
     await send("Page.navigate", { url })
     await sleep(500)
     await waitFor("document.readyState === 'complete'")
@@ -118,6 +126,7 @@ async function connect(wsUrl) {
   await send("Page.enable")
   await send("Runtime.enable")
   await send("Network.enable")
+  await send("DOM.enable")
   return { send, evaluate, waitFor, goto, close: () => ws.close() }
 }
 
@@ -250,6 +259,9 @@ try {
     await page.send("Input.dispatchMouseEvent", { type: "mouseReleased", x: to.x, y: to.y, button: "left", buttons: 0, clickCount: 1 })
     await sleep(900)
   }
+  // Readings and texts are measured after the page opens; drag once the
+  // list has settled, as a person would.
+  await sleep(2000)
   // The last element (Santa Cena) dragged by its handle above the first.
   await drag(await center("document.querySelectorAll('ol li .drag-handle')[5]"), await corner("document.querySelectorAll('ol li')[0]"))
   const order = await labels()
@@ -281,6 +293,40 @@ try {
   const canJoin = await page.evaluate(`[...document.querySelectorAll('button')].some(b => b.innerText.includes('Unir con la anterior'))`)
   check(canJoin, "la pantalla nueva ofrece «Unir con la anterior»")
   await shot(page, "gestor")
+
+  // ---------------------------------------------------------- theme, slides from a PDF, logo
+  await page.evaluate(`localStorage.setItem('cultoTheme', JSON.stringify({ churchName: 'Iglesia de Prueba', background: { kind: 'color', color: '#f0eadc' }, accent: '#a9a6fa', font: 'literata' }))`)
+  await page.goto(`${ORIGIN}/culto`)
+  await page.waitFor("document.querySelectorAll('ol li').length === 6", 20000)
+  await page.evaluate(`[...document.querySelectorAll('ol li button')].find(b => b.innerText.includes('Esta semana'))?.click()`)
+  await page.waitFor("document.querySelector('figure .page')", 15000)
+  const themed = await page.evaluate(`(() => { const p = document.querySelector('figure .page'); const cs = getComputedStyle(p); return { color: cs.color, font: cs.fontFamily, footer: p.querySelector('.page-footer')?.innerText ?? '' } })()`)
+  check(themed.color === "rgb(27, 26, 34)", `tema claro: texto oscuro (${themed.color})`)
+  check(themed.font.includes("Literata"), `tema: letra Literata (${themed.font.slice(0, 30)})`)
+  check(themed.footer.includes("Iglesia de Prueba"), `tema: el nombre de la iglesia abajo («${themed.footer.trim()}»)`)
+
+  // A two-page PDF becomes a "Diapositivas" element with two screens.
+  const { root } = await page.send("DOM.getDocument", { depth: -1, pierce: true })
+  const { nodeId } = await page.send("DOM.querySelector", { nodeId: root.nodeId, selector: "input[type=file][multiple]" })
+  await page.send("DOM.setFileInputFiles", { nodeId, files: [path.resolve("scripts/fixtures/dos-diapositivas.pdf")] })
+  await page.waitFor(`[...document.querySelectorAll('ol li')].some(l => l.innerText.includes('Diapositivas') && l.innerText.includes('2 pantallas'))`, 30000)
+    .catch(async (err) => {
+      console.log("  pantalla:", JSON.stringify(await page.evaluate("document.body.innerText.slice(0, 1500)")))
+      throw err
+    })
+  pass("un PDF de 2 páginas se convierte en «Diapositivas» con 2 pantallas")
+  await page.waitFor("[...document.querySelectorAll('figure img')].filter(i => i.complete && i.naturalWidth > 0).length === 2", 15000)
+  const size = await page.evaluate(`(() => { const i = document.querySelector('figure img'); return [i.naturalWidth, i.naturalHeight] })()`)
+  check(size[0] === 1920, `cada página queda como imagen de ${size[0]}×${size[1]}`)
+  await shot(page, "diapositivas")
+
+  // Live: L shows the church's logo screen.
+  await page.goto(`${ORIGIN}/culto/vivo`)
+  await page.waitFor("document.querySelector('#v-live')", 20000)
+  await key(page, "l", "KeyL")
+  const logo = await page.evaluate(`document.querySelector('.live-wrap .page--logo')?.innerText ?? ''`)
+  check(logo.includes("Iglesia de Prueba"), `L muestra la pantalla del logo con el nombre («${logo.trim()}»)`)
+  await shot(page, "logo")
 }
 catch (err) {
   fail(err.stack)

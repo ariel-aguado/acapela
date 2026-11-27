@@ -1,7 +1,8 @@
 import type { PageItem } from "~/utils/culto/paginate";
 import type { Screen } from "~/utils/culto/screens";
-import type { CultoItem, ReadingItem, ScreenItem } from "~~/lib/culto";
+import type { CultoItem, ProjectionTheme, ReadingItem, ScreenItem } from "~~/lib/culto";
 
+import { resolveLook } from "~/utils/culto/look";
 import { paginate } from "~/utils/culto/paginate";
 import { PAGE_BODY_PX, renderPage, textPieces, versePieces } from "~/utils/culto/screens";
 import { SCREEN_LAYOUT_LABELS } from "~~/lib/culto";
@@ -80,11 +81,12 @@ function measured<T>(run: () => Promise<T>): Promise<T> {
  * Splits a text page into as many screens as it needs: the title and
  * reference only on the first one, the eyebrow on all of them.
  */
-async function paginatePage(base: PageScreen, pieces: PageItem[]): Promise<PageItem[][]> {
+async function paginatePage(base: PageScreen, pieces: PageItem[], font: string): Promise<PageItem[][]> {
   return measured(async () => {
     const el = measuringStage();
+    el.style.setProperty("--proj-font", font);
     el.innerHTML = renderPage(base, "");
-    await document.fonts?.load(`600 ${Math.round(PAGE_BODY_PX * base.scale)}px Inter`).catch(() => {});
+    await document.fonts?.load(`600 ${Math.round(PAGE_BODY_PX * base.scale)}px ${font}`).catch(() => {});
     await document.fonts?.ready;
     const body = el.querySelector<HTMLElement>(".page-body")!;
     const title = el.querySelector<HTMLElement>(".page-title");
@@ -139,24 +141,34 @@ function pageMeta(page: PageItem[], i: number) {
 
 // ------------------------------------------------------------ per kind
 
-async function screenPages(item: ScreenItem): Promise<Natural["screens"]> {
+async function screenPages(item: ScreenItem, theme: ProjectionTheme): Promise<Natural["screens"]> {
+  const logo = item.layout === "logo";
   const base: PageScreen = {
     type: "page",
     layout: item.layout,
     eyebrow: item.eyebrow.trim(),
-    title: item.title.trim(),
+    // The logo screen is the church's: its name under the logo.
+    title: item.title.trim() || (logo
+      ? theme.churchName
+      : ""),
     reference: item.reference.trim(),
     html: "",
-    footer: "",
+    footer: logo
+      ? ""
+      : theme.churchName,
     counter: "",
     scale: item.scale ?? 1,
+    mediaId: logo
+      ? theme.logoId
+      : item.mediaId,
   };
   if (item.layout !== "text" || !item.body.trim()) {
     return [
       { key: "p0", screen: base, natural: 0 },
     ];
   }
-  const pages = await paginatePage(base, withBreaks(textPieces(item.body, `${item.id}:`), item.breaks));
+  const font = resolveLook(theme, item).font;
+  const pages = await paginatePage(base, withBreaks(textPieces(item.body, `${item.id}:`), item.breaks), font);
   return pages.map((page, i) => ({
     ...pageMeta(page, i),
     natural: i,
@@ -173,7 +185,7 @@ async function screenPages(item: ScreenItem): Promise<Natural["screens"]> {
   }));
 }
 
-async function readingPages(item: ReadingItem): Promise<Natural> {
+async function readingPages(item: ReadingItem, theme: ProjectionTheme): Promise<Natural> {
   const bible = useBibleStore();
   const passage = await bible.passage(item.reference, item.versionId || undefined);
   if (!passage || !passage.verses.length)
@@ -190,7 +202,7 @@ async function readingPages(item: ReadingItem): Promise<Natural> {
     counter: "",
     scale: item.scale ?? 1,
   };
-  const pages = await paginatePage(base, withBreaks(versePieces(passage.verses, item.mode === "verse"), item.breaks));
+  const pages = await paginatePage(base, withBreaks(versePieces(passage.verses, item.mode === "verse"), item.breaks), resolveLook(theme, item).font);
   const first = passage.verses[0]!;
   return {
     label: passage.label,
@@ -244,7 +256,15 @@ export function orderKeys(keys: string[], order: readonly string[] | undefined):
   return ranked.sort((a, b) => a.rank - b.rank || a.natural - b.natural).map(r => r.key);
 }
 
-function arrange(item: CultoItem, natural: Natural["screens"]): Pick<ItemScreens, "all" | "screens" | "keys"> {
+function arrange(item: CultoItem, natural: Natural["screens"], theme: ProjectionTheme): Pick<ItemScreens, "all" | "screens" | "keys"> {
+  // The church's look, resolved for this element, travels with each screen.
+  const look = resolveLook(theme, item);
+  natural = natural.map(s => s.screen.type === "image"
+    ? s
+    : {
+        ...s,
+        screen: { ...s.screen, look },
+      });
   const byKey = new Map(natural.map(s => [s.key, s]));
   const hidden = new Set(item.hidden ?? []);
   const all = orderKeys(natural.map(s => s.key), item.screenOrder)
@@ -267,9 +287,15 @@ function arrange(item: CultoItem, natural: Natural["screens"]): Pick<ItemScreens
 // ------------------------------------------------------------ composable
 
 /** What changes the measured screens (not the order, the hidden ones or the notes). */
-function signature(item: CultoItem): string {
-  const { notes: _n, inserted: _i, screenOrder: _o, hidden: _h, ...rest } = item;
-  return JSON.stringify(rest);
+function signature(item: CultoItem, theme: ProjectionTheme): string {
+  const { notes: _n, inserted: _i, screenOrder: _o, hidden: _h, background: _b, ...rest } = item;
+  // The letter changes how much fits; the name and logo appear on screens.
+  return JSON.stringify([
+    rest,
+    theme.font,
+    theme.churchName,
+    theme.logoId,
+  ]);
 }
 
 /**
@@ -284,6 +310,7 @@ export function useCultoScreens(items: MaybeRefOrGetter<CultoItem[]>) {
   const presentation = usePresentationStore();
   const { songs } = storeToRefs(songStore);
   const { currentId: songbookId, manifest } = storeToRefs(songbookStore);
+  const { theme } = storeToRefs(useCultoStore());
 
   // Measured results by item id, valid while the signature matches.
   const done = shallowRef(new Map<string, { sig: string; result: Natural | { error: string } }>());
@@ -300,6 +327,8 @@ export function useCultoScreens(items: MaybeRefOrGetter<CultoItem[]>) {
       return item.title.trim() || item.eyebrow.trim() || SCREEN_LAYOUT_LABELS[item.layout];
     if (item.kind === "reading")
       return item.reference;
+    if (item.kind === "slides")
+      return item.title.trim() || "Diapositivas";
     return `Himno ${item.songId}`;
   }
 
@@ -349,17 +378,31 @@ export function useCultoScreens(items: MaybeRefOrGetter<CultoItem[]>) {
       item,
       label: `${song.songId} · ${song.title}`,
       status: "ready",
-      ...arrange(item, natural),
+      ...arrange(item, natural, theme.value),
     };
   }
 
-  function compute(item: Exclude<CultoItem, { kind: "hymn" }>, sig: string) {
+  function slidesScreens(item: Extract<CultoItem, { kind: "slides" }>): ItemScreens {
+    const natural = item.pages.map((mediaId, i) => ({
+      key: `m:${mediaId}`,
+      natural: i,
+      screen: { type: "image" as const, mediaId },
+    }));
+    return {
+      item,
+      label: labelOf(item),
+      status: "ready",
+      ...arrange(item, natural, theme.value),
+    };
+  }
+
+  function compute(item: Extract<CultoItem, { kind: "reading" | "screen" }>, sig: string) {
     if (pending.has(sig))
       return;
     pending.add(sig);
     const run: Promise<Natural> = item.kind === "reading"
-      ? readingPages(item)
-      : screenPages(item).then(screens => ({
+      ? readingPages(item, theme.value)
+      : screenPages(item, theme.value).then(screens => ({
           label: labelOf(item),
           screens,
         }));
@@ -390,14 +433,16 @@ export function useCultoScreens(items: MaybeRefOrGetter<CultoItem[]>) {
       item,
       label: result.label,
       status,
-      ...arrange(item, result.screens),
+      ...arrange(item, result.screens, theme.value),
     };
   }
 
   const entries = computed<ItemScreens[]>(() => toValue(items).map((item) => {
     if (item.kind === "hymn")
       return hymnScreens(item);
-    const sig = signature(item);
+    if (item.kind === "slides")
+      return slidesScreens(item);
+    const sig = signature(item, theme.value);
     const cached = done.value.get(item.id);
     if (cached?.sig === sig)
       return fromResult(item, cached.result, "ready");

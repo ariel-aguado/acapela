@@ -30,7 +30,7 @@ function fail(msg) {
 // The static site, as in production (Dockerfile: nuxt generate + nginx):
 // files from .output/public, unknown paths fall back to the SPA shell.
 const PUBLIC = path.resolve(".output/public")
-const TYPES = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".json": "application/json", ".wasm": "application/wasm", ".webmanifest": "application/manifest+json", ".svg": "image/svg+xml", ".png": "image/png", ".txt": "text/plain; charset=utf-8" }
+const TYPES = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript", ".css": "text/css", ".json": "application/json", ".wasm": "application/wasm", ".webmanifest": "application/manifest+json", ".svg": "image/svg+xml", ".png": "image/png", ".txt": "text/plain; charset=utf-8" }
 const server = createServer(async (req, res) => {
   const urlPath = decodeURIComponent(new URL(req.url, ORIGIN).pathname)
   let file = path.join(PUBLIC, urlPath)

@@ -5,6 +5,7 @@ import type { ItemScreens } from "~/composables/use-culto-screens";
 import type { CultoItem } from "~~/lib/culto";
 
 import { formatCultoDate, SCREEN_TEMPLATES } from "~/stores/culto";
+import { importSlides, titleFromFiles } from "~/utils/culto/import-slides";
 import { ITEM_KIND_LABELS } from "~~/lib/culto";
 
 // Preparing a service: its order (hymns, readings, screens), each element's
@@ -76,7 +77,16 @@ function removeCulto() {
   });
 }
 
+const showTheme = ref(false);
+
 const cultoMenu = computed(() => [
+  [
+    {
+      label: "Tema de la iglesia…",
+      icon: "i-tabler-palette",
+      onSelect: () => (showTheme.value = true),
+    },
+  ],
   [
     {
       label: "Nuevo culto",
@@ -117,6 +127,34 @@ function add(item: CultoItem) {
 
 function addHymn(songId: number) {
   add(culto.newHymn(songbook.currentId, songId));
+}
+
+// Slides from a PDF or images: chosen first, then imported as a new element.
+const slidesInput = useTemplateRef<HTMLInputElement>("slidesFile");
+const importing = ref<string | null>(null);
+async function onSlidesFiles(e: Event) {
+  const files = [
+    ...(e.target as HTMLInputElement).files ?? [],
+  ];
+  (e.target as HTMLInputElement).value = "";
+  if (!files.length)
+    return;
+  importing.value = `Preparando ${files[0]!.name}…`;
+  try {
+    const ids = await importSlides(files, (p) => {
+      importing.value = `Preparando ${p.name}: ${p.done} de ${p.total}…`;
+    });
+    if (ids.length)
+      add(culto.newSlides(titleFromFiles(files), ids));
+  }
+  catch (err) {
+    toast(`No se pudo leer el archivo: ${err instanceof Error
+      ? err.message
+      : String(err)}`, undefined, 8000);
+  }
+  finally {
+    importing.value = null;
+  }
 }
 
 function addReading() {
@@ -165,6 +203,7 @@ const KIND_DOT: Record<string, string> = {
   hymn: "bg-primary",
   screen: "bg-amber-500",
   reading: "bg-emerald-500",
+  slides: "bg-sky-500",
 };
 
 onMounted(() => {
@@ -339,9 +378,28 @@ onMounted(() => {
                 trailing-icon="i-tabler-chevron-down"
               />
             </UDropdownMenu>
+            <UButton
+              color="neutral"
+              variant="outline"
+              icon="i-tabler-slideshow"
+              label="Diapositivas"
+              :loading="!!importing"
+              @click="slidesInput?.click()"
+            />
+            <input
+              ref="slidesFile"
+              type="file"
+              accept="application/pdf,image/*"
+              multiple
+              class="hidden"
+              @change="onSlidesFiles"
+            >
           </div>
           <p class="text-xs opacity-60">
             Lo nuevo se agrega debajo del elemento elegido.
+          </p>
+          <p v-if="importing" class="text-xs opacity-80">
+            {{ importing }}
           </p>
         </section>
 
@@ -370,6 +428,7 @@ onMounted(() => {
       </div>
     </div>
 
+    <CultoThemeDialog v-model:open="showTheme" />
     <AppGoToHymn
       v-model:open="pickHymn"
       heading="Agregar un himno"

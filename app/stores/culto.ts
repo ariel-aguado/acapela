@@ -1,6 +1,8 @@
 import { nanoid } from "nanoid";
 
-import type { Culto, CultoItem, HymnItem, ReadingItem, ScreenItem } from "~~/lib/culto";
+import type { Culto, CultoItem, HymnItem, ProjectionTheme, ReadingItem, ScreenItem, SlidesItem } from "~~/lib/culto";
+
+import { DEFAULT_THEME } from "~~/lib/culto";
 
 /** Ready-made screens for the usual moments of a service. */
 export const SCREEN_TEMPLATES: { label: string; item: Omit<ScreenItem, "id"> }[] = [
@@ -81,6 +83,28 @@ export const SCREEN_TEMPLATES: { label: string; item: Omit<ScreenItem, "id"> }[]
       reference: "",
     },
   },
+  {
+    label: "Logo (antes de empezar)",
+    item: {
+      kind: "screen",
+      layout: "logo",
+      eyebrow: "",
+      title: "",
+      body: "",
+      reference: "",
+    },
+  },
+  {
+    label: "Imagen o afiche",
+    item: {
+      kind: "screen",
+      layout: "image",
+      eyebrow: "",
+      title: "",
+      body: "",
+      reference: "",
+    },
+  },
 ];
 
 function nextSunday(): string {
@@ -108,6 +132,15 @@ export function formatCultoDate(iso: string): string {
 export const useCultoStore = defineStore("culto", () => {
   const cultos = useLocalStorage<Culto[]>("cultos", []);
   const currentId = useLocalStorage<string>("cultoId", "");
+  /** The church's look on the projector, for every service on this device. */
+  const theme = useLocalStorage<ProjectionTheme>("cultoTheme", structuredClone(DEFAULT_THEME), { mergeDefaults: true });
+
+  function setTheme(changes: Partial<ProjectionTheme>) {
+    theme.value = {
+      ...theme.value,
+      ...changes,
+    };
+  }
 
   const current = computed<Culto | null>(() =>
     cultos.value.find(c => c.id === currentId.value) ?? cultos.value[0] ?? null,
@@ -307,6 +340,16 @@ export const useCultoStore = defineStore("culto", () => {
     };
   }
 
+  function newSlides(title: string, pages: string[], extra: Partial<SlidesItem> = {}): SlidesItem {
+    return {
+      id: nanoid(8),
+      kind: "slides",
+      title,
+      pages,
+      ...extra,
+    };
+  }
+
   function newScreen(template?: Omit<ScreenItem, "id">, extra: Partial<ScreenItem> = {}): ScreenItem {
     return {
       id: nanoid(8),
@@ -324,6 +367,9 @@ export const useCultoStore = defineStore("culto", () => {
 
   return {
     cultos,
+    theme,
+    setTheme,
+    newSlides,
     sorted,
     current,
     currentId,

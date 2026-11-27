@@ -6,8 +6,60 @@
  * text, the letter size or inserting something re-flows everything after.
  */
 
+/** What is behind the text of a screen. */
+export type Background
+  = | { kind: "acapela" }
+    | { kind: "color"; color: string }
+    | { kind: "image"; mediaId: string };
+
+export type ProjectionFont = "inter" | "literata" | "roboto-serif" | "merriweather" | "roboto" | "open-sans" | "figtree" | "atkinson";
+
+export const PROJECTION_FONTS: { id: ProjectionFont; label: string; css: string }[] = [
+  { id: "inter", label: "Inter", css: "\"Inter\", sans-serif" },
+  { id: "figtree", label: "Figtree", css: "\"Figtree\", sans-serif" },
+  { id: "open-sans", label: "Open Sans", css: "\"Open Sans\", sans-serif" },
+  { id: "roboto", label: "Roboto", css: "\"Roboto\", sans-serif" },
+  { id: "atkinson", label: "Atkinson Hyperlegible", css: "\"Atkinson Hyperlegible\", sans-serif" },
+  { id: "literata", label: "Literata", css: "\"Literata\", Georgia, serif" },
+  { id: "roboto-serif", label: "Roboto Serif", css: "\"Roboto Serif\", Georgia, serif" },
+  { id: "merriweather", label: "Merriweather", css: "\"Merriweather\", Georgia, serif" },
+];
+
+/**
+ * The church's look on the projector, for every service on this device:
+ * its name (bottom of the screens), logo, background, accent and letter.
+ * Only fonts the app ships, so the projector shows them offline.
+ */
+export type ProjectionTheme = {
+  churchName: string;
+  logoId?: string;
+  background: Background;
+  /** Small labels on top ("SANTA CENA"). */
+  accent: string;
+  font: ProjectionFont;
+};
+
+export const DEFAULT_THEME: ProjectionTheme = {
+  churchName: "",
+  background: { kind: "acapela" },
+  accent: "#ffffff",
+  font: "inter",
+};
+
+/** A theme resolved for one screen; travels with it to the projector. */
+export type Look = {
+  background: Background;
+  accent: string;
+  /** CSS font-family. */
+  font: string;
+  /** Dark text, for a light background. */
+  darkText: boolean;
+};
+
 type ItemBase = {
   id: string;
+  /** Its own background instead of the theme's. */
+  background?: Background;
   /** For whoever leads the service; never projected. */
   notes?: string;
   /** Added from the live console during the service. */
@@ -33,7 +85,7 @@ export type HymnItem = ItemBase & {
 };
 
 /** A designed screen: welcome, Lord's supper, offering, prayer… */
-export type ScreenLayout = "title" | "quote" | "text";
+export type ScreenLayout = "title" | "quote" | "text" | "image" | "logo";
 export type ScreenItem = ItemBase & {
   kind: "screen";
   layout: ScreenLayout;
@@ -44,6 +96,8 @@ export type ScreenItem = ItemBase & {
   body: string;
   /** Under the title ("1 Corintios 11:24"). */
   reference: string;
+  /** The picture of the "image" layout (a flyer, a photo). */
+  mediaId?: string;
 };
 
 export type ReadingMode = "fit" | "verse";
@@ -56,7 +110,15 @@ export type ReadingItem = ItemBase & {
   mode: ReadingMode;
 };
 
-export type CultoItem = HymnItem | ScreenItem | ReadingItem;
+/** Slides brought from a PDF or images (the sermon's): one screen each, as they are. */
+export type SlidesItem = ItemBase & {
+  kind: "slides";
+  title: string;
+  /** Images in IndexedDB (app/utils/culto/media.ts), in order. */
+  pages: string[];
+};
+
+export type CultoItem = HymnItem | ScreenItem | ReadingItem | SlidesItem;
 export type CultoItemKind = CultoItem["kind"];
 
 export type Culto = {
@@ -72,10 +134,13 @@ export const SCREEN_LAYOUT_LABELS: Record<ScreenLayout, string> = {
   title: "Título",
   quote: "Cita",
   text: "Texto",
+  image: "Imagen",
+  logo: "Logo",
 };
 
 export const ITEM_KIND_LABELS: Record<CultoItemKind, string> = {
   hymn: "Himno",
   screen: "Pantalla",
   reading: "Lectura",
+  slides: "Diapositivas",
 };

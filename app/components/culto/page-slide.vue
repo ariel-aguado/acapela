@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Screen } from "~/utils/culto/screens";
 
+import { mediaUrl } from "~/utils/culto/media";
 import { renderPage } from "~/utils/culto/screens";
 
 // A designed screen (welcome, Lord's supper, a reading…) on the same fixed
@@ -54,6 +55,16 @@ function fitTitle() {
   title.style.fontSize = `${Math.round(fitted * props.screen.scale)}px`;
 }
 
+// Images (logo, flyer) are referenced by id: their object URL is set here.
+async function loadMedia() {
+  const images = stageRef.value?.querySelectorAll<HTMLImageElement>("img[data-media]") ?? [];
+  for (const img of images) {
+    const url = await mediaUrl(img.dataset.media!);
+    if (url)
+      img.src = url;
+  }
+}
+
 function measureFrame() {
   const el = frameRef.value;
   if (el)
@@ -65,11 +76,13 @@ useResizeObserver(frameRef, measureFrame);
 watch(html, async () => {
   await nextTick();
   fitTitle();
+  loadMedia();
 }, { flush: "post" });
 
 onMounted(async () => {
   measureFrame();
   fitTitle();
+  loadMedia();
   if (document.fonts?.ready) {
     await document.fonts.ready;
     fitTitle();
@@ -103,11 +116,9 @@ onMounted(async () => {
   padding: 90px 130px 60px;
   display: flex;
   flex-direction: column;
-  color: #fff;
-  font-family: "Inter", sans-serif;
-  text-shadow:
-    0 3px 0 rgba(0, 0, 0, 0.6),
-    0 0 14px rgba(0, 0, 0, 0.6);
+  color: var(--proj-fg, #fff);
+  font-family: var(--proj-font, "Inter", sans-serif);
+  text-shadow: var(--proj-shadow, 0 3px 0 rgba(0, 0, 0, 0.6), 0 0 14px rgba(0, 0, 0, 0.6));
 }
 .page-eyebrow {
   margin: 0;
@@ -115,7 +126,8 @@ onMounted(async () => {
   font-weight: 700;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  opacity: 0.88;
+  color: var(--proj-accent, inherit);
+  opacity: 0.92;
 }
 .page-main {
   flex: 1;
@@ -189,6 +201,33 @@ onMounted(async () => {
   opacity: 0.75;
   margin-right: 0.2em;
   vertical-align: 0.6em;
+}
+/* Image: a flyer or photo as large as the screen allows, under the title
+   if there is one. Logo: the church's logo above its name. */
+.page--image .page-main {
+  align-items: center;
+  text-align: center;
+  gap: 24px;
+}
+.page-media {
+  flex: 1;
+  min-height: 0;
+  max-width: 100%;
+  object-fit: contain;
+  border-radius: 12px;
+}
+.page--logo .page-main {
+  align-items: center;
+  text-align: center;
+  gap: 40px;
+}
+.page-logo {
+  max-width: 560px;
+  max-height: 520px;
+  object-fit: contain;
+}
+.page--logo .page-title {
+  font-size: 96px;
 }
 .page-footer {
   display: flex;

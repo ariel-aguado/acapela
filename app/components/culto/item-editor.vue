@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import type { ItemScreens } from "~/composables/use-culto-screens";
-import type { CultoItem, ReadingMode, ScreenLayout } from "~~/lib/culto";
+import type { ImportProgress } from "~/utils/culto/import-slides";
+import type { Background, CultoItem, ReadingMode, ScreenLayout } from "~~/lib/culto";
 
+import { importSlides } from "~/utils/culto/import-slides";
+import { importImage, mediaUrl } from "~/utils/culto/media";
 import { ITEM_KIND_LABELS, SCREEN_LAYOUT_LABELS } from "~~/lib/culto";
 
 // The fields of one element of the service, by kind. Every change is saved
@@ -63,6 +66,62 @@ const modeItems: { label: string; value: ReadingMode }[] = [
   { label: "Un versículo por pantalla", value: "verse" },
 ];
 const versionItems = computed(() => versions.value.map(v => ({ label: v.label, value: v.id })));
+
+const background = computed({
+  get: () => item.value.background,
+  set: (value: Background | undefined) => set({ background: value }),
+});
+
+// Image layout: the picture.
+const imageInput = useTemplateRef<HTMLInputElement>("image");
+const imageUrl = ref<string | null>(null);
+watchEffect(async () => {
+  const it = item.value;
+  imageUrl.value = it.kind === "screen" && it.mediaId
+    ? await mediaUrl(it.mediaId)
+    : null;
+});
+async function onImage(e: Event) {
+  const file = (e.target as HTMLInputElement).files?.[0];
+  (e.target as HTMLInputElement).value = "";
+  if (file)
+    set({ mediaId: await importImage(file, file.name) });
+}
+
+// Slides: more pages from a PDF or images, after the ones it has.
+const pagesInput = useTemplateRef<HTMLInputElement>("pages");
+const importing = ref<ImportProgress | null>(null);
+const importError = ref("");
+async function onPages(e: Event) {
+  const files = [
+    ...(e.target as HTMLInputElement).files ?? [],
+  ];
+  (e.target as HTMLInputElement).value = "";
+  const it = item.value;
+  if (!files.length || it.kind !== "slides")
+    return;
+  importError.value = "";
+  importing.value = { done: 0, total: files.length, name: files[0]!.name };
+  try {
+    const ids = await importSlides(files, (p) => {
+      importing.value = p;
+    });
+    set({
+      pages: [
+        ...it.pages,
+        ...ids,
+      ],
+    });
+  }
+  catch (err) {
+    importError.value = `No se pudo leer el archivo: ${err instanceof Error
+      ? err.message
+      : String(err)}`;
+  }
+  finally {
+    importing.value = null;
+  }
+}
 
 const scalePercent = computed({
   get: () => Math.round((item.value.scale ?? 1) * 100),
@@ -140,6 +199,42 @@ onMounted(() => {
       </UFormField>
     </template>
 
+    <!-- Slides -->
+    <template v-else-if="item.kind === 'slides'">
+      <UFormField label="Nombre" help="Para reconocerlas en el orden; no se proyecta.">
+        <UInput v-model="title" size="lg" class="w-full" />
+      </UFormField>
+      <div class="flex flex-col gap-2">
+        <span class="text-sm">{{ item.pages.length }} {{ item.pages.length === 1 ? 'diapositiva' : 'diapositivas' }}</span>
+        <UButton
+          color="neutral"
+          variant="outline"
+          icon="i-tabler-file-plus"
+          label="Agregar PDF o imágenes"
+          class="self-start"
+          :loading="!!importing"
+          @click="pagesInput?.click()"
+        />
+        <p v-if="importing" class="text-xs opacity-70">
+          Preparando {{ importing.name }}: {{ importing.done }} de {{ importing.total }}…
+        </p>
+        <p v-if="importError" class="text-xs text-error">
+          {{ importError }}
+        </p>
+        <p class="text-xs opacity-70">
+          De PowerPoint, Keynote o Google Slides: expórtalas como PDF. Para quitar una, ocúltala en la lista de pantallas.
+        </p>
+        <input
+          ref="pages"
+          type="file"
+          accept="application/pdf,image/*"
+          multiple
+          class="hidden"
+          @change="onPages"
+        >
+      </div>
+    </template>
+
     <!-- Screen -->
     <template v-else>
       <UFormField label="Diseño">
@@ -151,6 +246,33 @@ onMounted(() => {
           @update:model-value="v => set({ layout: v as ScreenLayout })"
         />
       </UFormField>
+      <UFormField v-if="item.layout === 'image'" label="Imagen" help="Un afiche, una foto: se muestra entera.">
+        <div class="flex items-center gap-3">
+          <img
+            v-if="imageUrl"
+            :src="imageUrl"
+            alt=""
+            class="h-16 aspect-video object-contain rounded-lg ring-1 ring-default bg-muted"
+          >
+          <UButton
+            color="neutral"
+            variant="outline"
+            icon="i-tabler-photo"
+            :label="item.mediaId ? 'Cambiar imagen' : 'Elegir imagen'"
+            @click="imageInput?.click()"
+          />
+        </div>
+        <input
+          ref="image"
+          type="file"
+          accept="image/*"
+          class="hidden"
+          @change="onImage"
+        >
+      </UFormField>
+      <p v-if="item.layout === 'logo'" class="text-sm opacity-75">
+        El logo y el nombre son los del tema de la iglesia (en el menú ⋯ del culto).
+      </p>
       <UFormField label="Etiqueta" help="Arriba, en letra pequeña: «Santa Cena», «Anuncios»…">
         <UInput v-model="eyebrow" size="lg" class="w-full" />
       </UFormField>
@@ -181,7 +303,11 @@ onMounted(() => {
       </UFormField>
     </template>
 
-    <UFormField v-if="item.kind !== 'hymn'" :label="`Tamaño de letra · ${scalePercent} %`">
+    <UFormField v-if="item.kind !== 'slides'" label="Fondo">
+      <CultoBackgroundPicker v-model="background" inherit />
+    </UFormField>
+
+    <UFormField v-if="item.kind !== 'hymn' && item.kind !== 'slides'" :label="`Tamaño de letra · ${scalePercent} %`">
       <USlider
         v-model="scalePercent"
         :min="60"

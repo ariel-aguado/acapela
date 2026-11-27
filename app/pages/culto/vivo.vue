@@ -2,10 +2,12 @@
 import type { ShortcutGroup } from "~/components/app/shortcuts-help.vue";
 import type { InsertWhere } from "~/components/culto/insert-dialog.vue";
 import type { ProjectorState } from "~/composables/use-projector-channel";
+import type { Screen } from "~/utils/culto/screens";
 import type { CultoItem } from "~~/lib/culto";
 
 import { PROJECTOR_WINDOW_NAME } from "~/composables/use-projector-channel";
 import { SCALE_MAX, SCALE_MIN, SCALE_STEP } from "~/stores/presentation";
+import { resolveLook } from "~/utils/culto/look";
 
 // The live console of a service: every screen of every element in order,
 // so → goes from the last verse of a hymn to the next reading without
@@ -29,6 +31,8 @@ const { entries, flat } = useCultoScreens(items);
 // before it must not move what is on screen.
 const position = useSessionStorage<{ itemId: string; key: string } | null>("cultoLivePosition2", null);
 const black = ref(false);
+/** The church's logo instead of the live screen (L). */
+const showLogo = ref(false);
 /** After something inserted "now", where to come back to. */
 const returnTo = ref<{ itemId: string; key: string; afterItemId: string } | null>(null);
 
@@ -96,6 +100,10 @@ const upcoming = computed(() => {
 });
 
 function next() {
+  if (showLogo.value) {
+    showLogo.value = false;
+    return;
+  }
   const target = nextIndexOf(liveIndex.value);
   const back = returnTo.value;
   if (back && flat.value[liveIndex.value]?.itemId === back.afterItemId && flat.value[target]?.itemId !== back.afterItemId)
@@ -148,7 +156,9 @@ function insertHymn(songId: number) {
 
 const liveScale = computed(() => {
   const screen = live.value?.screen;
-  return screen?.scale ?? 1;
+  return screen && screen.type !== "image"
+    ? screen.scale
+    : 1;
 });
 function changeScale(delta: number) {
   const item = liveEntry.value?.item;
@@ -163,8 +173,26 @@ function changeScale(delta: number) {
 
 // ------------------------------------------------------------ projector
 
+// The church's logo screen, on and off with L (before starting, between parts).
+const logoScreen = computed<Screen>(() => ({
+  type: "page",
+  layout: "logo",
+  eyebrow: "",
+  title: culto.theme.churchName,
+  reference: "",
+  html: "",
+  footer: "",
+  counter: "",
+  scale: 1,
+  mediaId: culto.theme.logoId,
+  look: resolveLook(culto.theme),
+}));
+const onAir = computed(() => showLogo.value
+  ? logoScreen.value
+  : live.value?.screen ?? null);
+
 const liveState = computed<ProjectorState>(() => ({
-  screen: live.value?.screen ?? null,
+  screen: onAir.value,
   black: black.value,
 }));
 const { connected } = useProjectorSender(liveState);
@@ -221,6 +249,7 @@ keys(["Home"], () => goTo(0));
 keys(["End"], () => goTo(flat.value.length - 1));
 keys(["b", "B", "."], () => (black.value = !black.value));
 keys(["i", "I"], () => (showInsert.value = true));
+keys(["l", "L"], () => (showLogo.value = !showLogo.value));
 keys(["g", "G"], () => (showGoTo.value = true));
 keys(["+", "="], () => changeScale(SCALE_STEP));
 keys(["-", "_"], () => changeScale(-SCALE_STEP));
@@ -264,6 +293,10 @@ const shortcutGroups: ShortcutGroup[] = [
       {
         keys: ["B"],
         label: "Pantalla en negro / volver",
+      },
+      {
+        keys: ["L"],
+        label: "Logo de la iglesia / volver",
       },
       {
         keys: ["+", "−"],
@@ -391,7 +424,7 @@ function endService() {
           :class="black ? 'ring-inverted/40' : 'ring-error'"
           @click="isFullscreen && next()"
         >
-          <CultoScreen :screen="live?.screen ?? null" :black="black" />
+          <CultoScreen :screen="onAir" :black="black" />
           <div v-if="black && !isFullscreen" class="absolute inset-0 grid place-items-center text-white/80 text-sm font-semibold pointer-events-none">
             Pantalla en negro · B para volver
           </div>
@@ -426,6 +459,17 @@ function endService() {
             @click="black = !black"
           >
             {{ black ? 'Mostrar' : 'Negro' }} <UKbd value="B" />
+          </UButton>
+          <UButton
+            color="neutral"
+            :variant="showLogo ? 'solid' : 'outline'"
+            size="xl"
+            class="h-11"
+            icon="i-tabler-building-church"
+            :aria-pressed="showLogo"
+            @click="showLogo = !showLogo"
+          >
+            Logo <UKbd value="L" />
           </UButton>
           <UFieldGroup role="group" aria-label="Tamaño del texto de este elemento">
             <UButton

@@ -1,6 +1,6 @@
 import type { Slide } from "~/utils/slides";
 import type { VerseRow } from "~~/lib/bible";
-import type { ScreenLayout } from "~~/lib/culto";
+import type { Look, ScreenLayout } from "~~/lib/culto";
 
 import type { PageItem } from "./paginate";
 
@@ -16,6 +16,7 @@ export type Screen
     number: number;
     title: string;
     scale: number;
+    look?: Look;
   }
   | {
     type: "page";
@@ -25,11 +26,19 @@ export type Screen
     reference: string;
     /** Body HTML of this screen (text layout). */
     html: string;
-    /** Bottom left ("Reina-Valera 1960"). */
+    /** Bottom left ("Reina-Valera 1960", the church's name). */
     footer: string;
     /** Bottom right ("2 / 4"), empty for a single screen. */
     counter: string;
     scale: number;
+    /** The picture of the image and logo layouts. */
+    mediaId?: string;
+    look?: Look;
+  }
+  | {
+    /** A slide brought from a PDF or an image, shown as it is. */
+    type: "image";
+    mediaId: string;
   };
 
 /** Letter size of a page's body at scale 1, on the 1920×1080 stage. */
@@ -52,12 +61,16 @@ export function renderPage(screen: Extract<Screen, { type: "page" }>, body = scr
   if (screen.eyebrow)
     parts.push(`<p class="page-eyebrow">${escapeHtml(screen.eyebrow)}</p>`);
   parts.push(`<div class="page-main">`);
+  if (screen.layout === "logo" && screen.mediaId)
+    parts.push(`<img class="page-logo" data-media="${escapeHtml(screen.mediaId)}" alt="">`);
   if (screen.title)
     parts.push(`<h2 class="page-title">${escapeHtml(screen.title)}</h2>`);
   if (screen.reference)
     parts.push(`<p class="page-reference">${escapeHtml(screen.reference)}</p>`);
   if (screen.layout === "text")
     parts.push(`<div class="page-body">${body}</div>`);
+  if (screen.layout === "image" && screen.mediaId)
+    parts.push(`<img class="page-media" data-media="${escapeHtml(screen.mediaId)}" alt="">`);
   parts.push(`</div>`);
   if (screen.footer || screen.counter)
     parts.push(`<p class="page-footer"><span>${escapeHtml(screen.footer)}</span><span>${escapeHtml(screen.counter)}</span></p>`);
