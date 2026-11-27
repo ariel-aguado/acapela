@@ -1,4 +1,7 @@
 <script lang="ts" setup>
+import { VueDraggable } from "vue-draggable-plus";
+
+import type { ItemScreens } from "~/composables/use-culto-screens";
 import type { CultoItem } from "~~/lib/culto";
 
 import { formatCultoDate, SCREEN_TEMPLATES } from "~/stores/culto";
@@ -149,6 +152,10 @@ function removeItem(id: string) {
   });
 }
 
+function reorder(list: ItemScreens[]) {
+  culto.setOrder(list.map(e => e.item.id));
+}
+
 function move(id: string, delta: number) {
   const index = items.value.findIndex(i => i.id === id);
   culto.moveItem(id, index + delta);
@@ -231,15 +238,34 @@ onMounted(() => {
           <p v-if="!items.length" class="text-sm opacity-70">
             Todavía no hay nada. Empieza por un himno o una pantalla de bienvenida.
           </p>
-          <ol class="flex flex-col gap-1.5">
+          <!-- Drag by the handle (as in SúperBiblia's screen manager); the
+            arrows do the same from the keyboard. -->
+          <VueDraggable
+            :model-value="[...entries]"
+            tag="ol"
+            class="flex flex-col gap-1.5"
+            handle=".drag-handle"
+            :animation="150"
+            :force-fallback="true"
+            ghost-class="drag-ghost"
+            chosen-class="drag-chosen"
+            @update:model-value="reorder"
+          >
             <li v-for="(entry, i) in entries" :key="entry.item.id">
               <div
                 class="flex items-center gap-1 rounded-2xl border transition-colors"
                 :class="entry.item.id === selectedId ? 'border-primary bg-primary/10' : 'border-default bg-default hover:bg-muted'"
               >
+                <span
+                  class="drag-handle self-stretch flex items-center ps-2 cursor-grab touch-none opacity-50 hover:opacity-100"
+                  :aria-label="`Arrastrar para mover «${entry.label}»`"
+                  title="Arrastrar para mover"
+                >
+                  <UIcon name="i-tabler-grip-vertical" class="size-5" />
+                </span>
                 <button
                   type="button"
-                  class="flex-1 min-w-0 flex items-center gap-3 ps-3 py-2.5 text-start"
+                  class="flex-1 min-w-0 flex items-center gap-3 ps-1 py-2.5 text-start"
                   :aria-current="entry.item.id === selectedId ? 'true' : undefined"
                   @click="choose(entry.item.id)"
                 >
@@ -288,7 +314,7 @@ onMounted(() => {
                 </div>
               </div>
             </li>
-          </ol>
+          </VueDraggable>
           <div class="flex flex-wrap gap-2">
             <UButton
               color="neutral"
@@ -331,16 +357,7 @@ onMounted(() => {
               <p v-if="selected.status === 'error'" class="rounded-2xl bg-warning/10 text-warning px-4 py-3 text-sm font-medium">
                 {{ selected.error }}
               </p>
-              <div v-if="selected.screens.length" class="grid gap-3 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
-                <figure v-for="(screen, i) in selected.screens" :key="i" class="m-0 flex flex-col gap-1">
-                  <div class="rounded-xl overflow-hidden ring-1 ring-default">
-                    <CultoScreen :screen="screen" />
-                  </div>
-                  <figcaption class="text-xs opacity-70">
-                    Pantalla {{ i + 1 }} de {{ selected.screens.length }}
-                  </figcaption>
-                </figure>
-              </div>
+              <CultoScreenManager v-if="selected.all.length" :entry="selected" />
               <div v-else-if="selected.status === 'loading'" class="aspect-video rounded-xl bg-muted grid place-items-center">
                 <UIcon name="i-tabler-loader-2" class="size-8 animate-spin opacity-60" aria-label="Preparando" />
               </div>
@@ -361,3 +378,15 @@ onMounted(() => {
     />
   </div>
 </template>
+
+<style>
+/* Dragging, here and in the screen manager. */
+.drag-ghost {
+  opacity: 0.35;
+}
+.drag-chosen {
+  outline: 2px solid var(--ui-primary);
+  outline-offset: 2px;
+  border-radius: 1rem;
+}
+</style>

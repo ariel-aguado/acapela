@@ -27,11 +27,14 @@ const { entries, flat } = useCultoScreens(items);
 // ------------------------------------------------------------ position
 // Kept as "element + screen", not as a number: inserting or re-flowing
 // before it must not move what is on screen.
-const position = useSessionStorage<{ itemId: string; index: number } | null>("cultoLivePosition", null);
+const position = useSessionStorage<{ itemId: string; key: string } | null>("cultoLivePosition2", null);
 const black = ref(false);
 /** After something inserted "now", where to come back to. */
-const returnTo = ref<{ itemId: string; index: number; afterItemId: string } | null>(null);
+const returnTo = ref<{ itemId: string; key: string; afterItemId: string } | null>(null);
 
+// While the element in position has no screens yet (inserted a moment ago,
+// still being measured), the previous screen stays.
+let lastLive = { itemId: "", key: "" };
 const liveIndex = computed(() => {
   const list = flat.value;
   if (!list.length)
@@ -39,21 +42,27 @@ const liveIndex = computed(() => {
   const pos = position.value;
   if (!pos)
     return 0;
-  const exact = list.findIndex(s => s.itemId === pos.itemId && s.index === pos.index);
-  if (exact >= 0)
-    return exact;
-  // The element got fewer screens (re-flow): its last one.
   const sameItem = list.filter(s => s.itemId === pos.itemId);
-  if (sameItem.length)
-    return list.indexOf(sameItem.at(-1)!);
-  return 0;
+  // An empty key: its first screen (just inserted).
+  const exact = pos.key
+    ? list.findIndex(s => s.itemId === pos.itemId && s.screenKey === pos.key)
+    : list.indexOf(sameItem[0]!);
+  // Otherwise the element got fewer screens (re-flow, hidden): its last one.
+  const found = exact >= 0
+    ? exact
+    : sameItem.length
+      ? list.indexOf(sameItem.at(-1)!)
+      : list.findIndex(s => s.itemId === lastLive.itemId && s.screenKey === lastLive.key);
+  const index = Math.max(0, found);
+  lastLive = { itemId: list[index]!.itemId, key: list[index]!.screenKey };
+  return index;
 });
 const live = computed(() => flat.value[liveIndex.value] ?? null);
 const liveEntry = computed(() => entries.value.find(e => e.item.id === live.value?.itemId) ?? null);
 function goTo(index: number) {
   const target = flat.value[index];
   if (target)
-    position.value = { itemId: target.itemId, index: target.index };
+    position.value = { itemId: target.itemId, key: target.screenKey };
 }
 
 /**
@@ -64,7 +73,7 @@ function nextIndexOf(index: number): number {
   const list = flat.value;
   const back = returnTo.value;
   if (back && list[index]?.itemId === back.afterItemId && list[index + 1]?.itemId !== back.afterItemId) {
-    const target = list.findIndex(s => s.itemId === back.itemId && s.index === back.index);
+    const target = list.findIndex(s => s.itemId === back.itemId && s.screenKey === back.key);
     if (target >= 0)
       return target;
   }
@@ -117,12 +126,12 @@ function insert(item: CultoItem, where: InsertWhere) {
     // or after it.
     const after = flat.value[liveIndex.value + 1];
     returnTo.value = after
-      ? { itemId: after.itemId, index: after.index, afterItemId: item.id }
+      ? { itemId: after.itemId, key: after.screenKey, afterItemId: item.id }
       : null;
   }
   culto.addItem(item, index);
   if (where === "now") {
-    position.value = { itemId: item.id, index: 0 };
+    position.value = { itemId: item.id, key: "" };
   }
   else {
     toast(where === "end"

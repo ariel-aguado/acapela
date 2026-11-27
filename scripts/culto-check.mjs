@@ -225,6 +225,62 @@ try {
 
   const totalNow = await page.evaluate(`[...document.querySelectorAll('nav[aria-label="Orden del culto"] button')].length`)
   check(totalNow === 6, `el orden tiene 6 elementos con el insertado (${totalNow}); ${total} pantallas antes de insertar`)
+
+  // ---------------------------------------------------------- editor: drag and the screen manager
+  await page.goto(`${ORIGIN}/culto`)
+  await page.waitFor("document.querySelectorAll('ol li').length === 6", 20000)
+  await page.waitFor("!document.querySelector('[aria-label=Preparando]')", 30000)
+  const labels = () => page.evaluate(`[...document.querySelectorAll('ol li')].map(l => l.innerText.split('\\n').find(t => t.trim() && !/^\\d+$/.test(t.trim()))?.trim())`)
+  const center = sel => page.evaluate(`(() => { const r = ${sel}.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 } })()`)
+  // Just inside the top-left corner: dropping there puts it before.
+  const corner = sel => page.evaluate(`(() => { const r = ${sel}.getBoundingClientRect(); return { x: r.x + 12, y: r.y + 6 } })()`)
+  async function drag(from, to) {
+    const move = (x, y, buttons = 1) => page.send("Input.dispatchMouseEvent", { type: "mouseMoved", x, y, button: buttons ? "left" : "none", buttons })
+    await move(from.x, from.y, 0)
+    await page.send("Input.dispatchMouseEvent", { type: "mousePressed", x: from.x, y: from.y, button: "left", buttons: 1, clickCount: 1 })
+    await sleep(120)
+    // A few pixels first (Sortable starts dragging after a small move), then the way there.
+    await move(from.x + 3, from.y + 3)
+    await sleep(60)
+    for (let i = 1; i <= 20; i++) {
+      await move(from.x + (to.x - from.x) * i / 20, from.y + (to.y - from.y) * i / 20)
+      await sleep(30)
+    }
+    await sleep(250)
+    await page.send("Input.dispatchMouseEvent", { type: "mouseReleased", x: to.x, y: to.y, button: "left", buttons: 0, clickCount: 1 })
+    await sleep(900)
+  }
+  // The last element (Santa Cena) dragged by its handle above the first.
+  await drag(await center("document.querySelectorAll('ol li .drag-handle')[5]"), await corner("document.querySelectorAll('ol li')[0]"))
+  const order = await labels()
+  check(order[0]?.includes("Haced"), `arrastrar: Santa Cena pasa al primer lugar (${order.slice(0, 2).join(" · ")})`)
+
+  // Hymn: hide its first screen; then drag the second one to the front.
+  await page.evaluate(`[...document.querySelectorAll('ol li button')].find(b => b.innerText.includes('EL NOMBRE'))?.click()`)
+  await page.waitFor("document.querySelectorAll('figure').length === 4", 10000)
+  await page.evaluate(`[...document.querySelectorAll('figure')][0].querySelector('button').click()`)
+  await page.waitFor(`[...document.querySelectorAll('ol li')].some(l => l.innerText.includes('EL NOMBRE') && l.innerText.includes('3 pantallas'))`, 10000)
+  pass("ocultar una estrofa: el himno queda con 3 pantallas")
+  const lastFirst = await page.evaluate(`document.querySelectorAll('figure')[1].querySelector('.projection-lyric')?.innerText.slice(0, 20)`)
+  await drag(await center("document.querySelectorAll('figure')[1].querySelector('.projection-frame')"), await corner("document.querySelectorAll('figure')[0].querySelector('.projection-frame')"))
+  const nowFirst = await page.evaluate(`document.querySelectorAll('figure')[0].querySelector('.projection-lyric')?.innerText.slice(0, 20)`)
+  check(nowFirst === lastFirst, `arrastrar una pantalla: la segunda pasa adelante («${nowFirst}»)`)
+  await page.evaluate(`[...document.querySelectorAll('button')].find(b => b.innerText.includes('Restablecer orden'))?.click()`)
+  await page.waitFor(`[...document.querySelectorAll('ol li')].some(l => l.innerText.includes('EL NOMBRE') && l.innerText.includes('4 pantallas'))`, 10000)
+  pass("restablecer: el himno vuelve a sus 4 pantallas en orden")
+
+  // Reading: start a new screen inside the first one.
+  await page.evaluate(`[...document.querySelectorAll('ol li button')].find(b => b.innerText.includes('Salmos'))?.click()`)
+  await page.waitFor("[...document.querySelectorAll('button')].some(b => b.innerText.includes('Partir'))", 15000)
+  const readingBefore = await page.evaluate(`document.querySelectorAll('figure').length`)
+  await page.evaluate(`[...document.querySelectorAll('button')].find(b => b.innerText.includes('Partir')).click()`)
+  await page.waitFor("document.querySelector('[role=menuitem]')", 5000)
+  await page.evaluate(`document.querySelector('[role=menuitem]').click()`)
+  await page.waitFor(`document.querySelectorAll('figure').length === ${readingBefore + 1}`, 15000)
+  pass(`partir: la lectura pasa de ${readingBefore} a ${readingBefore + 1} pantallas`)
+  const canJoin = await page.evaluate(`[...document.querySelectorAll('button')].some(b => b.innerText.includes('Unir con la anterior'))`)
+  check(canJoin, "la pantalla nueva ofrece «Unir con la anterior»")
+  await shot(page, "gestor")
 }
 catch (err) {
   fail(err.stack)

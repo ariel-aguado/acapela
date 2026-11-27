@@ -14,6 +14,15 @@ type ItemBase = {
   inserted?: boolean;
   /** Text size for this element, 1 = automatic (0.6–1.5). */
   scale?: number;
+  /**
+   * Hand-made changes to its screens, as in SúperBiblia's screen manager.
+   * Keys stay valid when the text re-flows: a hymn screen is its verse's
+   * position; a text screen, the first piece of text on it.
+   */
+  screenOrder?: string[];
+  hidden?: string[];
+  /** Piece id → start a new screen there (true) or not (false). */
+  breaks?: Record<string, boolean>;
 };
 
 export type HymnItem = ItemBase & {

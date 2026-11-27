@@ -233,6 +233,57 @@ export const useCultoStore = defineStore("culto", () => {
     save({ ...culto, items });
   }
 
+  /** New order of the elements, by id (after dragging). */
+  function setOrder(ids: string[]) {
+    const culto = current.value;
+    if (!culto)
+      return;
+    const byId = new Map(culto.items.map(i => [i.id, i]));
+    const items = ids.map(id => byId.get(id)).filter((i): i is CultoItem => !!i);
+    save({
+      ...culto,
+      items: [
+        ...items,
+        ...culto.items.filter(i => !ids.includes(i.id)),
+      ],
+    });
+  }
+
+  // ------------------------------------------------------------ screens of an element
+  // SúperBiblia's screen manager: order, hidden, breaks.
+
+  function itemById(itemId: string) {
+    return current.value?.items.find(i => i.id === itemId);
+  }
+
+  function setScreenOrder(itemId: string, keys: string[]) {
+    updateItem(itemId, { screenOrder: keys });
+  }
+
+  function toggleHidden(itemId: string, key: string) {
+    const hidden = new Set(itemById(itemId)?.hidden ?? []);
+    if (hidden.has(key))
+      hidden.delete(key);
+    else
+      hidden.add(key);
+    updateItem(itemId, {
+      hidden: [...hidden],
+    });
+  }
+
+  function setBreak(itemId: string, pieceId: string, value: boolean) {
+    updateItem(itemId, {
+      breaks: {
+        ...itemById(itemId)?.breaks,
+        [pieceId]: value,
+      },
+    });
+  }
+
+  function resetScreens(itemId: string) {
+    updateItem(itemId, { screenOrder: undefined, hidden: undefined, breaks: undefined });
+  }
+
   // ------------------------------------------------------------ factories
 
   function newHymn(songbookId: string, songId: number, extra: Partial<HymnItem> = {}): HymnItem {
@@ -286,6 +337,11 @@ export const useCultoStore = defineStore("culto", () => {
     updateItem,
     removeItem,
     moveItem,
+    setOrder,
+    setScreenOrder,
+    toggleHidden,
+    setBreak,
+    resetScreens,
     newHymn,
     newReading,
     newScreen,
