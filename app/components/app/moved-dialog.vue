@@ -36,7 +36,7 @@ function close() {
     :close="false"
   >
     <template #body>
-      <p>
+      <p v-scroll-fade.parent>
         Ahora estamos en <strong>acapela.app</strong>. {{ broughtText }}
       </p>
 

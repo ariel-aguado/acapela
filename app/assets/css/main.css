@@ -393,6 +393,26 @@ html[data-reading-margin="4"] {
   border-end-end-radius: 0;
 }
 
+/* A container with its own vertical scroll (v-scroll-fade,
+   plugins/scroll-fade.ts): the edge that still has content fades out, as in
+   Superbiblia. */
+.scroll-fade-y {
+  --fade-top: 1.5rem;
+  --fade-bottom: 2.5rem;
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 var(--fade-top),
+    #000 calc(100% - var(--fade-bottom)),
+    transparent 100%
+  );
+}
+.scroll-fade-y.at-top {
+  --fade-top: 0px;
+}
+.scroll-fade-y.at-bottom {
+  --fade-bottom: 0px;
+}
 /* A row that scrolls sideways (v-scroll-fade-x, plugins/scroll-fade.ts):
    the edge that still has content fades out, as in Superbiblia. */
 .scroll-fade-x {

@@ -25,7 +25,7 @@ const open = defineModel<boolean>("open", { default: false });
       />
     </template>
     <template #body>
-      <div class="flex flex-col gap-6">
+      <div v-scroll-fade.parent class="flex flex-col gap-6">
         <AppReadingSettings />
         <AppThemeControl />
       </div>

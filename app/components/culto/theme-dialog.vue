@@ -92,7 +92,7 @@ const logoSample = computed<Screen>(() => ({
     :ui="{ content: 'sm:max-w-4xl' }"
   >
     <template #body>
-      <div class="grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
+      <div v-scroll-fade.parent class="grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
         <div class="flex flex-col gap-5">
           <UFormField label="Nombre de la iglesia" help="Abajo en las pantallas, y en la pantalla del logo.">
             <UInput v-model="churchName" size="lg" class="w-full" />

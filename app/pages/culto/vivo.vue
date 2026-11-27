@@ -957,7 +957,7 @@ function saveAsService() {
         </CultoPanel>
       </div>
 
-      <aside class="flex flex-col gap-3 min-w-0 min-h-0 lg:overflow-y-auto soft-scrollbar" aria-label="Culto">
+      <aside v-scroll-fade class="flex flex-col gap-3 min-w-0 min-h-0 lg:overflow-y-auto soft-scrollbar" aria-label="Culto">
         <CultoPanel title="Hora" icon="i-tabler-clock" body-class="flex items-baseline justify-between gap-3 px-4 py-3">
           <span class="text-4xl font-semibold tabular-nums leading-none">{{ clock }}</span>
           <span class="text-sm text-muted">{{ elapsed }}</span>
@@ -983,7 +983,7 @@ function saveAsService() {
           <template #meta>
             {{ (live?.itemIndex ?? 0) + 1 }} de {{ entries.length }}
           </template>
-          <nav aria-label="Orden del culto" class="flex flex-col gap-1">
+          <nav v-scroll-fade.parent aria-label="Orden del culto" class="flex flex-col gap-1">
             <template v-for="block in orderBlocks" :key="block.kind === 'item' ? block.item.id : `s:${block.section.id}`">
               <!-- A section: a band in its colour, as in the editor, with its
                    name inside. It adds no indent, so numbers, tiles and titles

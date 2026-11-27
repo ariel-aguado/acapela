@@ -113,7 +113,7 @@ watch(() => props.song.songId, () => lyricRef.value?.scrollTo({ top: 0 }));
     </header>
 
     <!-- The lyric in the reading face, two columns when there is room. -->
-    <div ref="lyric" class="soft-scrollbar min-h-0 flex-1 overflow-y-auto px-7 py-6">
+    <div ref="lyric" v-scroll-fade class="soft-scrollbar min-h-0 flex-1 overflow-y-auto px-7 py-6">
       <div class="hp-lyric font-lyric text-lg/relaxed text-default">
         <section
           v-for="{ block, index } in blocks"

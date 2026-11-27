@@ -667,6 +667,7 @@ onMounted(async () => {
     <div class="flex-1 min-h-0 flex lg:gap-4 lg:pt-4 lg:pb-6">
       <div
         ref="resultsRef"
+        v-scroll-fade
         class="context soft-scrollbar flex-1 min-w-0 overflow-y-auto pad-bar-bottom lg:pb-2"
         :class="hasQuery && !nothingAnywhere ? 'lg:flex-none lg:w-[30rem] lg:rounded-2xl lg:bg-default lg:shadow-card lg:p-2' : ''"
       >
@@ -1094,7 +1095,7 @@ onMounted(async () => {
         </header>
 
         <!-- The lyric in the reading face, two columns when there is room. -->
-        <div ref="previewRef" class="context soft-scrollbar flex-1 overflow-y-auto px-7 py-6">
+        <div ref="previewRef" v-scroll-fade class="context soft-scrollbar flex-1 overflow-y-auto px-7 py-6">
           <div class="preview-lyric font-lyric text-lg/relaxed text-default">
             <section
               v-for="{ block, index } in previewBlocks"

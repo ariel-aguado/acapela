@@ -140,7 +140,7 @@ function apply(show: "now" | "later" | "none") {
     :ui="{ content: 'max-w-lg' }"
   >
     <template #body>
-      <div v-if="entry && previewEntry" class="flex flex-col gap-5">
+      <div v-if="entry && previewEntry" v-scroll-fade.parent class="flex flex-col gap-5">
         <section class="flex flex-col gap-2" aria-label="Cómo quedará">
           <h3 class="text-xs font-bold uppercase tracking-wider text-muted">
             Cómo quedará
@@ -157,7 +157,7 @@ function apply(show: "now" | "later" | "none") {
           <div v-else-if="previewEntry.status === 'loading' && !previewEntry.screens.length" class="grid aspect-video place-items-center rounded-xl bg-muted">
             <UIcon name="i-tabler-loader-2" class="size-6 animate-spin opacity-60" aria-label="Preparando" />
           </div>
-          <ol v-else class="soft-scrollbar grid max-h-64 grid-cols-3 gap-2 overflow-y-auto">
+          <ol v-else v-scroll-fade class="soft-scrollbar grid max-h-64 grid-cols-3 gap-2 overflow-y-auto">
             <li v-for="(s, i) in previewEntry.screens" :key="i" class="relative overflow-hidden rounded-lg ring-1 ring-default">
               <CultoScreen :screen="s" />
               <span class="absolute bottom-1 left-1 grid h-5 min-w-5 place-items-center rounded-full bg-black/70 px-1 text-[0.68rem] font-bold text-white tabular-nums">{{ i + 1 }}</span>

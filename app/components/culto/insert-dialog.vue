@@ -129,7 +129,7 @@ const whereItems: { label: string; description: string; value: InsertWhere }[] =
     :ui="{ content: 'sm:max-w-2xl' }"
   >
     <template #body>
-      <div class="flex flex-col gap-4">
+      <div v-scroll-fade.parent class="flex flex-col gap-4">
         <UTextarea
           v-model="text"
           :rows="1"

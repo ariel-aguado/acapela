@@ -362,7 +362,7 @@ async function onSearchKeydown(event: KeyboardEvent) {
                 <p class="text-xs font-bold uppercase tracking-wider text-muted">
                   Libro
                 </p>
-                <ul class="soft-scrollbar flex-1 overflow-y-auto -mx-1 px-1" aria-label="Libros">
+                <ul v-scroll-fade class="soft-scrollbar flex-1 overflow-y-auto -mx-1 px-1" aria-label="Libros">
                   <li v-for="b in visibleBooks" :key="b.id">
                     <button
                       type="button"
@@ -385,6 +385,7 @@ async function onSearchKeydown(event: KeyboardEvent) {
                 </p>
                 <div
                   v-if="book"
+                  v-scroll-fade
                   class="soft-scrollbar overflow-y-auto grid grid-cols-5 gap-1 content-start"
                   role="group"
                   aria-label="Capítulos"
@@ -413,6 +414,7 @@ async function onSearchKeydown(event: KeyboardEvent) {
                 </p>
                 <div
                   v-if="verseCount"
+                  v-scroll-fade
                   class="soft-scrollbar overflow-y-auto grid grid-cols-5 gap-1 content-start"
                   role="group"
                   aria-label="Versículos: toca el primero y el último"
