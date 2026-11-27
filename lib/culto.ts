@@ -200,6 +200,8 @@ export type Culto = {
   title: string;
   /** yyyy-mm-dd */
   date: string;
+  /** "HH:MM", when there is more than one on a day; optional. */
+  time?: string;
   items: CultoItem[];
   sections?: CultoSection[];
   updatedAt: number;

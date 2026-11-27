@@ -7,6 +7,7 @@ import type { CultoItem } from "~~/lib/culto";
 
 import { QUICK_POSITION_KEY } from "~/composables/use-project-hymn";
 import { PROJECTOR_WINDOW_NAME } from "~/composables/use-projector-channel";
+import { cultoWhen } from "~/stores/culto";
 import { SCALE_MAX, SCALE_MIN, SCALE_STEP } from "~/stores/presentation";
 import { resolveLook } from "~/utils/culto/look";
 import { momentTone } from "~/utils/culto/moment";
@@ -511,7 +512,7 @@ function saveAsService() {
           {{ quick ? 'Proyección libre' : (liveCulto?.title ?? 'Culto') }}
         </h1>
         <span class="text-xs text-muted truncate">
-          {{ quick ? 'Himnos sueltos, sin culto preparado' : 'Culto preparado' }}
+          {{ quick ? 'Himnos sueltos, sin culto preparado' : (liveCulto ? cultoWhen(liveCulto) : 'Culto preparado') }}
         </span>
       </div>
       <UButton

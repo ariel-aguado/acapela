@@ -2,6 +2,8 @@ import { nanoid } from "nanoid";
 
 import type { Culto, CultoItem, ProjectionTheme } from "~~/lib/culto";
 
+import { partOfDay } from "~/stores/culto";
+
 import { getMedia, putMediaWithId } from "./media";
 
 // A service as a file, to take it to another device (prepared on the phone,
@@ -61,7 +63,10 @@ export async function exportCulto(culto: Culto, theme: ProjectionTheme): Promise
     theme,
     media,
   };
-  const name = `${culto.title} ${culto.date}`.replace(/[^\p{L}\p{N} -]+/gu, "").trim().replace(/\s+/g, "-");
+  const part = partOfDay(culto.time);
+  const name = `${culto.title} ${culto.date}${part
+    ? ` ${part}`
+    : ""}`.replace(/[^\p{L}\p{N} -]+/gu, "").trim().replace(/\s+/g, "-");
   return new File([
     JSON.stringify(file),
   ], `${name || "culto"}.acapela.json`, { type: "application/json" });

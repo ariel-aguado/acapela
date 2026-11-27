@@ -1,13 +1,13 @@
 <script lang="ts" setup>
-import type { DateValue } from "@internationalized/date";
+import type { DateValue, Time } from "@internationalized/date";
 
-import { getLocalTimeZone, parseDate, today } from "@internationalized/date";
+import { getLocalTimeZone, parseDate, parseTime, today } from "@internationalized/date";
 import { VueDraggable } from "vue-draggable-plus";
 
 import type { ItemScreens } from "~/composables/use-culto-screens";
 import type { CultoItem, CultoSection, ScreenItem } from "~~/lib/culto";
 
-import { formatCultoDate, SCREEN_TEMPLATES } from "~/stores/culto";
+import { cultoWhen, formatCultoDate, partOfDay, SCREEN_TEMPLATES } from "~/stores/culto";
 import { importSlides, titleFromFiles } from "~/utils/culto/import-slides";
 import { itemLook, momentTone, spokenLabel } from "~/utils/culto/moment";
 import { blocksOf } from "~/utils/culto/sections";
@@ -57,10 +57,51 @@ const totalScreens = computed(() => entries.value.reduce((n, e) => n + e.screens
 
 // ------------------------------------------------------------ the service
 
-const cultoItems = computed(() => sorted.value.map(c => ({
-  label: `${c.title} · ${formatCultoDate(c.date)}`,
-  value: c.id,
-})));
+// The services by day, and on a day by time, the time first (NN/g: the
+// first words tell them apart): "19:00 · noche — Culto de oración".
+const cultoItems = computed(() => {
+  const days = new Map<string, typeof sorted.value>();
+  for (const c of sorted.value) {
+    days.set(c.date, [
+      ...(days.get(c.date) ?? []),
+      c,
+    ]);
+  }
+  return [
+    ...days.entries(),
+  ].map(([date, list]) => [
+    {
+      type: "label" as const,
+      label: formatCultoDate(date),
+    },
+    ...list.map(c => ({
+      label: c.time
+        ? `${c.time} · ${partOfDay(c.time)} — ${c.title}`
+        : c.title,
+      value: c.id,
+    })),
+  ]);
+});
+
+// The time: optional, with Nuxt UI's time field; the part of the day
+// (mañana, tarde, noche) follows from it.
+const timeModel = computed({
+  get: () => {
+    try {
+      return current.value?.time
+        ? parseTime(current.value.time)
+        : undefined;
+    }
+    catch {
+      return undefined;
+    }
+  },
+  set: (value: Time | undefined | null) => culto.patch({
+    time: value
+      ? `${String(value.hour).padStart(2, "0")}:${String(value.minute).padStart(2, "0")}`
+      : undefined,
+  }),
+});
 
 const titleModel = computed({
   get: () => current.value?.title ?? "",
@@ -206,7 +247,7 @@ function leaveFor(how: "new" | "copy") {
     : culto.duplicate(previous!.id);
   if (!made || !previous)
     return;
-  const name = `«${previous.title} · ${formatCultoDate(previous.date)}»`;
+  const name = `«${previous.title} · ${cultoWhen(previous)}»`;
   toast(how === "new"
     ? `Se creó un culto nuevo. ${name} sigue guardado en la lista de arriba.`
     : `Se duplicó para ${formatCultoDate(made.date)}. ${name} sigue guardado en la lista de arriba.`, {
@@ -672,6 +713,32 @@ onMounted(() => {
                 <UCalendar v-model="calendarDate" class="p-2" />
               </template>
             </UPopover>
+            <div class="flex items-center gap-1">
+              <UInputTime
+                v-model="timeModel"
+                size="xl"
+                :hour-cycle="24"
+                aria-label="Hora del culto (opcional)"
+                title="Hora del culto (opcional): distingue varios cultos del mismo día"
+              />
+              <UBadge
+                v-if="partOfDay(current?.time)"
+                color="neutral"
+                variant="soft"
+                size="lg"
+                :label="partOfDay(current?.time)!"
+              />
+              <UButton
+                v-if="current?.time"
+                color="neutral"
+                variant="ghost"
+                size="sm"
+                square
+                icon="i-tabler-x"
+                aria-label="Quitar la hora"
+                @click="culto.patch({ time: undefined })"
+              />
+            </div>
           </div>
           <p class="text-sm opacity-70">
             {{ items.length }} {{ items.length === 1 ? 'elemento' : 'elementos' }} · {{ totalScreens }} pantallas

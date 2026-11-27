@@ -126,6 +126,38 @@ function toIsoDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+/** The part of the day of a time: what a church says ("el culto de la noche"). */
+export type DayPart = "mañana" | "tarde" | "noche";
+export function partOfDay(time?: string): DayPart | null {
+  const hour = Number(time?.slice(0, 2));
+  if (!time || Number.isNaN(hour))
+    return null;
+  return hour >= 5 && hour < 12
+    ? "mañana"
+    : hour >= 12 && hour < 19
+      ? "tarde"
+      : "noche";
+}
+
+const PART_TITLE: Record<DayPart, string> = {
+  mañana: "Culto de la mañana",
+  tarde: "Culto de la tarde",
+  noche: "Culto de la noche",
+};
+const DEFAULT_TITLE = "Culto del domingo";
+/** A name Acapela gave, not one written by hand: it may follow the time. */
+function isDefaultTitle(title: string) {
+  return title === DEFAULT_TITLE || Object.values(PART_TITLE).includes(title) || /^Culto (?:del domingo|de la (?:mañana|tarde|noche)) \d+$/.test(title);
+}
+
+/** When a service is: "domingo, 29 de noviembre · 19:00 · noche". */
+export function cultoWhen(culto: Pick<Culto, "date" | "time">): string {
+  const part = partOfDay(culto.time);
+  return part
+    ? `${formatCultoDate(culto.date)} · ${culto.time} · ${part}`
+    : formatCultoDate(culto.date);
+}
+
 export function formatCultoDate(iso: string): string {
   const [y, m, d] = iso.split("-").map(Number);
   if (!y || !m || !d)
@@ -158,7 +190,31 @@ export const useCultoStore = defineStore("culto", () => {
     services.value.find(c => c.id === currentId.value) ?? services.value[0] ?? null,
   );
 
-  const sorted = computed(() => [...services.value].sort((a, b) => b.date.localeCompare(a.date) || b.updatedAt - a.updatedAt));
+  /** Newest day first; on a day, by time (those without one first). */
+  const sorted = computed(() => [...services.value].sort((a, b) => b.date.localeCompare(a.date) || (a.time ?? "").localeCompare(b.time ?? "") || b.updatedAt - a.updatedAt));
+
+  /**
+   * A name that tells it apart from the other services of its day (NN/g:
+   * the first words distinguish): the first one keeps the usual name; the
+   * next ones are named after their part of the day, or the first one free.
+   */
+  function distinctTitle(date: string, time: string | undefined, exceptId?: string, base = DEFAULT_TITLE): string {
+    const taken = new Set(services.value.filter(c => c.date === date && c.id !== exceptId).map(c => c.title));
+    if (!taken.size)
+      return base;
+    const part = partOfDay(time);
+    const candidates = part
+      ? [PART_TITLE[part]]
+      : Object.values(PART_TITLE);
+    const free = candidates.find(t => !taken.has(t));
+    if (free)
+      return free;
+    const stem = candidates[0]!;
+    let n = 2;
+    while (taken.has(`${stem} ${n}`))
+      n++;
+    return `${stem} ${n}`;
+  }
 
   /** The free projection of this device, if there is one. */
   const quickCulto = computed<Culto | null>(() => cultos.value.find(c => c.quick) ?? null);
@@ -181,10 +237,11 @@ export const useCultoStore = defineStore("culto", () => {
   }, { immediate: true });
 
   function create(): Culto {
+    const date = nextSunday();
     const culto: Culto = {
       id: nanoid(10),
-      title: "Culto del domingo",
-      date: nextSunday(),
+      title: distinctTitle(date, undefined),
+      date,
       items: [
         {
           id: nanoid(8),
@@ -203,11 +260,15 @@ export const useCultoStore = defineStore("culto", () => {
     const source = cultos.value.find(c => c.id === id);
     if (!source)
       return null;
+    const date = nextSunday();
+    // A plain deep copy: structuredClone fails on the reactive items.
     const copy: Culto = {
-      ...structuredClone(toRaw(source)),
+      ...JSON.parse(JSON.stringify(source)) as Culto,
       id: nanoid(10),
-      title: source.title,
-      date: nextSunday(),
+      title: isDefaultTitle(source.title)
+        ? distinctTitle(date, source.time)
+        : source.title,
+      date,
       updatedAt: Date.now(),
     };
     copy.items = copy.items.filter(i => !i.inserted).map(i => ({
@@ -279,14 +340,20 @@ export const useCultoStore = defineStore("culto", () => {
     return current.value ?? create();
   }
 
-  function patch(changes: Partial<Pick<Culto, "title" | "date">>) {
+  function patch(changes: Partial<Pick<Culto, "title" | "date" | "time">>) {
     const culto = current.value;
-    if (culto) {
-      save({
-        ...culto,
-        ...changes,
-      });
-    }
+    if (!culto)
+      return;
+    const next = {
+      ...culto,
+      ...changes,
+    };
+    if ("time" in changes && !changes.time)
+      delete next.time;
+    // A name Acapela gave follows a new day or time, so it stays distinct.
+    if (!("title" in changes) && ("date" in changes || "time" in changes) && isDefaultTitle(culto.title))
+      next.title = distinctTitle(next.date, next.time, culto.id);
+    save(next);
   }
 
   // ------------------------------------------------------------ items
