@@ -1,6 +1,4 @@
 <script lang="ts" setup>
-import type { DropdownMenuItem } from "@nuxt/ui";
-
 import type { ItemScreens } from "~/composables/use-culto-screens";
 
 import { itemLook, rowTitle, spokenLabel } from "~/utils/culto/moment";
@@ -15,8 +13,6 @@ const props = defineProps<{
   canDown: boolean;
   /** Class of the drag handle: the order's or a section's list. */
   handle: string;
-  /** What can be inserted right after it (its «+», when chosen). */
-  insertMenu?: DropdownMenuItem[][];
   /** Just added: lit for a moment. */
   flash?: boolean;
 }>();
@@ -71,17 +67,6 @@ const spoken = computed(() => spokenLabel(props.entry));
         aria-label="Preparando"
       />
     </button>
-    <UDropdownMenu v-if="selected && insertMenu" :items="insertMenu">
-      <UButton
-        color="neutral"
-        variant="soft"
-        size="sm"
-        square
-        icon="i-tabler-plus"
-        :aria-label="`Insertar después de: ${spoken}`"
-        title="Insertar después de este"
-      />
-    </UDropdownMenu>
     <div v-if="selected" class="flex flex-col pe-1">
       <UButton
         color="neutral"

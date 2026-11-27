@@ -908,12 +908,13 @@ onMounted(() => {
             <li
               v-for="(block, bi) in dragBlocks"
               :key="block.key"
-              class="relative scroll-mt-28 scroll-mb-6"
+              class="order-li relative scroll-mt-28 scroll-mb-6"
               :data-item-id="block.kind === 'item' ? block.entry.item.id : undefined"
             >
-              <!-- «+» in the gap below: inserts right after this block. -->
+              <!-- «+» under it: inserts right after this block. -->
               <CultoInsertLine
-                v-if="bi < dragBlocks.length - 1"
+                v-if="bi < dragBlocks.length - 1 || (block.kind === 'item' && block.entry.item.id === selectedId && !selectedSection)"
+                :on="block.kind === 'item' && block.entry.item.id === selectedId && !selectedSection"
                 :items="addMenu(block.kind === 'item' ? { after: block.entry.item.id } : { after: block.items.at(-1)!.item.id, loose: true })"
                 :label="`Insertar después de «${block.kind === 'item' ? spokenLabel(block.entry) : block.section.title}»`"
               />
@@ -924,7 +925,6 @@ onMounted(() => {
                 :can-up="flatIds[0] !== block.entry.item.id"
                 :can-down="flatIds.at(-1) !== block.entry.item.id"
                 handle="block-handle"
-                :insert-menu="addMenu({ after: block.entry.item.id })"
                 :flash="flashId === block.entry.item.id"
                 @choose="choose(block.entry.item.id)"
                 @step="d => step(block.entry.item.id, d)"
@@ -991,11 +991,12 @@ onMounted(() => {
                   <li
                     v-for="(entry, ei) in block.items"
                     :key="entry.item.id"
-                    class="relative scroll-mt-28 scroll-mb-6"
+                    class="order-li relative scroll-mt-28 scroll-mb-6"
                     :data-item-id="entry.item.id"
                   >
                     <CultoInsertLine
-                      v-if="ei < block.items.length - 1"
+                      v-if="ei < block.items.length - 1 || (entry.item.id === selectedId && !selectedSection)"
+                      :on="entry.item.id === selectedId && !selectedSection"
                       :items="addMenu({ after: entry.item.id })"
                       :label="`Insertar en ${block.section.title} después de «${spokenLabel(entry)}»`"
                     />
@@ -1005,7 +1006,6 @@ onMounted(() => {
                       :can-up="true"
                       :can-down="true"
                       handle="item-handle"
-                      :insert-menu="addMenu({ after: entry.item.id })"
                       :flash="flashId === entry.item.id"
                       @choose="choose(entry.item.id)"
                       @step="d => step(entry.item.id, d)"
@@ -1149,6 +1149,12 @@ onMounted(() => {
 </template>
 
 <style>
+/* The «+» under a row shows while the mouse is anywhere over the row. */
+@media (hover: hover) {
+  .order-li:hover > .insert-line {
+    opacity: 1;
+  }
+}
 /* The service's name, edited in place: the pencil shows it can be. */
 .title-edit .title-edit__pencil {
   opacity: 0;

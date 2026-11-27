@@ -1,19 +1,21 @@
 <script lang="ts" setup>
 import type { DropdownMenuItem } from "@nuxt/ui";
 
-// A «+» between two rows of the order, shown while the mouse is over the
-// gap: a shortcut to insert right there. Not the only way (NN/g: hover is
-// not there on a touch screen or from the keyboard): the chosen element's
-// «+» does the same.
+// A «+» under a row of the order, to insert right after it: shown while the
+// mouse is over the row (a wide zone, not only the gap), and always under
+// the chosen row, which is the way on a touch screen and from the keyboard
+// (NN/g: hover is not there for everyone; what is hidden is not found).
 defineProps<{
   items: DropdownMenuItem[][];
   /** "Insertar después de «Oremos»". */
   label: string;
+  /** Always shown: the row is the chosen one. */
+  on?: boolean;
 }>();
 </script>
 
 <template>
-  <div class="insert-line pointer-events-none absolute inset-x-8 -bottom-[0.55rem] z-10 flex h-[0.85rem] items-center gap-1.5 opacity-0 transition-opacity">
+  <div class="insert-line pointer-events-none absolute inset-x-8 -bottom-[0.55rem] z-10 flex h-[0.85rem] items-center gap-1.5 opacity-0 transition-opacity" :class="{ 'insert-line--on': on }">
     <span class="h-0.5 flex-1 rounded-full bg-primary" aria-hidden="true" />
     <UDropdownMenu :items="items">
       <UButton
@@ -21,7 +23,7 @@ defineProps<{
         square
         icon="i-tabler-plus"
         class="pointer-events-auto rounded-full"
-        tabindex="-1"
+        :tabindex="on ? 0 : -1"
         :aria-label="label"
         :title="label"
       />
@@ -38,11 +40,12 @@ defineProps<{
   pointer-events: auto;
 }
 .insert-line:hover,
+.insert-line--on,
 .insert-line:has([data-state="open"]) {
   opacity: 1;
 }
 @media (hover: none) {
-  .insert-line {
+  .insert-line:not(.insert-line--on) {
     display: none;
   }
 }
