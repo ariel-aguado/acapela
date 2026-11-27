@@ -40,11 +40,16 @@ watch(current, () => {
 
 // ------------------------------------------------------------ projector
 const liveState = computed<ProjectorState>(() => ({
-  slide: liveSlide.value,
-  number: currentSong.value?.songId ?? null,
-  title: currentSong.value?.title ?? "",
+  screen: liveSlide.value && currentSong.value
+    ? {
+        type: "lyric",
+        slide: liveSlide.value,
+        number: currentSong.value.songId,
+        title: currentSong.value.title,
+        scale: scale.value,
+      }
+    : null,
   black: black.value,
-  scale: scale.value,
 }));
 const { connected } = useProjectorSender(liveState);
 

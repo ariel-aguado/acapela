@@ -17,6 +17,7 @@ const titles: Record<string, string> = {
   "/favorites": "Favoritos",
   "/settings": "Ajustes",
   "/about": "Acerca de",
+  "/culto": "Culto",
 };
 const title = computed(() => titles[route.path] ?? "Acapela");
 
@@ -108,6 +109,18 @@ const isLarge = useMediaQuery("(min-width: 1024px)");
         title="Apariencia"
         aria-haspopup="dialog"
         @click="emit('update:open')"
+      />
+      <UButton
+        to="/culto"
+        color="neutral"
+        variant="ghost"
+        :square="!isLarge"
+        class="h-10 font-semibold"
+        :class="isLarge ? 'px-3' : 'size-10 justify-center'"
+        icon="i-tabler-list-details"
+        :ui="{ leadingIcon: 'size-6' }"
+        :label="isLarge ? 'Culto' : undefined"
+        aria-label="Culto: preparar y proyectar el servicio"
       />
       <UButton
         v-if="isLarge"

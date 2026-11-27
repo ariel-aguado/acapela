@@ -1,12 +1,13 @@
-import type { Slide } from "~/utils/slides";
+import type { Screen } from "~/utils/culto/screens";
 
-/** What the projector window needs to draw: nothing else crosses the channel. */
+/**
+ * What the projector window needs to draw: nothing else crosses the channel.
+ * A hymn verse or a designed page (see utils/culto/screens.ts), already laid
+ * out by the console.
+ */
 export type ProjectorState = {
-  slide: Slide | null;
-  number: number | null;
-  title: string;
+  screen: Screen | null;
   black: boolean;
-  scale: number;
 };
 
 type Message

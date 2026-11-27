@@ -24,7 +24,8 @@
     "pwa:check:loading": "node scripts/loading-state-check.mjs",
     "pwa:check:ui": "node scripts/ui-smoke.mjs",
     "prepare": "husky",
-    "pwa:check:bible": "node scripts/bible-check.mjs"
+    "pwa:check:bible": "node scripts/bible-check.mjs",
+    "pwa:check:culto": "node scripts/culto-check.mjs"
   },
   "dependencies": {
     "@nuxt/eslint": "1.17.0",
