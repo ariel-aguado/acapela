@@ -1,4 +1,4 @@
-import type { Background, CultoItem, Look, ProjectionTheme } from "~~/lib/culto";
+import type { Background, CultoItem, Look, ProjectionTheme, TitleCorner } from "~~/lib/culto";
 
 import { galleryUrl, isLightGallery } from "~/utils/culto/backgrounds";
 import { PROJECTION_FONTS } from "~~/lib/culto";
@@ -18,7 +18,7 @@ export function luminance(hex: string): number {
 }
 
 /** The look of an element's screens: its own background or the theme's. */
-export function resolveLook(theme: ProjectionTheme, item?: Pick<CultoItem, "background">): Look {
+export function resolveLook(theme: ProjectionTheme, item?: Pick<CultoItem, "background"> & { titleCorner?: TitleCorner }): Look {
   const background: Background = item?.background ?? theme.background;
   const darkText = (background.kind === "color" && luminance(background.color) > 0.45)
     || (background.kind === "gallery" && isLightGallery(background.id));
@@ -32,7 +32,8 @@ export function resolveLook(theme: ProjectionTheme, item?: Pick<CultoItem, "back
     accent,
     font,
     darkText,
-    titleCorner: theme.titleCorner,
+    // A hymn may have its own corner.
+    titleCorner: item?.titleCorner ?? theme.titleCorner,
   };
 }
 

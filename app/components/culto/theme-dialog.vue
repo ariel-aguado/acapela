@@ -4,7 +4,7 @@ import type { Background, ProjectionFont, ScreenTransition, TitleCorner } from "
 
 import { resolveLook } from "~/utils/culto/look";
 import { importImage, mediaUrl } from "~/utils/culto/media";
-import { DEFAULT_TRANSITIONS, PROJECTION_FONTS } from "~~/lib/culto";
+import { DEFAULT_TRANSITIONS, PROJECTION_FONTS, TITLE_CORNER_LABELS } from "~~/lib/culto";
 
 // The church's look on the projector: name, logo, background, accent and
 // letter, for every service on this device. The preview shows it on a
@@ -42,16 +42,11 @@ function setTransition(which: "screen" | "element", value: ScreenTransition | un
 
 const fontItems = PROJECTION_FONTS.map(f => ({ label: f.label, value: f.id }));
 
-// A hymn's number and title: in any corner of the screen, picked on a small
-// screen (recognition over recall: the place is seen, not named).
-const CORNERS: { value: TitleCorner; label: string; place: string }[] = [
-  { value: "top-start", label: "Arriba a la izquierda", place: "top-1.5 start-1.5" },
-  { value: "top-end", label: "Arriba a la derecha", place: "top-1.5 end-1.5" },
-  { value: "bottom-start", label: "Abajo a la izquierda", place: "bottom-1.5 start-1.5" },
-  { value: "bottom-end", label: "Abajo a la derecha", place: "bottom-1.5 end-1.5" },
-];
-const titleCorner = computed(() => theme.value.titleCorner ?? "bottom-start");
-const cornerLabel = computed(() => CORNERS.find(c => c.value === titleCorner.value)!.label);
+// A hymn's number and title: in any corner (each hymn can have its own).
+const titleCorner = computed({
+  get: () => theme.value.titleCorner ?? "bottom-start",
+  set: (value: TitleCorner) => culto.setTheme({ titleCorner: value }),
+});
 
 const logoInput = useTemplateRef<HTMLInputElement>("logo");
 const logoUrl = ref<string | null>(null);
@@ -185,31 +180,8 @@ const logoSample = computed<Screen>(() => ({
             />
           </UFormField>
 
-          <UFormField label="Título del himno" :help="`El número y el título, en cada pantalla del himno: ${cornerLabel.toLowerCase()}.`">
-            <div
-              role="radiogroup"
-              aria-label="Dónde va el título del himno"
-              class="relative aspect-video w-48 rounded-xl bg-elevated ring-1 ring-default"
-            >
-              <button
-                v-for="c in CORNERS"
-                :key="c.value"
-                type="button"
-                role="radio"
-                :aria-checked="titleCorner === c.value"
-                :aria-label="c.label"
-                :title="c.label"
-                class="absolute flex h-7 w-16 items-center justify-center rounded-md text-[0.65rem] font-bold transition-colors"
-                :class="[c.place, titleCorner === c.value ? 'bg-primary text-inverted shadow-sm' : 'bg-default text-muted ring-1 ring-default hover:text-highlighted hover:ring-primary']"
-                @click="culto.setTheme({ titleCorner: c.value })"
-              >
-                56. Título
-              </button>
-              <span class="pointer-events-none absolute inset-x-6 top-1/2 flex -translate-y-1/2 flex-col items-center gap-1" aria-hidden="true">
-                <span class="h-1.5 w-24 rounded-full bg-muted" />
-                <span class="h-1.5 w-20 rounded-full bg-muted" />
-              </span>
-            </div>
+          <UFormField label="Título del himno" :help="`El número y el título, en cada pantalla de los himnos: ${TITLE_CORNER_LABELS[titleCorner].toLowerCase()}. Cada himno puede tener el suyo.`">
+            <CultoCornerPicker v-model="titleCorner" />
           </UFormField>
 
           <UFormField label="Transición entre pantallas" help="De una estrofa a la siguiente: mejor casi imperceptible.">

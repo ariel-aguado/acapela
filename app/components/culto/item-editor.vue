@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import type { ItemScreens } from "~/composables/use-culto-screens";
 import type { ImportProgress } from "~/utils/culto/import-slides";
-import type { Background, CultoItem, FieldStyle, ReadingMode, ScreenLayout, ScreenMoment, ScreenTransition, TextAlign, TextField } from "~~/lib/culto";
+import type { Background, CultoItem, FieldStyle, ReadingMode, ScreenLayout, ScreenMoment, ScreenTransition, TextAlign, TextField, TitleCorner } from "~~/lib/culto";
 
 import { GALLERY } from "~/utils/culto/backgrounds";
 import { importSlides } from "~/utils/culto/import-slides";
 import { importImage, mediaUrl } from "~/utils/culto/media";
 import { itemLook, rowTitle, screenMoment } from "~/utils/culto/moment";
-import { DEFAULT_TRANSITIONS, SCREEN_LAYOUT_LABELS, SCREEN_MOMENT_LABELS, TRANSITION_LABELS, TRANSITION_SPEED_LABELS } from "~~/lib/culto";
+import { DEFAULT_TRANSITIONS, SCREEN_LAYOUT_LABELS, SCREEN_MOMENT_LABELS, TITLE_CORNER_LABELS, TRANSITION_LABELS, TRANSITION_SPEED_LABELS } from "~~/lib/culto";
 
 // The fields of one element of the service, by kind. Every change is saved
 // at once (the store writes to this device) and the screens re-flow.
@@ -65,6 +65,20 @@ const sectionItems = computed(() => [
 const canGroup = computed(() => item.value.kind === "screen" && !item.value.sectionId);
 
 const songbookItems = computed(() => manifest.value.map(sb => ({ label: sb.name, value: sb.id })));
+
+// Where its number and title go: the church's theme says, unless chosen here.
+const themeCorner = computed(() => culto.theme.titleCorner ?? "bottom-start");
+const hymnCorner = computed({
+  get: () => (item.value.kind === "hymn" && item.value.titleCorner) || themeCorner.value,
+  set: (value: TitleCorner) => set({
+    titleCorner: value === themeCorner.value
+      ? undefined
+      : value,
+  } as Partial<CultoItem>),
+});
+const hymnCornerHelp = computed(() => (item.value.kind === "hymn" && item.value.titleCorner
+  ? `Solo en este himno: ${TITLE_CORNER_LABELS[item.value.titleCorner].toLowerCase()}.`
+  : `Como en el tema de la iglesia: ${TITLE_CORNER_LABELS[themeCorner.value].toLowerCase()}.`));
 
 const songId = computed({
   get: () => item.value.kind === "hymn"
@@ -351,6 +365,20 @@ onMounted(() => {
           />
         </UFormField>
       </div>
+      <!-- Its number and title: the theme's corner, or one of its own. -->
+      <UFormField label="Título del himno" :help="hymnCornerHelp">
+        <div class="flex flex-wrap items-end gap-3">
+          <CultoCornerPicker v-model="hymnCorner" />
+          <UButton
+            v-if="item.titleCorner"
+            color="neutral"
+            variant="link"
+            size="sm"
+            label="Como en el tema"
+            @click="set({ titleCorner: undefined })"
+          />
+        </div>
+      </UFormField>
     </CultoEditorBlock>
 
     <!-- Reading -->

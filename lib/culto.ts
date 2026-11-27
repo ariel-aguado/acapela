@@ -66,6 +66,12 @@ export const DEFAULT_TRANSITIONS = {
 
 /** Where a hymn's number and title go on its screens. */
 export type TitleCorner = "bottom-start" | "bottom-end" | "top-start" | "top-end";
+export const TITLE_CORNER_LABELS: Record<TitleCorner, string> = {
+  "top-start": "Arriba a la izquierda",
+  "top-end": "Arriba a la derecha",
+  "bottom-start": "Abajo a la izquierda",
+  "bottom-end": "Abajo a la derecha",
+};
 
 export type ProjectionTheme = {
   churchName: string;
@@ -129,6 +135,8 @@ export type HymnItem = ItemBase & {
   /** Songbook the number belongs to (the same number is a different hymn in each one). */
   songbookId: string;
   songId: number;
+  /** Its number and title in another corner than the theme's. */
+  titleCorner?: TitleCorner;
 };
 
 /** A designed screen: welcome, Lord's supper, offering, prayer… */
