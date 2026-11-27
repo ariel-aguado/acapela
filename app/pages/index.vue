@@ -125,7 +125,7 @@ const FEATURES = [
         </g>
       </svg>
 
-      <div class="relative mx-auto max-w-5xl px-5 pb-10 lg:pb-14 hero__inner grid gap-8 lg:grid-cols-[1.15fr_0.85fr] lg:items-center">
+      <div class="relative mx-auto max-w-5xl lg:max-w-7xl px-5 lg:px-4 pb-10 lg:pb-14 hero__inner grid gap-8 lg:grid-cols-[1.15fr_0.85fr] lg:items-center">
         <div class="min-w-0">
           <p class="text-xs font-bold uppercase tracking-[0.14em] opacity-80">
             Himnos y cánticos espirituales
@@ -190,7 +190,7 @@ const FEATURES = [
       </div>
     </section>
 
-    <div class="mx-auto max-w-5xl px-5">
+    <div class="mx-auto max-w-5xl lg:max-w-7xl px-5 lg:px-4">
       <!-- ===================== First visit: pick a songbook ===================== -->
       <section
         v-if="!hasSongbook"

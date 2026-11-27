@@ -1,5 +1,7 @@
 <script lang="ts" setup>
-// Left column of the reader on tablets and computers: every hymn, filterable by number or title, with the open one highlighted.
+// Left column of the reader on computers: every hymn, filterable by number
+// or title, with the open one highlighted. A card under the top bar, inside
+// the page's container.
 const props = defineProps<{ current: number }>();
 const emit = defineEmits<{ (e: "go", songId: number): void }>();
 
@@ -29,7 +31,7 @@ watch(
 
 <template>
   <aside
-    class="w-80 shrink-0 flex-col h-dvh pad-bar-top pad-bar-bottom border-r border-default bg-default"
+    class="w-80 shrink-0 flex-col self-start mt-(--bar-top) h-[calc(100dvh-var(--bar-top)-var(--bar-bottom))] rounded-2xl bg-default shadow-card overflow-hidden"
     aria-label="Himnos"
   >
     <div class="p-3 border-b border-muted">

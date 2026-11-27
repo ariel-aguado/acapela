@@ -295,6 +295,13 @@ html[data-reading-margin="4"] {
   padding-top: var(--bar-top);
   padding-bottom: var(--bar-bottom);
 }
+/* On a computer the scrollbar would push the centred content off the fixed
+   top bar's axis: reserve its width on both sides. */
+@media (min-width: 1024px) {
+  .page-scroll {
+    scrollbar-gutter: stable both-edges;
+  }
+}
 .pad-bar-top {
   padding-top: var(--bar-top);
 }

@@ -152,8 +152,9 @@ function isActive(match: string[]) {
   </header>
 
   <!-- Desktop: one top bar with everything. -->
-  <header class="hidden lg:block float-top fixed inset-x-6 z-30">
-    <div class="mx-auto max-w-[1440px] h-16 flex items-center gap-3 rounded-full bg-default shadow-card ring ring-(--ui-border-muted) px-2">
+  <header class="hidden lg:block float-top fixed inset-x-4 z-30">
+    <!-- As wide as the pages' content: max-w-7xl less its px-4. -->
+    <div class="mx-auto max-w-[78rem] h-16 flex items-center gap-3 rounded-full bg-default shadow-card ring ring-(--ui-border-muted) px-2">
       <!-- Brand (home) and, while reading, the open hymn -->
       <div class="flex-1 min-w-0 flex items-center gap-1">
         <NuxtLink

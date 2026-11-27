@@ -8,11 +8,11 @@ import type { FilteredSong, FullSearchResult, Song } from "~~/lib/types";
 // One search for everything a person may remember: the number, the title or
 // a phrase of the lyric. Results are grouped by where they matched.
 //
-// Desktop (lg) sits in a centred container (72rem), so nothing is pushed to
-// the screen edges: the field spans it, the results are a column on the left
-// and the highlighted hymn is shown whole on the right (click selects, double click or Enter opens it). Without a query,
-// recents are a row of cards and every hymn sits in a three-column grid with
-// a horizontal index. The phone keeps its single column.
+// Desktop (lg) sits in the app's container (max-w-7xl, as in Culto): the
+// field spans it, the results are a column on the left and the highlighted
+// hymn is shown whole on the right (click selects, double click or Enter
+// opens it). Without a query, recents are a row of cards and every hymn sits
+// in a three-column grid with a horizontal index. The phone keeps its single column.
 //
 // When the chosen songbook has nothing, the same query runs in the other
 // songbooks (a hymn of another one opens at /himno without changing the
@@ -569,7 +569,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="flex flex-col h-dvh pad-bar-top w-full max-w-2xl lg:max-w-[calc(72rem+3rem)] lg:px-6 mx-auto min-w-0">
+  <div class="flex flex-col h-dvh pad-bar-top w-full max-w-2xl lg:max-w-7xl lg:px-4 mx-auto min-w-0">
     <!-- ===================== Search band ===================== -->
     <div class="flex flex-col gap-2 px-4 pt-1 pb-3 bg-default border-b border-muted z-10 lg:mt-1 lg:gap-3 lg:px-6 lg:py-5 lg:rounded-2xl lg:border-0 lg:shadow-card">
       <label for="query" class="text-sm font-medium lg:sr-only">Número, título o una frase de la letra</label>

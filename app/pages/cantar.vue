@@ -179,7 +179,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="flex-1 flex min-h-0">
+  <div class="flex-1 flex min-h-0 w-full lg:max-w-7xl lg:mx-auto lg:px-4 lg:gap-4">
     <ReaderAside class="hidden lg:flex" :current="current" @go="goToSong" />
     <div class="flex-1 flex flex-col justify-center items-center relative min-w-0">
       <div v-if="status === 'loading'">
