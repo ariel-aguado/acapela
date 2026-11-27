@@ -921,9 +921,8 @@ function saveAsService() {
                 :disabled="liveIndex <= 0"
                 @click="prev"
               >
-                <UIcon name="i-tabler-arrow-left" class="size-7" />
                 <span class="text-sm font-semibold">Anterior</span>
-                <UKbd value="←" size="sm" />
+                <UKbd value="←" size="lg" class="order-first" />
               </button>
               <!-- The primary action, with what comes next large enough to
                 read from where the operator sits. -->
@@ -936,8 +935,8 @@ function saveAsService() {
               >
                 <span class="flex min-w-0 flex-col justify-between gap-2 self-stretch py-1.5">
                   <span class="flex items-center gap-2 text-lg font-bold">
-                    Siguiente <UIcon name="i-tabler-arrow-right" class="size-5" />
-                    <UKbd value="→" size="sm" class="ms-1 opacity-80" />
+                    <!-- One arrow: the key's, which also says how to do it. -->
+                    Siguiente <UKbd value="→" size="md" class="ms-1" />
                   </span>
                   <span v-if="nextUp" class="flex min-w-0 items-center gap-1.5 text-sm opacity-90">
                     <template v-if="nextUp.s.itemId !== live?.itemId">

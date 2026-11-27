@@ -368,7 +368,7 @@ const nextTitle = computed(() => {
           <!-- «Siguiente», as in the presenter (NN/g: consistency; the name
             and the screen beside it say where it goes). -->
           <span class="inline-flex items-center gap-1.5 self-start rounded-full bg-(--color-tangerine-400) px-3 py-1 text-xs font-bold text-(--color-tangerine-950)" aria-hidden="true">
-            Siguiente <UIcon name="i-tabler-arrow-right" class="size-3.5" />
+            Siguiente
             <kbd class="ms-0.5 rounded border border-(--color-tangerine-950)/30 px-1 font-sans text-[0.65rem]">→</kbd>
           </span>
         </span>
