@@ -720,7 +720,8 @@ function saveAsService() {
             @click="goToItem(entry.item.id)"
           >
             <span class="w-5 text-xs tabular-nums opacity-60">{{ i + 1 }}</span>
-            <span class="flex-1 min-w-0 truncate">{{ entry.label }}</span>
+            <CultoMomentTile :item="entry.item" size="sm" />
+            <span class="flex-1 min-w-0 truncate">{{ entry.item.kind === 'hymn' ? entry.label.replace(`${entry.item.songId} · `, '') : entry.label }}</span>
             <UIcon
               v-if="entry.status === 'error'"
               name="i-tabler-alert-triangle"

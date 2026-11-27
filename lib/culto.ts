@@ -86,9 +86,30 @@ export type HymnItem = ItemBase & {
 
 /** A designed screen: welcome, Lord's supper, offering, prayer… */
 export type ScreenLayout = "title" | "quote" | "text" | "image" | "logo";
+
+/**
+ * Which moment of the service a screen is: it decides how the screen is told
+ * apart in the order (icon and colour). Set by the template it came from or
+ * chosen in its editor; deduced from its text for services made before it
+ * existed (app/utils/culto/moment.ts).
+ */
+export type ScreenMoment = "welcome" | "prayer" | "sermon" | "supper" | "offering" | "notices" | "farewell" | "other";
+
+export const SCREEN_MOMENT_LABELS: Record<ScreenMoment, string> = {
+  welcome: "Bienvenida",
+  prayer: "Oración",
+  sermon: "Predicación",
+  supper: "Santa Cena",
+  offering: "Ofrenda",
+  notices: "Anuncios",
+  farewell: "Despedida",
+  other: "Otra pantalla",
+};
+
 export type ScreenItem = ItemBase & {
   kind: "screen";
   layout: ScreenLayout;
+  moment?: ScreenMoment;
   /** Small label on top ("SANTA CENA"). */
   eyebrow: string;
   title: string;

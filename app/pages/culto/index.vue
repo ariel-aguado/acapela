@@ -6,8 +6,8 @@ import type { CultoItem } from "~~/lib/culto";
 
 import { formatCultoDate, SCREEN_TEMPLATES } from "~/stores/culto";
 import { importSlides, titleFromFiles } from "~/utils/culto/import-slides";
+import { itemLook } from "~/utils/culto/moment";
 import { exportCulto, importCulto, shareOrDownload } from "~/utils/culto/transfer";
-import { ITEM_KIND_LABELS } from "~~/lib/culto";
 
 // Preparing a service: its order (hymns, readings, screens), each element's
 // fields and a preview of the screens it becomes. Works the same on a phone
@@ -213,6 +213,7 @@ function addReading() {
 const screenMenu = [
   SCREEN_TEMPLATES.map(t => ({
     label: t.label,
+    icon: itemLook({ ...t.item, id: "" }).icon,
     onSelect: () => add(culto.newScreen(t.item)),
   })),
   [
@@ -248,12 +249,20 @@ function move(id: string, delta: number) {
   culto.moveItem(id, index + delta);
 }
 
-const KIND_DOT: Record<string, string> = {
-  hymn: "bg-primary",
-  screen: "bg-amber-500",
-  reading: "bg-emerald-500",
-  slides: "bg-sky-500",
-};
+/** Each element's family and label, for its row and the service's map. */
+const looks = computed(() => new Map(items.value.map(i => [
+  i.id,
+  itemLook(i),
+])));
+const hymnCount = computed(() => items.value.filter(i => i.kind === "hymn").length);
+
+/** A row's title: a hymn's number is already on its tile. */
+function rowTitle(entry: ItemScreens): string {
+  const label = entry.label || looks.value.get(entry.item.id)?.label || "";
+  return entry.item.kind === "hymn"
+    ? label.replace(new RegExp(`^${entry.item.songId} · `), "")
+    : label;
+}
 
 onMounted(() => {
   culto.ensureCurrent();
@@ -320,9 +329,35 @@ onMounted(() => {
       <div class="grid gap-5 lg:grid-cols-[22rem_minmax(0,1fr)] items-start">
         <!-- Order -->
         <section class="flex flex-col gap-3" aria-labelledby="c-order">
-          <h2 id="c-order" class="text-xs font-bold uppercase tracking-wider opacity-70">
-            Orden del culto
-          </h2>
+          <div class="flex flex-col gap-2.5">
+            <div class="flex items-baseline justify-between gap-2">
+              <h2 id="c-order" class="text-xs font-bold uppercase tracking-wider opacity-70">
+                Orden del culto
+              </h2>
+              <span v-if="items.length" class="text-xs text-muted tabular-nums">
+                {{ items.length }} {{ items.length === 1 ? 'elemento' : 'elementos' }}<template v-if="hymnCount"> · {{ hymnCount }} {{ hymnCount === 1 ? 'himno' : 'himnos' }}</template>
+              </span>
+            </div>
+            <!-- The service at a glance: one segment per element, in order,
+              in the colour of its family. -->
+            <div
+              v-if="items.length > 1"
+              class="flex gap-[3px] h-2"
+              role="img"
+              :aria-label="`Mapa del culto: ${entries.map(e => looks.get(e.item.id)?.label).join(', ')}`"
+            >
+              <button
+                v-for="entry in entries"
+                :key="`map-${entry.item.id}`"
+                type="button"
+                tabindex="-1"
+                class="flex-1 rounded-full bg-(--m-seg) transition-transform hover:scale-y-150"
+                :class="[`moment--${looks.get(entry.item.id)?.tone}`, { 'outline-2 outline-offset-2 outline-primary': entry.item.id === selectedId }]"
+                :title="entry.label"
+                @click="choose(entry.item.id)"
+              />
+            </div>
+          </div>
           <p v-if="!items.length" class="text-sm opacity-70">
             Todavía no hay nada. Empieza por un himno o una pantalla de bienvenida.
           </p>
@@ -357,14 +392,13 @@ onMounted(() => {
                   :aria-current="entry.item.id === selectedId ? 'true' : undefined"
                   @click="choose(entry.item.id)"
                 >
-                  <span class="w-5 text-xs tabular-nums opacity-60">{{ i + 1 }}</span>
-                  <span class="size-2 rounded-full shrink-0" :class="KIND_DOT[entry.item.kind]" aria-hidden="true" />
+                  <CultoMomentTile :item="entry.item" />
                   <span class="flex-1 min-w-0 flex flex-col">
-                    <span class="font-medium truncate">{{ entry.label || ITEM_KIND_LABELS[entry.item.kind] }}</span>
-                    <span class="text-xs opacity-70 truncate">
-                      {{ ITEM_KIND_LABELS[entry.item.kind] }}
-                      <template v-if="entry.status === 'ready'">· {{ entry.screens.length }} {{ entry.screens.length === 1 ? 'pantalla' : 'pantallas' }}</template>
-                      <template v-if="entry.item.inserted">· insertado en vivo</template>
+                    <span class="font-semibold text-highlighted truncate">{{ rowTitle(entry) }}</span>
+                    <span class="text-xs text-muted truncate">
+                      <span class="font-semibold text-(--m-label)" :class="`moment--${looks.get(entry.item.id)?.tone}`">{{ looks.get(entry.item.id)?.label }}</span>
+                      <template v-if="entry.status === 'ready'"> · {{ entry.screens.length }} {{ entry.screens.length === 1 ? 'pantalla' : 'pantallas' }}</template>
+                      <template v-if="entry.item.inserted"> · insertado en vivo</template>
                     </span>
                   </span>
                   <UIcon

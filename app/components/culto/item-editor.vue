@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import type { ItemScreens } from "~/composables/use-culto-screens";
 import type { ImportProgress } from "~/utils/culto/import-slides";
-import type { Background, CultoItem, ReadingMode, ScreenLayout } from "~~/lib/culto";
+import type { Background, CultoItem, ReadingMode, ScreenLayout, ScreenMoment } from "~~/lib/culto";
 
 import { importSlides } from "~/utils/culto/import-slides";
 import { importImage, mediaUrl } from "~/utils/culto/media";
-import { ITEM_KIND_LABELS, SCREEN_LAYOUT_LABELS } from "~~/lib/culto";
+import { screenMoment } from "~/utils/culto/moment";
+import { ITEM_KIND_LABELS, SCREEN_LAYOUT_LABELS, SCREEN_MOMENT_LABELS } from "~~/lib/culto";
 
 // The fields of one element of the service, by kind. Every change is saved
 // at once (the store writes to this device) and the screens re-flow.
@@ -53,6 +54,15 @@ const songId = computed({
       });
     }
   },
+});
+
+// Which moment a screen is: its icon and colour in the order.
+const momentItems = (Object.keys(SCREEN_MOMENT_LABELS) as ScreenMoment[]).map(value => ({ label: SCREEN_MOMENT_LABELS[value], value }));
+const moment = computed({
+  get: () => item.value.kind === "screen"
+    ? screenMoment(item.value)
+    : "other",
+  set: (value: ScreenMoment) => set({ moment: value }),
 });
 
 const layoutItems = (Object.keys(SCREEN_LAYOUT_LABELS) as ScreenLayout[]).map(value => ({ label: SCREEN_LAYOUT_LABELS[value], value }));
@@ -243,6 +253,14 @@ onMounted(() => {
 
     <!-- Screen -->
     <template v-else>
+      <UFormField label="Momento" help="Su icono y su color en el orden del culto.">
+        <USelect
+          v-model="moment"
+          :items="momentItems"
+          size="lg"
+          class="w-full sm:w-64"
+        />
+      </UFormField>
       <UFormField label="Diseño">
         <URadioGroup
           :model-value="item.layout"

@@ -10,6 +10,7 @@ export const SCREEN_TEMPLATES: { label: string; item: Omit<ScreenItem, "id"> }[]
     label: "Bienvenida",
     item: {
       kind: "screen",
+      moment: "welcome",
       layout: "title",
       eyebrow: "Bienvenidos",
       title: "Nos alegra verte hoy",
@@ -21,6 +22,7 @@ export const SCREEN_TEMPLATES: { label: string; item: Omit<ScreenItem, "id"> }[]
     label: "Oración",
     item: {
       kind: "screen",
+      moment: "prayer",
       layout: "title",
       eyebrow: "",
       title: "Oremos",
@@ -32,6 +34,7 @@ export const SCREEN_TEMPLATES: { label: string; item: Omit<ScreenItem, "id"> }[]
     label: "Santa Cena",
     item: {
       kind: "screen",
+      moment: "supper",
       layout: "quote",
       eyebrow: "Santa Cena",
       title: "«Haced esto en memoria de mí».",
@@ -43,6 +46,7 @@ export const SCREEN_TEMPLATES: { label: string; item: Omit<ScreenItem, "id"> }[]
     label: "Ofrenda",
     item: {
       kind: "screen",
+      moment: "offering",
       layout: "quote",
       eyebrow: "Ofrenda",
       title: "«Dios ama al dador alegre».",
@@ -54,6 +58,7 @@ export const SCREEN_TEMPLATES: { label: string; item: Omit<ScreenItem, "id"> }[]
     label: "Predicación",
     item: {
       kind: "screen",
+      moment: "sermon",
       layout: "title",
       eyebrow: "Predicación",
       title: "Título del sermón",
@@ -65,6 +70,7 @@ export const SCREEN_TEMPLATES: { label: string; item: Omit<ScreenItem, "id"> }[]
     label: "Anuncios",
     item: {
       kind: "screen",
+      moment: "notices",
       layout: "text",
       eyebrow: "Anuncios",
       title: "Esta semana",
@@ -76,6 +82,7 @@ export const SCREEN_TEMPLATES: { label: string; item: Omit<ScreenItem, "id"> }[]
     label: "Despedida",
     item: {
       kind: "screen",
+      moment: "farewell",
       layout: "title",
       eyebrow: "",
       title: "Hasta el domingo",
