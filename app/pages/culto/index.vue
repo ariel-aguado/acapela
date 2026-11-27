@@ -175,6 +175,20 @@ function removeCulto() {
   }, 8000);
 }
 
+/**
+ * The only service and as a new one starts (its usual name, no time, only
+ * the sample welcome): deleting it would leave the same, so it can't be.
+ */
+const isBlank = computed(() => {
+  const c = current.value;
+  const only = c?.items.length === 1
+    ? c.items[0]
+    : null;
+  const welcome = SCREEN_TEMPLATES[0]!.item;
+  return !!c && sorted.value.length === 1 && c.title === "Culto del domingo" && !c.time && !c.sections?.length
+    && only?.kind === "screen" && only.title === welcome.title && only.eyebrow === welcome.eyebrow && !only.body && !only.background && !only.notes;
+});
+
 const showTheme = ref(false);
 
 // ------------------------------------------------------------ another device
@@ -335,6 +349,8 @@ const cultoMenu = computed(() => [
       label: "Borrar este culto",
       icon: "i-tabler-trash",
       color: "error" as const,
+      // Nothing to delete: the only one, as a new one starts.
+      disabled: isBlank.value,
       onSelect: removeCulto,
     },
   ],
