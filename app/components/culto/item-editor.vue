@@ -40,12 +40,7 @@ const reference = field("reference");
 const body = field("body");
 const notes = field("notes");
 
-const songbookName = computed(() => {
-  const it = item.value;
-  return it.kind === "hymn"
-    ? manifest.value.find(s => s.id === it.songbookId)?.name
-    : undefined;
-});
+const songbookItems = computed(() => manifest.value.map(sb => ({ label: sb.name, value: sb.id })));
 
 const songId = computed({
   get: () => item.value.kind === "hymn"
@@ -158,14 +153,25 @@ onMounted(() => {
 
     <!-- Hymn -->
     <template v-if="item.kind === 'hymn'">
-      <UFormField label="Número de himno" :help="songbookName">
-        <UInputNumber
-          v-model="songId"
-          :min="1"
-          size="lg"
-          class="w-40"
-        />
-      </UFormField>
+      <div class="flex flex-wrap gap-3">
+        <UFormField label="Número de himno">
+          <UInputNumber
+            v-model="songId"
+            :min="1"
+            size="lg"
+            class="w-40"
+          />
+        </UFormField>
+        <UFormField label="Himnario" help="Puede ser otro que el elegido en Ajustes.">
+          <USelect
+            :model-value="item.songbookId"
+            :items="songbookItems"
+            size="lg"
+            class="w-56"
+            @update:model-value="v => set({ songbookId: String(v) })"
+          />
+        </UFormField>
+      </div>
     </template>
 
     <!-- Reading -->

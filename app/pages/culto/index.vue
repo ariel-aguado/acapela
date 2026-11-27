@@ -6,6 +6,7 @@ import type { CultoItem } from "~~/lib/culto";
 
 import { formatCultoDate, SCREEN_TEMPLATES } from "~/stores/culto";
 import { importSlides, titleFromFiles } from "~/utils/culto/import-slides";
+import { exportCulto, importCulto, shareOrDownload } from "~/utils/culto/transfer";
 import { ITEM_KIND_LABELS } from "~~/lib/culto";
 
 // Preparing a service: its order (hymns, readings, screens), each element's
@@ -79,6 +80,42 @@ function removeCulto() {
 
 const showTheme = ref(false);
 
+// ------------------------------------------------------------ another device
+// A file with the service, its theme and images (utils/culto/transfer.ts).
+
+const importInput = useTemplateRef<HTMLInputElement>("importFile");
+
+async function exportCurrent() {
+  if (!current.value)
+    return;
+  const file = await exportCulto(toRaw(current.value), toRaw(culto.theme));
+  const how = await shareOrDownload(file);
+  if (how === "downloaded")
+    toast(`Se descargó «${file.name}». Ábrelo en el otro dispositivo desde ⋯ › Abrir un culto recibido.`, undefined, 8000);
+}
+
+async function onImportFile(e: Event) {
+  const file = (e.target as HTMLInputElement).files?.[0];
+  (e.target as HTMLInputElement).value = "";
+  if (!file)
+    return;
+  try {
+    const { culto: received, theme } = await importCulto(file);
+    culto.cultos = [...culto.cultos, received];
+    culto.select(received.id);
+    // The sender's theme, only if this device has none of its own yet.
+    const own = culto.theme;
+    if (theme && !own.churchName && !own.logoId && own.background.kind === "acapela")
+      culto.setTheme(theme);
+    toast(`Se abrió «${received.title}».`);
+  }
+  catch (err) {
+    toast(err instanceof Error
+      ? err.message
+      : String(err), undefined, 8000);
+  }
+}
+
 const cultoMenu = computed(() => [
   [
     {
@@ -97,6 +134,18 @@ const cultoMenu = computed(() => [
       label: "Duplicar para otro día",
       icon: "i-tabler-copy",
       onSelect: () => current.value && culto.duplicate(current.value.id),
+    },
+  ],
+  [
+    {
+      label: "Enviar a otro dispositivo",
+      icon: "i-tabler-share",
+      onSelect: exportCurrent,
+    },
+    {
+      label: "Abrir un culto recibido…",
+      icon: "i-tabler-file-import",
+      onSelect: () => importInput.value?.click(),
     },
   ],
   [
@@ -429,6 +478,13 @@ onMounted(() => {
     </div>
 
     <CultoThemeDialog v-model:open="showTheme" />
+    <input
+      ref="importFile"
+      type="file"
+      accept=".json,application/json"
+      class="hidden"
+      @change="onImportFile"
+    >
     <AppGoToHymn
       v-model:open="pickHymn"
       heading="Agregar un himno"

@@ -327,6 +327,48 @@ try {
   const logo = await page.evaluate(`document.querySelector('.live-wrap .page--logo')?.innerText ?? ''`)
   check(logo.includes("Iglesia de Prueba"), `L muestra la pantalla del logo con el nombre («${logo.trim()}»)`)
   await shot(page, "logo")
+
+  // ---------------------------------------------------------- a hymn from another songbook
+  const other = books.find(b => b.id !== sb.id)
+  if (other) {
+    await page.evaluate(`(() => { const all = JSON.parse(localStorage.getItem('cultos')); all[0].items.push({ id: 'z', kind: 'hymn', songbookId: ${JSON.stringify(other.id)}, songId: 3 }); localStorage.setItem('cultos', JSON.stringify(all)) })()`)
+    await page.goto(`${ORIGIN}/culto`)
+    await page.waitFor(`[...document.querySelectorAll('ol li')].some(l => l.innerText.includes(${JSON.stringify(`(${other.name})`)}) && /\\d+ pantallas?/.test(l.innerText))`, 30000)
+    pass(`un himno de otro himnario (${other.name}) se proyecta sin cambiar el de Ajustes`)
+  }
+
+  // ---------------------------------------------------------- to another device and back
+  const DOWNLOADS = "/tmp/pwa-chrome-validation-culto-downloads"
+  rmSync(DOWNLOADS, { recursive: true, force: true })
+  await page.send("Browser.setDownloadBehavior", { behavior: "allow", downloadPath: DOWNLOADS }).catch(() => page.send("Page.setDownloadBehavior", { behavior: "allow", downloadPath: DOWNLOADS }))
+  const itemsBefore = await page.evaluate(`document.querySelectorAll('ol li').length`)
+  await page.evaluate(`document.querySelector('[aria-label="Más opciones del culto"]').click()`)
+  await page.waitFor(`[...document.querySelectorAll('[role=menuitem]')].some(m => m.innerText.includes('Enviar a otro dispositivo'))`, 5000)
+  await page.evaluate(`[...document.querySelectorAll('[role=menuitem]')].find(m => m.innerText.includes('Enviar a otro dispositivo')).click()`)
+  let exported = null
+  for (let i = 0; i < 40 && !exported; i++) {
+    await sleep(250)
+    exported = (await import("node:fs")).readdirSync(DOWNLOADS, { withFileTypes: true }).find(f => f.name.endsWith(".acapela.json"))?.name ?? null
+  }
+  check(!!exported, `exportar: se descarga «${exported}»`)
+  if (exported) {
+    const data = JSON.parse((await import("node:fs")).readFileSync(path.join(DOWNLOADS, exported), "utf8"))
+    check(Object.keys(data.media).length >= 2, `el archivo lleva sus imágenes (${Object.keys(data.media).length})`)
+    // A fresh device: nothing saved, then open the file.
+    await page.evaluate(`localStorage.removeItem('cultos'); localStorage.removeItem('cultoId'); localStorage.removeItem('cultoTheme'); indexedDB.deleteDatabase('acapela-media')`)
+    await page.goto(`${ORIGIN}/culto`)
+    await page.waitFor("document.querySelectorAll('ol li').length === 1", 15000)
+    const { root: r2 } = await page.send("DOM.getDocument", { depth: -1, pierce: true })
+    const { nodeId: n2 } = await page.send("DOM.querySelector", { nodeId: r2.nodeId, selector: "input[type=file][accept^='.json']" })
+    await page.send("DOM.setFileInputFiles", { nodeId: n2, files: [path.join(DOWNLOADS, exported)] })
+    await page.waitFor(`document.querySelectorAll('ol li').length === ${itemsBefore}`, 20000)
+    pass(`importar en otro dispositivo: el culto llega con sus ${itemsBefore} elementos`)
+    await page.evaluate(`[...document.querySelectorAll('ol li button')].find(b => b.innerText.includes('diapositivas'))?.click()`)
+    await page.waitFor("[...document.querySelectorAll('figure img')].filter(i => i.complete && i.naturalWidth > 0).length === 2", 15000)
+    pass("las diapositivas llegan con sus imágenes")
+    const themeName = await page.evaluate(`JSON.parse(localStorage.getItem('cultoTheme') || '{}').churchName`)
+    check(themeName === "Iglesia de Prueba", `y el tema de la iglesia, porque este dispositivo no tenía uno («${themeName}»)`)
+  }
 }
 catch (err) {
   fail(err.stack)

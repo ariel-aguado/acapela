@@ -54,6 +54,18 @@ export async function putMedia(blob: Blob, name = ""): Promise<string> {
   return id;
 }
 
+/** Keeps an image under a given id (importing a service); existing ids are left as they are. */
+export async function putMediaWithId(id: string, blob: Blob, name = ""): Promise<void> {
+  if (await getMedia(id))
+    return;
+  await run("readwrite", store => store.put({
+    id,
+    blob,
+    name,
+    createdAt: Date.now(),
+  } satisfies MediaRecord));
+}
+
 export async function getMedia(id: string): Promise<MediaRecord | undefined> {
   return run<MediaRecord | undefined>("readonly", store => store.get(id));
 }

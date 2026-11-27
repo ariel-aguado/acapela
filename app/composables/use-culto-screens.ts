@@ -1,6 +1,7 @@
 import type { PageItem } from "~/utils/culto/paginate";
 import type { Screen } from "~/utils/culto/screens";
 import type { CultoItem, ProjectionTheme, ReadingItem, ScreenItem } from "~~/lib/culto";
+import type { Song } from "~~/lib/types";
 
 import { resolveLook } from "~/utils/culto/look";
 import { paginate } from "~/utils/culto/paginate";
@@ -345,13 +346,31 @@ export function useCultoScreens(items: MaybeRefOrGetter<CultoItem[]>) {
   }
 
   function hymnScreens(item: Extract<CultoItem, { kind: "hymn" }>): ItemScreens {
-    if (item.songbookId !== songbookId.value) {
-      const name = manifest.value.find(s => s.id === item.songbookId)?.name ?? item.songbookId;
-      return failed(item, `Es del himnario ${name}: elígelo en Ajustes para proyectarlo.`);
+    // Another songbook than the one in Ajustes: read on the side.
+    const other = item.songbookId !== songbookId.value;
+    const meta = manifest.value.find(s => s.id === item.songbookId);
+    let list: Song[] = songs.value;
+    if (other) {
+      const result = manifest.value.length
+        ? songsOf(item.songbookId, meta?.file)
+        : undefined;
+      if (result instanceof Error)
+        return failed(item, `No se pudo leer el himnario ${meta?.name ?? item.songbookId}.`);
+      if (!result) {
+        return {
+          item,
+          label: labelOf(item),
+          status: "loading",
+          all: [],
+          screens: [],
+          keys: [],
+        };
+      }
+      list = result;
     }
-    const song = songs.value[item.songId - 1];
+    const song = list[item.songId - 1];
     if (!song) {
-      return songs.value.length
+      return list.length
         ? failed(item, `No hay himno ${item.songId} en este himnario.`)
         : {
             item,
@@ -376,7 +395,9 @@ export function useCultoScreens(items: MaybeRefOrGetter<CultoItem[]>) {
     }));
     return {
       item,
-      label: `${song.songId} · ${song.title}`,
+      label: other
+        ? `${song.songId} · ${song.title} (${meta?.name ?? item.songbookId})`
+        : `${song.songId} · ${song.title}`,
       status: "ready",
       ...arrange(item, natural, theme.value),
     };
