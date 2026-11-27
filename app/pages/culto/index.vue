@@ -193,6 +193,28 @@ async function openFile(file: File) {
   }
 }
 
+/**
+ * A new service, empty or a copy of this one, is opened; the one being
+ * edited stays in the list, and the notice says so and leads back to it.
+ */
+function leaveFor(how: "new" | "copy") {
+  const previous = current.value;
+  if (how === "copy" && !previous)
+    return;
+  const made = how === "new"
+    ? culto.create()
+    : culto.duplicate(previous!.id);
+  if (!made || !previous)
+    return;
+  const name = `«${previous.title} · ${formatCultoDate(previous.date)}»`;
+  toast(how === "new"
+    ? `Se creó un culto nuevo. ${name} sigue guardado en la lista de arriba.`
+    : `Se duplicó para ${formatCultoDate(made.date)}. ${name} sigue guardado en la lista de arriba.`, {
+    label: "Volver al anterior",
+    run: () => culto.select(previous.id),
+  }, 9000);
+}
+
 const cultoMenu = computed(() => [
   [
     {
@@ -205,12 +227,12 @@ const cultoMenu = computed(() => [
     {
       label: "Nuevo culto",
       icon: "i-tabler-plus",
-      onSelect: () => culto.create(),
+      onSelect: () => leaveFor("new"),
     },
     {
       label: "Duplicar para otro día",
       icon: "i-tabler-copy",
-      onSelect: () => current.value && culto.duplicate(current.value.id),
+      onSelect: () => leaveFor("copy"),
     },
   ],
   [
