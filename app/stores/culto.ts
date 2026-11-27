@@ -1,6 +1,6 @@
 import { nanoid } from "nanoid";
 
-import type { Culto, CultoItem, HymnItem, ProjectionTheme, ReadingItem, ScreenItem, SlidesItem } from "~~/lib/culto";
+import type { Culto, CultoItem, HymnItem, MomentPart, ProjectionTheme, ReadingItem, ScreenItem, SlidesItem } from "~~/lib/culto";
 
 import { DEFAULT_THEME } from "~~/lib/culto";
 
@@ -379,6 +379,79 @@ export const useCultoStore = defineStore("culto", () => {
     });
   }
 
+  // ------------------------------------------------------------ parts of a moment
+
+  function screenById(itemId: string): ScreenItem | null {
+    const item = itemById(itemId);
+    return item?.kind === "screen"
+      ? item
+      : null;
+  }
+
+  function setParts(itemId: string, parts: MomentPart[]) {
+    updateItem(itemId, { parts } as Partial<CultoItem>);
+  }
+
+  /** Adds a passage or a text page to a moment and returns it. */
+  function addPart(itemId: string, part: MomentPart): MomentPart {
+    const item = screenById(itemId);
+    setParts(itemId, [
+      ...(item?.parts ?? []),
+      part,
+    ]);
+    return part;
+  }
+
+  function updatePart(itemId: string, partId: string, changes: Partial<MomentPart>) {
+    const item = screenById(itemId);
+    setParts(itemId, (item?.parts ?? []).map(p => p.id === partId
+      ? {
+          ...p,
+          ...changes,
+        } as MomentPart
+      : p));
+  }
+
+  function removePart(itemId: string, partId: string) {
+    const item = screenById(itemId);
+    setParts(itemId, (item?.parts ?? []).filter(p => p.id !== partId));
+  }
+
+  function movePart(itemId: string, partId: string, delta: number) {
+    const parts = [
+      ...(screenById(itemId)?.parts ?? []),
+    ];
+    const from = parts.findIndex(p => p.id === partId);
+    const to = from + delta;
+    if (from < 0 || to < 0 || to >= parts.length)
+      return;
+    const [part] = parts.splice(from, 1);
+    parts.splice(to, 0, part!);
+    setParts(itemId, parts);
+  }
+
+  function newReadingPart(reference: string, versionId: string): MomentPart {
+    return {
+      id: nanoid(6),
+      kind: "reading",
+      reference,
+      versionId,
+      mode: "fit",
+    };
+  }
+
+  function newTextPart(eyebrow = ""): MomentPart {
+    return {
+      id: nanoid(6),
+      kind: "text",
+      layout: "quote",
+      eyebrow,
+      title: "",
+      body: "",
+      reference: "",
+    };
+  }
+
   function resetScreens(itemId: string) {
     updateItem(itemId, { screenOrder: undefined, hidden: undefined, breaks: undefined });
   }
@@ -457,6 +530,12 @@ export const useCultoStore = defineStore("culto", () => {
     toggleHidden,
     setBreak,
     resetScreens,
+    addPart,
+    updatePart,
+    removePart,
+    movePart,
+    newReadingPart,
+    newTextPart,
     newHymn,
     newReading,
     newScreen,

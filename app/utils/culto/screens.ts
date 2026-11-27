@@ -116,8 +116,12 @@ export function textPieces(text: string, idPrefix: string): PageItem[] {
   });
 }
 
-/** Pieces for Bible verses: one per verse, split by sentences, the number only on its first part. */
-export function versePieces(verses: VerseRow[], oneEach: boolean): PageItem[] {
+/**
+ * Pieces for Bible verses: one per verse, split by sentences, the number
+ * only on its first part. `idPrefix` keeps them apart when one element has
+ * several passages (a moment's).
+ */
+export function versePieces(verses: VerseRow[], oneEach: boolean, idPrefix = ""): PageItem[] {
   return verses
     .filter(v => v.text.trim())
     .map((v, i) => {
@@ -130,8 +134,8 @@ export function versePieces(verses: VerseRow[], oneEach: boolean): PageItem[] {
         ? `<p class="cont" data-v="${v.verse}">${inner}</p>`
         : `<p data-v="${v.verse}"><sup>${number}</sup>${inner}</p>`;
       return {
-        id: `v${v.chapter}:${v.verse}`,
-        key: `v${v.chapter}:${v.verse}`,
+        id: `${idPrefix}v${v.chapter}:${v.verse}`,
+        key: `${idPrefix}v${v.chapter}:${v.verse}`,
         html: render(split.join(" "), false),
         keepNext: false,
         breakBefore: oneEach && i > 0,

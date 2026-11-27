@@ -1,6 +1,6 @@
 import type { PageItem } from "~/utils/culto/paginate";
 import type { Screen } from "~/utils/culto/screens";
-import type { CultoItem, ProjectionTheme, ReadingItem, ScreenItem } from "~~/lib/culto";
+import type { CultoItem, MomentPart, ProjectionTheme, ReadingItem, ScreenItem } from "~~/lib/culto";
 import type { Song } from "~~/lib/types";
 
 import { resolveLook } from "~/utils/culto/look";
@@ -34,6 +34,8 @@ export type ItemScreens = {
   screens: Screen[];
   /** Their keys, in the same order. */
   keys: string[];
+  /** A moment's passages that could not be read, by part id: the rest is still projected. */
+  partErrors?: Record<string, string>;
 };
 
 /** One screen in the order of the whole service. */
@@ -49,7 +51,7 @@ export type FlatScreen = {
 };
 
 type PageScreen = Extract<Screen, { type: "page" }>;
-type Natural = { label: string; screens: Omit<ManagedScreen, "hidden">[] };
+type Natural = { label: string; screens: Omit<ManagedScreen, "hidden">[]; partErrors?: Record<string, string> };
 
 // ------------------------------------------------------------ measuring
 // One invisible stage, the size of the projected one, for every page.
@@ -142,7 +144,8 @@ function pageMeta(page: PageItem[], i: number) {
 
 // ------------------------------------------------------------ per kind
 
-async function screenPages(item: ScreenItem, theme: ProjectionTheme): Promise<Natural["screens"]> {
+/** `prefix` keeps a moment's extra pages apart from its own (keys and break ids). */
+async function screenPages(item: ScreenItem, theme: ProjectionTheme, prefix = ""): Promise<Natural["screens"]> {
   const logo = item.layout === "logo";
   const base: PageScreen = {
     type: "page",
@@ -165,11 +168,11 @@ async function screenPages(item: ScreenItem, theme: ProjectionTheme): Promise<Na
   };
   if (item.layout !== "text" || !item.body.trim()) {
     return [
-      { key: "p0", screen: base, natural: 0 },
+      { key: `${prefix}p0`, screen: base, natural: 0 },
     ];
   }
   const font = resolveLook(theme, item).font;
-  const pages = await paginatePage(base, withBreaks(textPieces(item.body, `${item.id}:`), item.breaks), font);
+  const pages = await paginatePage(base, withBreaks(textPieces(item.body, `${item.id}:${prefix}`), item.breaks), font);
   return pages.map((page, i) => ({
     ...pageMeta(page, i),
     natural: i,
@@ -186,7 +189,7 @@ async function screenPages(item: ScreenItem, theme: ProjectionTheme): Promise<Na
   }));
 }
 
-async function readingPages(item: ReadingItem, theme: ProjectionTheme): Promise<Natural> {
+async function readingPages(item: ReadingItem, theme: ProjectionTheme, prefix = ""): Promise<Natural> {
   const bible = useBibleStore();
   const passage = await bible.passage(item.reference, item.versionId || undefined);
   if (!passage || !passage.verses.length)
@@ -203,7 +206,7 @@ async function readingPages(item: ReadingItem, theme: ProjectionTheme): Promise<
     counter: "",
     scale: item.scale ?? 1,
   };
-  const pages = await paginatePage(base, withBreaks(versePieces(passage.verses, item.mode === "verse"), item.breaks), resolveLook(theme, item).font);
+  const pages = await paginatePage(base, withBreaks(versePieces(passage.verses, item.mode === "verse", prefix), item.breaks), resolveLook(theme, item).font);
   const first = passage.verses[0]!;
   return {
     label: passage.label,
@@ -228,6 +231,67 @@ async function readingPages(item: ReadingItem, theme: ProjectionTheme): Promise<
         },
       };
     }),
+  };
+}
+
+/**
+ * A moment's screens: its own, then each of its parts, in order. A passage
+ * that cannot be read is left out and reported, so one wrong reference does
+ * not take the Lord's supper off the screen.
+ */
+async function momentPages(item: ScreenItem, theme: ProjectionTheme): Promise<Omit<Natural, "label">> {
+  const screens: Natural["screens"] = [
+    ...await screenPages(item, theme),
+  ];
+  const partErrors: Record<string, string> = {};
+  for (const part of item.parts ?? []) {
+    const prefix = `${part.id}:`;
+    try {
+      const pages = part.kind === "reading"
+        ? (await readingPages(partAsReading(item, part), theme, prefix)).screens
+        : await screenPages(partAsScreen(item, part), theme, prefix);
+      screens.push(...pages);
+    }
+    catch (err) {
+      partErrors[part.id] = err instanceof Error
+        ? err.message
+        : String(err);
+    }
+  }
+  return {
+    screens: screens.map((s, i) => ({ ...s, natural: i })),
+    partErrors: Object.keys(partErrors).length
+      ? partErrors
+      : undefined,
+  };
+}
+
+/** A moment's passage as a reading of the moment (its size, look and breaks). */
+function partAsReading(item: ScreenItem, part: Extract<MomentPart, { kind: "reading" }>): ReadingItem {
+  return {
+    id: item.id,
+    kind: "reading",
+    reference: part.reference,
+    versionId: part.versionId,
+    mode: part.mode,
+    scale: item.scale,
+    background: item.background,
+    breaks: item.breaks,
+  };
+}
+
+function partAsScreen(item: ScreenItem, part: Extract<MomentPart, { kind: "text" }>): ScreenItem {
+  return {
+    id: item.id,
+    kind: "screen",
+    layout: part.layout,
+    eyebrow: part.eyebrow,
+    title: part.title,
+    body: part.body,
+    reference: part.reference,
+    scale: item.scale,
+    background: item.background,
+    breaks: item.breaks,
   };
 }
 
@@ -423,9 +487,9 @@ export function useCultoScreens(items: MaybeRefOrGetter<CultoItem[]>) {
     pending.add(sig);
     const run: Promise<Natural> = item.kind === "reading"
       ? readingPages(item, theme.value)
-      : screenPages(item, theme.value).then(screens => ({
+      : momentPages(item, theme.value).then(result => ({
           label: labelOf(item),
-          screens,
+          ...result,
         }));
     run
       .then(result => setResult(item.id, sig, result))
@@ -454,6 +518,7 @@ export function useCultoScreens(items: MaybeRefOrGetter<CultoItem[]>) {
       item,
       label: result.label,
       status,
+      partErrors: result.partErrors,
       ...arrange(item, result.screens, theme.value),
     };
   }

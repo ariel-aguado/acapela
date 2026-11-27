@@ -106,10 +106,37 @@ export const SCREEN_MOMENT_LABELS: Record<ScreenMoment, string> = {
   other: "Otra pantalla",
 };
 
+/**
+ * More screens of a moment, after its own: the Lord's supper with the
+ * passages read during it, the offering with its verse, the sermon with
+ * its references. A passage is split into as many screens as it needs, as
+ * a reading is; a text page is a screen like the moment's own.
+ */
+export type MomentPart
+  = | {
+    id: string;
+    kind: "reading";
+    /** As typed or picked: "1 Co 11:23-26". */
+    reference: string;
+    versionId: string;
+    mode: ReadingMode;
+  }
+  | {
+    id: string;
+    kind: "text";
+    layout: "title" | "quote" | "text";
+    eyebrow: string;
+    title: string;
+    body: string;
+    reference: string;
+  };
+
 export type ScreenItem = ItemBase & {
   kind: "screen";
   layout: ScreenLayout;
   moment?: ScreenMoment;
+  /** Its other screens, in order, after its own. */
+  parts?: MomentPart[];
   /** Small label on top ("SANTA CENA"). */
   eyebrow: string;
   title: string;

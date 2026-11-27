@@ -187,13 +187,8 @@ onMounted(() => {
     <!-- Reading -->
     <template v-else-if="item.kind === 'reading'">
       <div class="flex flex-wrap gap-3">
-        <UFormField label="Cita" class="flex-1 min-w-48" help="Sal 46:1-7, jn 3:16, 1co13:4-7…">
-          <UInput
-            v-model="reference"
-            size="lg"
-            class="w-full"
-            autocomplete="off"
-          />
+        <UFormField label="Cita" class="flex-1 min-w-64" help="Escríbela o elige libro, capítulo y versículos.">
+          <CultoPassagePicker v-model="reference" :version-id="item.versionId" />
         </UFormField>
         <UFormField label="Versión" class="w-56">
           <USelect
@@ -325,6 +320,7 @@ onMounted(() => {
           class="w-full"
         />
       </UFormField>
+      <CultoMomentParts :entry="entry" class="border-t border-muted pt-5" />
     </template>
 
     <UFormField v-if="item.kind !== 'slides'" label="Fondo">
