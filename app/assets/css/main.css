@@ -1,33 +1,155 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
 
-/* "Índigo Acapela" as a full scale (Nuxt UI's `primary`, see
-   app/app.config.ts), hue 285. */
+/* Visual system brought from Diaconeo (its .work/design/PLAN-REDISENO.md).
+   Sajibur/Boltshift palette: brand violet #715DE3, orange #FF8730, lime
+   #B7EB76 and cyan #73D9ED as accents, on an almost-white neutral canvas
+   #FAFAFA. Every scale has its 11 steps so Nuxt UI can use it as a semantic
+   colour (app.config.ts). */
 @theme static {
-  --color-acapela-50: oklch(97% 0.015 285);
-  --color-acapela-100: oklch(94% 0.03 285);
-  --color-acapela-200: oklch(88% 0.06 285);
-  --color-acapela-300: oklch(82% 0.09 285);
-  --color-acapela-400: oklch(76% 0.12 285);
-  --color-acapela-500: oklch(62% 0.17 285);
-  --color-acapela-600: oklch(52% 0.19 285);
-  --color-acapela-700: oklch(44% 0.19 285);
-  --color-acapela-800: oklch(37% 0.16 285);
-  --color-acapela-900: oklch(30% 0.12 285);
-  --color-acapela-950: oklch(22% 0.09 285);
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  /* Brand violet: `primary`. 500 is the design's and takes white text
+     (4.8:1). */
+  --color-iris-50: #f4f2fe;
+  --color-iris-100: #eae6fc;
+  --color-iris-200: #d7cff9;
+  --color-iris-300: #baaef3;
+  --color-iris-400: #9583ea;
+  --color-iris-500: #715de3;
+  --color-iris-600: #5e46d6;
+  --color-iris-700: #4e37bc;
+  --color-iris-800: #413098;
+  --color-iris-900: #372b79;
+  --color-iris-950: #221a4a;
+
+  /* Orange: `secondary` and `warning`. Dark text on it, never white
+     (2.3:1). */
+  --color-tangerine-50: #fff6ed;
+  --color-tangerine-100: #ffe9d4;
+  --color-tangerine-200: #ffd0a8;
+  --color-tangerine-300: #ffb676;
+  --color-tangerine-400: #ff9e50;
+  --color-tangerine-500: #ff8730;
+  --color-tangerine-600: #ee6a12;
+  --color-tangerine-700: #c5520c;
+  --color-tangerine-800: #9c4111;
+  --color-tangerine-900: #7e3712;
+  --color-tangerine-950: #441907;
+
+  /* Lime: the positive accent (active navigation item in dark mode).
+     Always with dark text. */
+  --color-lime-50: #f6fdeb;
+  --color-lime-100: #ecfad4;
+  --color-lime-200: #d8f5ac;
+  --color-lime-300: #b7eb76;
+  --color-lime-400: #9ddc4c;
+  --color-lime-500: #7ec22d;
+  --color-lime-600: #619b20;
+  --color-lime-700: #4a761d;
+  --color-lime-800: #3c5e1c;
+  --color-lime-900: #344f1c;
+  --color-lime-950: #19290a;
+
+  /* Cyan: `info`. */
+  --color-aqua-50: #eefbfd;
+  --color-aqua-100: #d5f4fa;
+  --color-aqua-200: #afeaf5;
+  --color-aqua-300: #73d9ed;
+  --color-aqua-400: #3cc2de;
+  --color-aqua-500: #1fa6c4;
+  --color-aqua-600: #1c85a5;
+  --color-aqua-700: #1d6b86;
+  --color-aqua-800: #21586e;
+  --color-aqua-900: #1f4a5d;
+  --color-aqua-950: #10303f;
+
+  /* Card shadow: barely an edge of light, the contrast comes from white on
+     the canvas. `float` is for surfaces over the page (menus, the floating
+     bars). */
+  --shadow-card: 0 1px 2px rgb(16 24 40 / 0.04), 0 2px 8px rgb(16 24 40 / 0.035);
+  --shadow-float: 0 12px 32px -8px rgb(16 24 40 / 0.14), 0 2px 6px rgb(16 24 40 / 0.05);
 }
 
-/* The brand colour itself. Light: deep indigo-violet (700) with white text.
-   Dark: a light violet (400) with dark text — a saturated purple on a dark
-   background reads poorly. Text in primary on the page background: 8.5:1
-   light, 7.2:1 dark. Unlayered, so it wins over Nuxt UI's theme layer. */
-:root {
-  --ui-primary: var(--ui-color-primary-700);
-  --brand-shadow: rgb(40 22 120 / 0.6);
+@layer base {
+  /* The canvas: light grey, with white surfaces (`bg-default`) on top. */
+  body {
+    background-color: var(--app-canvas);
+  }
+
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+
+  ::selection {
+    background-color: color-mix(in oklab, var(--ui-primary) 20%, transparent);
+  }
 }
+
+/* Unlayered: Nuxt UI declares `--ui-radius` and the background colours in
+   its theme layer, and only something outside layers beats it from here. */
+:root {
+  /* Nuxt UI scales every `rounded-*` with this: `rounded-md` = 9px,
+     `rounded-lg` = 12px, `rounded-xl` = 18px and `rounded-2xl` = 24px
+     (cards). */
+  --ui-radius: 0.375rem;
+
+  /* Neutral greys, measured from the Boltshift reference (canvas #FAFAFA,
+     tracks and controls #F8F8F8, borders #EBEBEB). */
+  --app-canvas: #fafafa;
+
+  --ui-text-muted: var(--ui-color-neutral-500);
+  --ui-text: var(--ui-color-neutral-700);
+  --ui-text-highlighted: #111114;
+  --ui-bg-muted: #f8f8f8;
+  --ui-bg-elevated: #f4f4f5;
+  --ui-bg-accented: #ebebeb;
+  --ui-border: #ededed;
+  --ui-border-muted: #f2f2f2;
+
+  /* Blur of the page behind modals and drawers. */
+  --overlay-blur: 4px;
+
+  /* A control standing on a white surface: faint grey. */
+  --control-bg: #f5f5f5;
+  --control-bg-hover: #ededed;
+
+  /* The track of a segmented control. */
+  --well-bg: #f4f4f5;
+
+  /* Coloured glow under the brand capsules (header, "Ir al himno"). */
+  --brand-shadow: rgb(113 93 227 / 0.45);
+}
+
+/* Dark, after the Vexora reference: neutral graphite, surfaces one step
+   lighter. */
 .dark {
-  --ui-primary: var(--ui-color-primary-400);
+  --app-canvas: #141416;
+
+  --ui-text-muted: var(--ui-color-neutral-400);
+  --ui-text: var(--ui-color-neutral-200);
+  --ui-text-highlighted: #ffffff;
+  --ui-bg: #1e1f23;
+  --ui-bg-muted: #232428;
+  --ui-bg-elevated: #2a2b30;
+  --ui-bg-accented: #34353b;
+  --ui-border: #2e2f35;
+  --ui-border-muted: #28292e;
+
+  --control-bg: #2a2b30;
+  --control-bg-hover: #34353b;
+  --well-bg: #18191c;
+
   --brand-shadow: rgb(0 0 0 / 0.55);
+}
+
+/* No overlay translucency when the person asked for it. */
+@media (prefers-reduced-transparency: reduce) {
+  :root,
+  .dark {
+    --overlay-blur: 0px;
+  }
 }
 
 /* The name "Acapela" is set in the lyric face (Literata): the brand reads
@@ -36,6 +158,16 @@
   font-family: "Literata", Georgia, serif;
   font-weight: 600;
   letter-spacing: -0.005em;
+}
+
+/* The mark in a violet circle, as Diaconeo's isotype. */
+.brand-dot {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  border-radius: 9999px;
+  background: var(--color-iris-500);
+  color: #fff;
 }
 
 @theme {
@@ -122,15 +254,13 @@ html[data-reading-margin="4"] {
   );
 }
 
-/* Translucent floating surface (bottom navigation, reading pager). */
+/* Floating surface (bottom navigation, header actions, reading pager):
+   solid, as Diaconeo's floating surfaces, with its soft shadow. */
 .glass {
-  background: color-mix(in oklab, var(--ui-bg) 80%, transparent);
-  -webkit-backdrop-filter: blur(18px) saturate(1.5);
-  backdrop-filter: blur(18px) saturate(1.5);
-  border: 1px solid color-mix(in oklab, var(--ui-text) 10%, transparent);
-  box-shadow:
-    0 12px 32px -12px var(--brand-shadow),
-    0 2px 6px rgb(20 12 60 / 0.08);
+  background: var(--ui-bg);
+  box-shadow: var(--shadow-float);
+  outline: 1px solid var(--ui-border-muted);
+  outline-offset: -1px;
 }
 
 .float-top {

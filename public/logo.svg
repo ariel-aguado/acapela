@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="15" fill="#4f34b4"/><g transform="translate(9.6 9.6) scale(.7)" color="#fff"><g transform="translate(5 -0.4)">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="15" fill="#715DE3"/><g transform="translate(9.6 9.6) scale(.7)" color="#fff"><g transform="translate(5 -0.4)">
   <path d="M21 48 32 12 43 48" fill="none" stroke="currentColor" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round"/>
   <path d="M23.6 34.5h16.8" fill="none" stroke="currentColor" stroke-width="7"/>
   <ellipse cx="15.2" cy="50.5" rx="7.6" ry="5.6" transform="rotate(-24 15.2 50.5)" fill="currentColor"/>

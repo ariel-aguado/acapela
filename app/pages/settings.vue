@@ -80,7 +80,7 @@ const songbookItems = computed(() => manifest.value.map((sb) => {
         <h2 id="s-appearance" class="font-medium">
           Apariencia
         </h2>
-        <div class="rounded-2xl border border-default p-4 flex flex-col gap-6">
+        <div class="rounded-2xl bg-default shadow-card p-4 flex flex-col gap-6">
           <AppReadingSettings />
           <AppThemeControl />
         </div>
@@ -93,7 +93,7 @@ const songbookItems = computed(() => manifest.value.map((sb) => {
         <h2 id="s-app" class="font-medium">
           Aplicación
         </h2>
-        <div class="rounded-2xl border border-default divide-y divide-default overflow-hidden">
+        <div class="rounded-2xl bg-default shadow-card divide-y divide-default overflow-hidden">
           <div class="flex items-center gap-3 px-4 min-h-16 py-3">
             <AppIcon class="size-10" />
             <div class="flex-1 flex flex-col">

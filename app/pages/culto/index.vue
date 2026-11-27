@@ -342,7 +342,7 @@ onMounted(() => {
             <li v-for="(entry, i) in entries" :key="entry.item.id">
               <div
                 class="flex items-center gap-1 rounded-2xl border transition-colors"
-                :class="entry.item.id === selectedId ? 'border-primary bg-primary/10' : 'border-default bg-default hover:bg-muted'"
+                :class="entry.item.id === selectedId ? 'border-primary bg-primary/10' : 'border-transparent bg-default shadow-card hover:bg-muted'"
               >
                 <span
                   class="drag-handle self-stretch flex items-center ps-2 cursor-grab touch-none opacity-50 hover:opacity-100"
@@ -469,7 +469,7 @@ onMounted(() => {
                 <UIcon name="i-tabler-loader-2" class="size-8 animate-spin opacity-60" aria-label="Preparando" />
               </div>
             </div>
-            <div class="rounded-2xl border border-default p-4 bg-default">
+            <div class="rounded-2xl p-4 bg-default shadow-card">
               <CultoItemEditor :key="selected.item.id" :entry="selected" @remove="removeItem(selected.item.id)" />
             </div>
           </div>

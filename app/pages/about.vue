@@ -28,7 +28,7 @@ const CONTACT_EMAIL = "ariel.841207@gmail.com";
         >GitHub</a>.
       </p>
       <!-- The one highlighted block of the page: contact (as in Superbiblia). -->
-      <section aria-labelledby="about-opinion" class="mt-10 mb-6 rounded-2xl border border-default bg-muted p-5 text-left">
+      <section aria-labelledby="about-opinion" class="mt-10 mb-6 rounded-2xl bg-default shadow-card p-5 text-left">
         <h3 id="about-opinion" class="text-lg font-semibold leading-snug">
           Me gustaría conocer tu opinión
         </h3>
@@ -75,6 +75,6 @@ const CONTACT_EMAIL = "ariel.841207@gmail.com";
 <style scoped>
 /* Fixed brand indigo (same as the app icon) in both themes. */
 .about-hero {
-  background: radial-gradient(120% 140% at 85% 15%, #6b52d6 0%, #4f34b4 45%, #2a1a6e 100%);
+  background: radial-gradient(120% 140% at 85% 15%, #9583ea 0%, #715de3 45%, #372b79 100%);
 }
 </style>

@@ -23,7 +23,7 @@ async function onSelect(sb: Songbook) {
     aria-modal="true"
     aria-labelledby="songbook-overlay-title"
   >
-    <div class="songbook-overlay__box w-full max-w-md rounded-3xl bg-default shadow-2xl border border-default overflow-hidden flex flex-col">
+    <div class="songbook-overlay__box w-full max-w-md rounded-3xl bg-default shadow-float overflow-hidden flex flex-col">
       <!-- Brand header: the first thing a new person sees. -->
       <div class="bg-primary text-inverted px-6 pt-6 pb-5 flex flex-col gap-2">
         <AppBrandMark class="size-11" />

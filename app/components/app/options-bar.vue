@@ -49,25 +49,25 @@ const isLarge = useMediaQuery("(min-width: 1024px)");
     <!-- Reading: the open hymn -->
     <div
       v-if="isReading && current"
-      class="pointer-events-auto h-12 inline-flex items-center rounded-full bg-primary text-inverted px-1 shadow-[0_10px_28px_-10px_var(--brand-shadow)]"
+      class="glass pointer-events-auto h-12 inline-flex items-center rounded-full px-1"
     >
       <!-- The brand goes home (as in Superbiblia); the hymn number opens
         "Ir al himno". The title is already at the top of the lyric. -->
       <NuxtLink
         to="/"
-        class="h-10 pl-1.5 pr-1 inline-flex items-center gap-1.5 rounded-full hover:bg-(--ui-text-inverted)/10"
+        class="h-10 pl-0.5 pr-2 inline-flex items-center gap-2 rounded-full hover:bg-(--control-bg)"
         aria-label="Acapela, ir al inicio"
       >
-        <AppBrandMark class="size-7" />
-        <span class="wordmark text-[1.2rem] leading-none">Acapela</span>
+        <span class="brand-dot size-9" aria-hidden="true"><AppBrandMark class="size-6" /></span>
+        <span class="wordmark text-[1.2rem] leading-none text-highlighted">Acapela</span>
       </NuxtLink>
       <button
         type="button"
-        class="ml-0.5 min-w-10 h-10 px-1 inline-flex items-center justify-center rounded-full hover:bg-(--ui-text-inverted)/10"
+        class="ml-0.5 min-w-10 h-10 px-1 inline-flex items-center justify-center rounded-full hover:bg-(--control-bg)"
         :aria-label="`Himno ${number} de ${total}: ${current.title}. Ir a otro himno`"
         @click="showGoTo"
       >
-        <span class="min-w-8 h-7 px-2 inline-flex items-center justify-center rounded-full bg-(--ui-text-inverted)/15 text-base font-bold tabular-nums">
+        <span class="min-w-8 h-7 px-2 inline-flex items-center justify-center rounded-full bg-(--well-bg) text-highlighted text-base font-bold tabular-nums">
           {{ number }}
         </span>
       </button>
@@ -77,11 +77,11 @@ const isLarge = useMediaQuery("(min-width: 1024px)");
     <NuxtLink
       v-else
       to="/"
-      class="pointer-events-auto h-12 inline-flex items-center gap-2 rounded-full bg-primary text-inverted pl-2.5 pr-4 shadow-[0_10px_28px_-10px_var(--brand-shadow)]"
+      class="glass pointer-events-auto h-12 inline-flex items-center gap-2 rounded-full pl-1.5 pr-4"
       aria-label="Acapela, ir al inicio"
     >
-      <AppBrandMark class="size-8" />
-      <span class="wordmark text-[1.2rem] leading-none">Acapela</span>
+      <span class="brand-dot size-9" aria-hidden="true"><AppBrandMark class="size-6" /></span>
+      <span class="wordmark text-[1.2rem] leading-none text-highlighted">Acapela</span>
     </NuxtLink>
 
     <!-- Actions -->

@@ -19,8 +19,8 @@ export default defineNuxtConfig({
       meta: [
         // Browser / status bar = page background of each theme (see
         // app/plugins/theme-color.client.ts for an explicit Claro / Oscuro).
-        { name: "theme-color", media: "(prefers-color-scheme: light)", content: "#ffffff" },
-        { name: "theme-color", media: "(prefers-color-scheme: dark)", content: "#0f172a" },
+        { name: "theme-color", media: "(prefers-color-scheme: light)", content: "#FAFAFA" },
+        { name: "theme-color", media: "(prefers-color-scheme: dark)", content: "#141416" },
         { name: "apple-mobile-web-app-status-bar-style", content: "default" },
         { name: "mobile-web-app-capable", content: "yes" },
         { name: "apple-mobile-web-app-capable", content: "yes" },
@@ -197,8 +197,8 @@ export default defineNuxtConfig({
       dir: "ltr",
       // Launch screen: the brand colour with the white mark (also avoids a
       // white flash for people using the phone in dark mode).
-      theme_color: "#4f34b4",
-      background_color: "#4f34b4",
+      theme_color: "#715DE3",
+      background_color: "#715DE3",
       categories: ["music", "lifestyle"],
       // Generated from the mark by scripts/brand-assets.mjs.
       icons: [

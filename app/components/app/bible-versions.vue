@@ -79,7 +79,7 @@ async function tryReference() {
     <p v-if="error" class="text-sm text-error">
       No se pudo cargar la lista de versiones: {{ error }}
     </p>
-    <div v-else class="rounded-2xl border border-default divide-y divide-default overflow-hidden">
+    <div v-else class="rounded-2xl bg-default shadow-card divide-y divide-default overflow-hidden">
       <div
         v-for="v in versions"
         :key="v.id"
@@ -157,7 +157,7 @@ async function tryReference() {
       <p v-if="resultMessage" class="text-sm opacity-80">
         {{ resultMessage }}
       </p>
-      <blockquote v-if="result" class="rounded-2xl border border-default p-4 flex flex-col gap-2">
+      <blockquote v-if="result" class="rounded-2xl bg-default shadow-card p-4 flex flex-col gap-2">
         <p class="text-sm font-semibold">
           {{ result.label }} <span class="font-normal opacity-70">· {{ versions.find(v => v.id === result!.versionId)?.label }}</span>
         </p>

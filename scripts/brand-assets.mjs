@@ -16,7 +16,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs"
 import process from "node:process"
 import { setTimeout as sleep } from "node:timers/promises"
 
-const BRAND = "#4f34b4"
+const BRAND = "#715DE3"
 const ICONS_ONLY = process.argv.includes("--icons")
 const PORT = 4000
 const APP = `http://localhost:${PORT}`
@@ -221,7 +221,7 @@ async function screenshots(cdp) {
   // home hero. WhatsApp often shows it cropped to the centred square
   // (x 285–915), so the phone with the hymn sits inside that window.
   const og = `<div style="width:1200px;height:630px;position:relative;color:#fff;overflow:hidden;
-      background:radial-gradient(120% 140% at 85% 15%,#6b52d6 0%,#4f34b4 45%,#241462 100%)">
+      background:radial-gradient(120% 140% at 85% 15%,#9583EA 0%,#715DE3 45%,#372B79 100%)">
     <div style="position:absolute;left:84px;top:0;bottom:0;width:500px;display:flex;flex-direction:column;justify-content:center;gap:22px">
       <div style="display:flex;align-items:center;gap:18px">
         <div style="width:72px;height:72px;border-radius:17px;background:#fff;display:grid;place-items:center">${mark(52, BRAND)}</div>

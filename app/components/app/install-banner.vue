@@ -68,7 +68,7 @@ const bottomOffset = computed(() => {
   gap: 0.75rem;
   padding: 0.875rem 1rem;
   background: var(--ui-bg, #fff);
-  color: var(--ui-text, #1f2937);
+  color: var(--ui-text, #3f3f46);
   border-radius: 1rem;
   box-shadow:
     0 -4px 24px rgba(0, 0, 0, 0.15),
