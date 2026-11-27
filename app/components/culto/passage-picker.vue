@@ -1,8 +1,7 @@
 <script lang="ts" setup>
-import type { ReferenceSuggestion } from "~/utils/bible/predict-reference";
+import type { ReferenceChoice } from "~/composables/use-reference-suggestions";
 import type { BibleBook } from "~~/lib/bible";
 
-import { bookPartOf, searchBooks } from "~/utils/bible/book-search";
 import { fetchBooks } from "~/utils/bible/books";
 import { normalizeText } from "~/utils/bible/normalize-text";
 import { splitBookPart } from "~/utils/bible/parse-bible-reference";
@@ -17,83 +16,21 @@ const props = defineProps<{
   versionId?: string;
   placeholder?: string;
 }>();
+const emit = defineEmits<{
+  /** Enter on a complete passage. */
+  done: [];
+}>();
 const model = defineModel<string>({ required: true });
-
 const bible = useBibleStore();
 const open = ref(false);
 
 // ------------------------------------------------------------ what was understood
-// As SúperBiblia's search bar (its predictive "Ir a"; NN/g, visibility of
-// system status and recognition rather than recall): under the field, while
-// typing, every passage what is typed can be, each checked against the real
-// chapters and verses ("jn123" → Juan 1:23 · Juan 12:3; "jn" → Juan, Jonás,
-// Joel…), with how many verses and how it starts. ↑↓ choose, Enter or Tab
-// writes it in full, and the text is read again from there. Once the field
-// holds one of them exactly, only that one stays. For an unknown book,
-// "¿Quisiste decir…?".
-type Suggestion = ReferenceSuggestion & { count?: number; snippet?: string };
-const suggestions = ref<Suggestion[]>([]);
-const active = ref(0);
-const unknown = ref<string[] | null>(null);
+// Under the field, while typing, every passage it can be (see
+// useReferenceSuggestions). ↑↓ choose, Enter or Tab writes it in full and
+// the text is read again from there.
+const field = useReferenceSuggestions(model, () => props.versionId);
+const { choices, chosen, active, unknown } = field;
 const listId = useId();
-
-function snippetOf(text: string) {
-  const plain = text.replace(/\s+/g, " ").trim();
-  return plain.length > 80
-    ? `${plain.slice(0, 80).replace(/\s\S*$/, "")}…`
-    : plain;
-}
-
-function sameReference(a: string, b: string) {
-  return normalizeText(a.trim()) === normalizeText(b.trim());
-}
-
-/** The field already holds one of the readings, written in full. */
-const chosen = computed(() => suggestions.value.find(s => !s.isBook && sameReference(s.label, model.value)) ?? null);
-/** The readings to choose from; none once one is written. */
-const choices = computed(() => (chosen.value
-  ? []
-  : suggestions.value));
-
-watchDebounced(model, async (value) => {
-  const typed = value.trim();
-  if (!typed) {
-    suggestions.value = [];
-    unknown.value = null;
-    return;
-  }
-  const versionId = props.versionId || undefined;
-  const list = await bible.predict(typed, versionId).catch(() => null);
-  if (model.value.trim() !== typed || !list)
-    return;
-  if (!list.length) {
-    suggestions.value = [];
-    const books = await fetchBooks(versionId || bible.currentId).catch(() => []);
-    const part = bookPartOf(typed);
-    unknown.value = part
-      ? searchBooks(books, part).slice(0, 3).map(r => r.book.name)
-      : [];
-    return;
-  }
-  unknown.value = null;
-  // Keep the one chosen with the arrows if it is still there.
-  const previous = suggestions.value[active.value]?.label;
-  suggestions.value = list;
-  active.value = Math.max(0, list.findIndex(s => s.label === previous));
-  // Each passage: how many verses and how it starts.
-  await Promise.all(list.map(async (s, i) => {
-    if (s.isBook)
-      return;
-    const passage = await bible.passage(s.label, versionId).catch(() => null);
-    if (model.value.trim() !== typed || suggestions.value[i]?.key !== s.key || !passage?.verses.length)
-      return;
-    suggestions.value[i] = {
-      ...s,
-      count: passage.verses.length,
-      snippet: snippetOf(passage.verses[0]!.text),
-    };
-  }));
-}, { debounce: 150 });
 
 /** Another book for what was typed, keeping its chapter and verses. */
 function useBook(name: string) {
@@ -104,30 +41,64 @@ function useBook(name: string) {
 }
 
 /** A reading, written in full: a book waits for its chapter. */
-function choose(s: Suggestion) {
+function choose(s: ReferenceChoice) {
   model.value = s.isBook
     ? `${s.label} `
     : s.label;
   active.value = 0;
 }
 
-/** ↑↓ among the readings; Enter or Tab writes the one chosen. */
-function onKeydown(event: KeyboardEvent) {
-  const list = choices.value;
-  if (!list.length)
+/**
+ * ↑↓ among the readings; Enter or Tab writes the one chosen. Enter on a
+ * passage, or on one already written in full, also says it is done, so
+ * whoever holds the field can move on (correcting live: to the button that
+ * applies it).
+ */
+async function onKeydown(event: KeyboardEvent) {
+  const isEnter = event.key === "Enter";
+  const isTab = event.key === "Tab" && !event.shiftKey;
+  const isArrow = event.key === "ArrowDown" || event.key === "ArrowUp";
+  if (!isEnter && !isTab && !isArrow)
     return;
-  if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+  if ((isEnter || isArrow) && (choices.value.length || model.value.trim()))
     event.preventDefault();
-    const step = event.key === "ArrowDown"
+  if (!isTab)
+    await field.refresh();
+  if (isEnter && !choices.value.length) {
+    if (chosen.value)
+      emit("done");
+    return;
+  }
+  if (isArrow) {
+    field.move(event.key === "ArrowDown"
       ? 1
-      : -1;
-    active.value = (active.value + step + list.length) % list.length;
+      : -1);
+    return;
   }
-  else if ((event.key === "Enter" || (event.key === "Tab" && !event.shiftKey)) && list[active.value]) {
-    event.preventDefault();
-    choose(list[active.value]!);
-  }
+  const s = choices.value[active.value];
+  if (!s)
+    return;
+  event.preventDefault();
+  choose(s);
+  if (isEnter && !s.isBook)
+    emit("done");
 }
+
+/** The ✕ in the field: empty, ready to type another. */
+const input = useTemplateRef<{ inputRef: HTMLInputElement | null }>("input");
+function clear() {
+  model.value = "";
+  input.value?.inputRef?.focus();
+}
+
+/** Into the field with what it holds selected: typing replaces it. */
+function focus() {
+  const el = input.value?.inputRef;
+  el?.focus();
+  el?.select();
+}
+defineExpose({ focus });
+
 const books = shallowRef<BibleBook[]>([]);
 const failed = ref(false);
 const filter = ref("");
@@ -137,11 +108,33 @@ const start = ref<number | null>(null);
 const end = ref<number | null>(null);
 
 const book = computed(() => books.value.find(b => b.id === bookId.value) ?? null);
+
+// The search in «Elegir» understands the same as the field: a book ("jn" →
+// Juan, Jonás…) narrows the books; a reference ("jn123", "sal23 1-3") lists
+// its passages above the columns, and Enter uses the highlighted one.
+const search = useReferenceSuggestions(filter, () => props.versionId);
+const searchListId = useId();
+const searchPassages = computed(() => search.choices.value.filter(s => !s.isBook));
+const searchActive = ref(0);
+watch(searchPassages, () => {
+  searchActive.value = 0;
+});
 const visibleBooks = computed(() => {
   const q = normalizeText(filter.value.trim());
-  return q
-    ? books.value.filter(b => normalizeText(b.name).includes(q) || normalizeText(b.abbreviation).startsWith(q))
-    : books.value;
+  if (!q)
+    return books.value;
+  // The books the search understood, in its order, then those whose name
+  // simply contains the text.
+  const ids = [
+    ...new Set(search.suggestions.value.map(s => s.bookId)),
+  ];
+  const understood = ids.map(id => books.value.find(b => b.id === id)).filter((b): b is BibleBook => !!b);
+  const contains = books.value.filter(b => !ids.includes(b.id)
+    && (normalizeText(b.name).includes(q) || normalizeText(b.abbreviation).startsWith(q)));
+  return [
+    ...understood,
+    ...contains,
+  ];
 });
 const verseCount = computed(() => (book.value && chapter.value
   ? book.value.versesPerChapter[chapter.value - 1] ?? 0
@@ -228,6 +221,65 @@ function use() {
     return;
   model.value = picked.value;
   open.value = false;
+  emit("done");
+}
+
+/**
+ * A passage from the search: shown in the columns, or, with Enter, used
+ * straight away. A list of verses ("2:1-3,5") does not fit the columns and
+ * is written as it is.
+ */
+async function pickPassage(s: ReferenceChoice, now: boolean) {
+  const parsed = await bible.parse(s.label, props.versionId || undefined).catch(() => null);
+  const b = books.value.find(x => x.id === (parsed?.book?.id ?? s.bookId));
+  if (!parsed?.chapter || !b || parsed.verses?.length) {
+    model.value = s.label;
+    open.value = false;
+    emit("done");
+    return;
+  }
+  bookId.value = b.id;
+  chapter.value = parsed.chapter;
+  start.value = parsed.verseStart ?? null;
+  end.value = parsed.verseEnd ?? null;
+  if (now) {
+    use();
+    return;
+  }
+  await nextTick();
+  document.querySelector("[data-picker-book][aria-pressed='true']")?.scrollIntoView({ block: "nearest" });
+}
+
+/** ↑↓ through the passages found; Enter uses one, or the first book found. */
+async function onSearchKeydown(event: KeyboardEvent) {
+  const isEnter = event.key === "Enter";
+  const isArrow = event.key === "ArrowDown" || event.key === "ArrowUp";
+  if (!isEnter && !isArrow)
+    return;
+  event.preventDefault();
+  await search.refresh();
+  const list = searchPassages.value;
+  if (isArrow) {
+    if (list.length) {
+      const step = event.key === "ArrowDown"
+        ? 1
+        : -1;
+      searchActive.value = (searchActive.value + step + list.length) % list.length;
+    }
+    return;
+  }
+  const s = list[searchActive.value];
+  if (s) {
+    await pickPassage(s, true);
+    return;
+  }
+  // Just a book: pick it and go on with the chapter.
+  const first = visibleBooks.value[0];
+  if (first) {
+    pickBook(first);
+    if (chapter.value)
+      use();
+  }
 }
 </script>
 
@@ -235,6 +287,7 @@ function use() {
   <div class="flex flex-col gap-1.5">
     <div class="flex gap-2">
       <UInput
+        ref="input"
         v-model="model"
         size="lg"
         class="flex-1 min-w-0"
@@ -244,8 +297,21 @@ function use() {
         :aria-expanded="choices.length > 0"
         :aria-controls="listId"
         :aria-activedescendant="choices.length ? `${listId}-${active}` : undefined"
+        :ui="{ trailing: 'pe-1' }"
         @keydown="onKeydown"
-      />
+      >
+        <template v-if="model" #trailing>
+          <UButton
+            color="neutral"
+            variant="link"
+            size="sm"
+            icon="i-tabler-x"
+            aria-label="Borrar la cita"
+            title="Borrar la cita"
+            @click="clear"
+          />
+        </template>
+      </UInput>
       <UPopover v-model:open="open" :content="{ align: 'end', sideOffset: 6 }">
         <UButton
           color="neutral"
@@ -260,17 +326,38 @@ function use() {
             <p v-if="failed" class="p-4 text-sm text-muted">
               No se pudieron leer los libros de esta versión. Escribe la cita en el campo.
             </p>
-            <div v-else class="grid grid-cols-[13rem_minmax(0,1fr)_minmax(0,1fr)] gap-3 h-80">
+            <div v-if="!failed" class="flex flex-col gap-1.5">
+              <UInput
+                v-model="filter"
+                size="md"
+                icon="i-tabler-search"
+                placeholder="Libro o cita: jn, jn 3:16, sal23 1-3…"
+                autocomplete="off"
+                aria-label="Buscar un libro o una cita"
+                role="combobox"
+                :aria-expanded="searchPassages.length > 0"
+                :aria-controls="searchListId"
+                :aria-activedescendant="searchPassages.length ? `${searchListId}-${searchActive}` : undefined"
+                autofocus
+                @keydown="onSearchKeydown"
+              />
+              <CultoReferenceSuggestions
+                v-if="searchPassages.length"
+                :id="searchListId"
+                v-model:active="searchActive"
+                :choices="searchPassages"
+                @choose="pickPassage($event, true)"
+              />
+              <p v-else-if="search.unknown.value?.length" class="px-1 text-xs text-warning">
+                No reconozco ese libro. ¿Quisiste decir {{ search.unknown.value.join(', ') }}?
+              </p>
+            </div>
+            <div v-if="!failed" class="grid grid-cols-[13rem_minmax(0,1fr)_minmax(0,1fr)] gap-3 h-80">
               <!-- Books -->
               <div class="flex flex-col gap-2 min-h-0">
-                <UInput
-                  v-model="filter"
-                  size="sm"
-                  icon="i-tabler-filter"
-                  placeholder="Libro"
-                  autocomplete="off"
-                  aria-label="Filtrar libros"
-                />
+                <p class="text-xs font-bold uppercase tracking-wider text-muted">
+                  Libro
+                </p>
                 <ul class="soft-scrollbar flex-1 overflow-y-auto -mx-1 px-1" aria-label="Libros">
                   <li v-for="b in visibleBooks" :key="b.id">
                     <button
@@ -379,41 +466,13 @@ function use() {
         </template>
         <span v-if="chosen.snippet" class="font-lyric italic"> — {{ chosen.snippet }}</span>
       </p>
-      <ul
+      <CultoReferenceSuggestions
         v-else-if="choices.length"
         :id="listId"
-        role="listbox"
-        aria-label="Citas posibles"
-        class="-mx-1 flex flex-col"
-      >
-        <li
-          v-for="(s, i) in choices"
-          :id="`${listId}-${i}`"
-          :key="s.key"
-          role="option"
-          :aria-selected="i === active"
-          class="flex min-w-0 cursor-pointer items-baseline gap-1.5 rounded-md px-1.5 py-1"
-          :class="i === active ? 'bg-primary/10' : 'hover:bg-elevated'"
-          @mousedown.prevent
-          @mouseenter="active = i"
-          @click="choose(s)"
-        >
-          <UIcon
-            :name="s.isBook ? 'i-tabler-book-2' : 'i-tabler-arrow-right'"
-            class="size-3.5 shrink-0 self-center"
-            :class="i === active ? 'text-primary' : 'opacity-50'"
-          />
-          <b class="shrink-0 font-semibold text-highlighted">{{ s.label }}</b>
-          <span v-if="s.isBook" class="truncate">· escribe el capítulo y, si quieres, los versículos</span>
-          <span v-else class="min-w-0 truncate">
-            <template v-if="s.count">· {{ s.count }} {{ s.count === 1 ? 'versículo' : 'versículos' }}</template>
-            <span v-if="s.snippet" class="font-lyric italic"> — {{ s.snippet }}</span>
-          </span>
-          <kbd v-if="i === active" class="ms-auto shrink-0 self-center rounded border border-default px-1 text-[0.65rem] font-sans not-italic">
-            Enter
-          </kbd>
-        </li>
-      </ul>
+        v-model:active="active"
+        :choices="choices"
+        @choose="choose"
+      />
       <p v-else-if="unknown" class="text-warning">
         <template v-if="unknown.length">
           No reconozco ese libro. ¿Quisiste decir

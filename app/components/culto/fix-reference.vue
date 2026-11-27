@@ -69,6 +69,36 @@ const { entries: preview } = useCultoScreens(draft);
 const previewEntry = computed(() => preview.value[0] ?? null);
 const ready = computed(() => changed.value && previewEntry.value?.status === "ready" && previewEntry.value.screens.length > 0);
 
+// Enter in the field takes the reference; the next Enter applies it: the
+// button that does is focused as soon as its screens are ready (it stays
+// disabled until then). Typing something else drops it.
+const focusFor = ref<string | null>(null);
+const cta = useTemplateRef<HTMLElement>("cta");
+function referenceDone() {
+  focusFor.value = reference.value.trim();
+}
+watch([
+  ready,
+  focusFor,
+], async () => {
+  if (!ready.value || focusFor.value === null)
+    return;
+  if (focusFor.value !== reference.value.trim()) {
+    focusFor.value = null;
+    return;
+  }
+  focusFor.value = null;
+  await nextTick();
+  cta.value?.querySelector<HTMLElement>("[data-cta]")?.focus();
+});
+// Opens in the field, with the reference selected: ready to type another.
+const picker = useTemplateRef<{ focus: () => void }>("picker");
+watch(open, (isOpen) => {
+  focusFor.value = null;
+  if (isOpen)
+    setTimeout(() => picker.value?.focus(), 50);
+});
+
 function apply(show: "now" | "later" | "none") {
   emit("apply", changes.value, show);
   open.value = false;
@@ -87,7 +117,12 @@ function apply(show: "now" | "later" | "none") {
     <template #body>
       <div v-if="entry" class="flex flex-col gap-4">
         <UFormField v-if="isReading" label="Cita" help="Escríbela o elige libro, capítulo y versículos.">
-          <CultoPassagePicker v-model="reference" :version-id="versionId" />
+          <CultoPassagePicker
+            ref="picker"
+            v-model="reference"
+            :version-id="versionId"
+            @done="referenceDone"
+          />
         </UFormField>
         <UFormField v-if="isReading" label="Versión">
           <USelect
@@ -129,7 +164,7 @@ function apply(show: "now" | "later" | "none") {
       </div>
     </template>
     <template #footer>
-      <div class="flex w-full flex-wrap justify-end gap-2">
+      <div ref="cta" class="flex w-full flex-wrap justify-end gap-2">
         <UButton
           color="neutral"
           variant="ghost"
@@ -146,6 +181,7 @@ function apply(show: "now" | "later" | "none") {
             @click="apply('later')"
           />
           <UButton
+            data-cta
             icon="i-tabler-broadcast"
             label="Aplicar y mostrar"
             :disabled="!ready"
@@ -154,6 +190,7 @@ function apply(show: "now" | "later" | "none") {
         </template>
         <UButton
           v-else
+          data-cta
           icon="i-tabler-check"
           label="Aplicar"
           :disabled="!ready"
