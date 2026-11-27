@@ -626,7 +626,8 @@ onMounted(() => {
                 :title="spokenLabel(entry)"
                 @click="choose(entry.item.id)"
               >
-                <template v-if="entry.item.kind === 'hymn'">{{ entry.item.songId }}</template>
+                <span v-if="entry.item.kind === 'hymn'" class="map-seg__mark">{{ entry.item.songId }}</span>
+                <UIcon v-else :name="looks.get(entry.item.id)?.icon ?? ''" class="map-seg__mark size-4" />
               </button>
             </span>
           </div>
@@ -641,9 +642,8 @@ onMounted(() => {
             :title="spokenLabel(block.entry)"
             @click="choose(block.entry.item.id)"
           >
-            <template v-if="block.entry.item.kind === 'hymn'">
-              {{ block.entry.item.songId }}
-            </template>
+            <span v-if="block.entry.item.kind === 'hymn'" class="map-seg__mark">{{ block.entry.item.songId }}</span>
+            <UIcon v-else :name="looks.get(block.entry.item.id)?.icon ?? ''" class="map-seg__mark size-4" />
           </button>
         </template>
       </nav>
@@ -916,7 +916,10 @@ onMounted(() => {
   height: 2.25rem;
   border-radius: 0.5rem;
   background: var(--m-seg);
-  color: #fff;
+  color: var(--m-seg-fg, #fff);
+  display: grid;
+  place-items: center;
+  container-type: inline-size;
   font-size: 0.7rem;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
@@ -924,6 +927,13 @@ onMounted(() => {
   transition:
     transform 120ms ease,
     box-shadow 120ms ease;
+}
+/* Its icon or hymn number, the same as its row's; left out when the
+   segment is too narrow to hold it whole. */
+@container (max-width: 1.4rem) {
+  .map-seg__mark {
+    display: none;
+  }
 }
 .map-seg:hover {
   transform: translateY(-2px);

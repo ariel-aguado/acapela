@@ -530,71 +530,83 @@ html[data-reading-margin="4"] {
    segment on the service's map (--m-seg). Light tones for what recurs,
    solid ones for the central moments, grey for the ones in between. */
 .moment--hymn {
+  --m-seg-fg: #ffffff;
   --m-bg: var(--color-iris-100);
   --m-fg: var(--color-iris-700);
   --m-label: var(--color-iris-600);
   --m-seg: var(--color-iris-500);
 }
 .moment--word {
+  --m-seg-fg: var(--color-aqua-900);
   --m-bg: var(--color-aqua-100);
   --m-fg: var(--color-aqua-700);
   --m-label: var(--color-aqua-700);
   --m-seg: var(--color-aqua-300);
 }
 .moment--word-solid {
+  --m-seg-fg: #ffffff;
   --m-bg: var(--color-aqua-600);
   --m-fg: #ffffff;
   --m-label: var(--color-aqua-700);
   --m-seg: var(--color-aqua-600);
 }
 .moment--supper {
+  --m-seg-fg: var(--color-tangerine-950);
   --m-bg: var(--color-tangerine-500);
   --m-fg: var(--color-tangerine-950);
   --m-label: var(--color-tangerine-700);
   --m-seg: var(--color-tangerine-500);
 }
 .moment--offering {
+  --m-seg-fg: var(--color-lime-900);
   --m-bg: var(--color-lime-300);
   --m-fg: var(--color-lime-900);
   --m-label: var(--color-lime-700);
   --m-seg: var(--color-lime-400);
 }
 .moment--plain {
+  --m-seg-fg: var(--ui-color-neutral-700);
   --m-bg: var(--ui-bg-elevated);
   --m-fg: var(--ui-text-toned);
   --m-label: var(--ui-text-muted);
   --m-seg: var(--ui-color-neutral-300);
 }
 html.dark .moment--hymn {
+  --m-seg-fg: #ffffff;
   --m-bg: color-mix(in oklab, var(--color-iris-400) 22%, transparent);
   --m-fg: var(--color-iris-200);
   --m-label: var(--color-iris-300);
   --m-seg: var(--color-iris-400);
 }
 html.dark .moment--word {
+  --m-seg-fg: var(--color-aqua-950);
   --m-bg: color-mix(in oklab, var(--color-aqua-400) 20%, transparent);
   --m-fg: var(--color-aqua-200);
   --m-label: var(--color-aqua-300);
   --m-seg: var(--color-aqua-300);
 }
 html.dark .moment--word-solid {
+  --m-seg-fg: var(--color-aqua-950);
   --m-bg: var(--color-aqua-400);
   --m-fg: var(--color-aqua-950);
   --m-label: var(--color-aqua-300);
   --m-seg: var(--color-aqua-400);
 }
 html.dark .moment--supper {
+  --m-seg-fg: var(--color-tangerine-950);
   --m-bg: var(--color-tangerine-400);
   --m-fg: var(--color-tangerine-950);
   --m-label: var(--color-tangerine-300);
   --m-seg: var(--color-tangerine-400);
 }
 html.dark .moment--offering {
+  --m-seg-fg: var(--color-lime-950);
   --m-fg: var(--color-lime-950);
   --m-label: var(--color-lime-300);
   --m-seg: var(--color-lime-300);
 }
 html.dark .moment--plain {
+  --m-seg-fg: var(--ui-color-neutral-200);
   --m-bg: color-mix(in oklab, #ffffff 9%, transparent);
   --m-seg: var(--ui-color-neutral-600);
 }
