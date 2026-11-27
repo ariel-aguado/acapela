@@ -43,7 +43,19 @@ watch(
         icon="i-tabler-filter"
         size="lg"
         class="w-full"
-      />
+        :ui="{ trailing: 'pe-1' }"
+      >
+        <template v-if="filter" #trailing>
+          <UButton
+            color="neutral"
+            variant="ghost"
+            size="sm"
+            icon="i-tabler-x"
+            aria-label="Borrar filtro"
+            @click="filter = ''"
+          />
+        </template>
+      </UInput>
     </div>
     <div ref="listRef" class="flex-1 overflow-y-auto">
       <ul>
