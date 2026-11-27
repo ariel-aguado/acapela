@@ -745,6 +745,13 @@ onMounted(() => {
           </p>
         </div>
         <div class="flex items-center gap-2 sm:pt-0.5">
+          <UButton
+            to="/culto/vivo"
+            size="xl"
+            icon="i-tabler-player-play-filled"
+            label="Iniciar culto"
+            :disabled="!totalScreens"
+          />
           <UDropdownMenu :items="cultoMenu">
             <UButton
               color="neutral"
@@ -754,13 +761,6 @@ onMounted(() => {
               aria-label="Más opciones del culto"
             />
           </UDropdownMenu>
-          <UButton
-            to="/culto/vivo"
-            size="xl"
-            icon="i-tabler-player-play-filled"
-            label="Iniciar culto"
-            :disabled="!totalScreens"
-          />
         </div>
       </header>
 
