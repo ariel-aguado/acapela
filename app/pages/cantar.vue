@@ -208,23 +208,22 @@ onMounted(async () => {
             >
               <header
                 class="pt-2"
-                :style="{ paddingInline: 'var(--reading-margin)' }"
               >
-                <div class="mx-auto w-full max-w-[38rem]">
+                <!-- Same width and grid as the stanzas: the title starts where the
+                  lyric does, its number where the stanza numbers do. -->
+                <div class="hymn-head mx-auto w-full max-w-[40rem]" :style="{ '--lyric-size': `${fontSize}px`, 'paddingInline': 'var(--reading-margin)' }">
                   <h2
                     :id="`hymn-title-${song.songId}`"
-                    class="font-lyric font-semibold flex items-baseline gap-[0.35em]"
+                    class="hymn-title font-lyric font-semibold"
                     :style="{ fontSize: `${Math.round(fontSize * 1.25)}px`, lineHeight: 1.25 }"
                   >
-                    <!-- The number stands apart: a long title wraps under
-                      itself, never under the number. -->
-                    <span class="shrink-0 text-primary tabular-nums">{{ song.songId }}.</span>
+                    <span class="hymn-title__no text-primary tabular-nums">{{ song.songId }}.</span>
                     <span class="min-w-0 text-balance">{{ song.title }}</span>
                   </h2>
                   <p
                     v-for="(cite, ci) in song.blocks.filter(b => b.kind === 'citation')"
                     :key="`cite-${ci}`"
-                    class="text-sm opacity-70 mt-0.5"
+                    class="hymn-head__sub text-sm opacity-70 mt-0.5"
                   >
                     {{ cite.text.join(" ") }}
                   </p>

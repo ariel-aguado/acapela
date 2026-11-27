@@ -449,6 +449,8 @@ html[data-reading-margin="4"] {
 }
 .hymn-block--chorus .hymn-block__text {
   font-style: italic;
+  /* Bold in the weight every lyric face ships (600; 700 would be faked). */
+  font-weight: 600;
 }
 .hymn-block__text p {
   margin: 0;
@@ -469,5 +471,56 @@ html[data-reading-margin="4"] {
 @media (prefers-reduced-motion: reduce) {
   .hymn-block {
     transition: none;
+  }
+}
+
+/* The hymn's heading on the stanzas' grid (.hymn-block: a 2.4em number
+   column and a 0.5em gap, in the lyric's size): the number starts where the
+   stanza numbers do and the title where the lyric does. A three-digit number
+   runs into the gap (about 2.7em of the 2.9em), never into the title. */
+.hymn-title {
+  display: grid;
+  grid-template-columns: calc(var(--lyric-size) * 2.4) minmax(0, 1fr);
+  column-gap: calc(var(--lyric-size) * 0.5);
+  align-items: baseline;
+}
+.hymn-title__no {
+  justify-self: start;
+  white-space: nowrap;
+}
+.hymn-head__sub {
+  padding-inline-start: calc(var(--lyric-size) * 2.9);
+}
+
+/* Thin scrollbars with round ends (no square system bar) everywhere: the
+   window, panels, lists and menus, as in Superbiblia. `.soft-scrollbar`
+   adds a margin at both ends that keeps the bar off its card's rounded
+   corners. Rows that hide their bar (.no-scrollbar, scrollbar-width: none)
+   still do: their rule is more specific. */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+.soft-scrollbar::-webkit-scrollbar-track {
+  margin-block: 0.875rem;
+}
+*::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--ui-text-muted) 45%, transparent) padding-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background-color: color-mix(in oklab, var(--ui-text-muted) 70%, transparent);
+}
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+@supports not selector(::-webkit-scrollbar) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklab, var(--ui-text-muted) 45%, transparent) transparent;
   }
 }

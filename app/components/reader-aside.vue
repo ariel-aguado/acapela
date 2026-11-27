@@ -59,7 +59,7 @@ watch(
         </template>
       </UInput>
     </div>
-    <div ref="listRef" class="flex-1 overflow-y-auto">
+    <div ref="listRef" class="soft-scrollbar flex-1 overflow-y-auto">
       <ul>
         <li v-for="row in rows" :key="row.id">
           <button
