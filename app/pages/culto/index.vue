@@ -475,6 +475,57 @@ onMounted(() => {
         </div>
       </header>
 
+      <!-- The service at a glance, above the three panels (NN/g: Fitts's
+        law, proximity): one segment per element in the colour of its family,
+        large enough to aim at; a section's together under its name, apart
+        from the rest. Each one chooses its element. -->
+      <nav
+        v-if="items.length > 1"
+        aria-label="Mapa del culto"
+        class="flex flex-wrap items-end gap-x-3 gap-y-2 rounded-2xl bg-default shadow-card px-3 py-2.5"
+      >
+        <template v-for="block in dragBlocks" :key="`map-${block.key}`">
+          <div
+            v-if="block.kind === 'section'"
+            class="flex min-w-0 flex-col gap-1"
+            :class="`moment--${momentTone(block.section.moment)}`"
+            :style="{ flexGrow: block.items.length, flexBasis: `${block.items.length * 1.25}rem` }"
+          >
+            <span class="truncate text-[0.68rem] font-bold uppercase tracking-wider text-(--m-label)">{{ block.section.title }}</span>
+            <span class="flex gap-1">
+              <button
+                v-for="entry in block.items"
+                :key="`map-${entry.item.id}`"
+                type="button"
+                class="map-seg"
+                :class="[`moment--${looks.get(entry.item.id)?.tone}`, { 'map-seg--on': entry.item.id === selectedId }]"
+                :aria-label="spokenLabel(entry)"
+                :aria-current="entry.item.id === selectedId ? 'true' : undefined"
+                :title="spokenLabel(entry)"
+                @click="choose(entry.item.id)"
+              >
+                <template v-if="entry.item.kind === 'hymn'">{{ entry.item.songId }}</template>
+              </button>
+            </span>
+          </div>
+          <button
+            v-else
+            type="button"
+            class="map-seg self-end"
+            :class="[`moment--${looks.get(block.entry.item.id)?.tone}`, { 'map-seg--on': block.entry.item.id === selectedId }]"
+            :style="{ flexGrow: 1, flexBasis: '1.25rem' }"
+            :aria-label="spokenLabel(block.entry)"
+            :aria-current="block.entry.item.id === selectedId ? 'true' : undefined"
+            :title="spokenLabel(block.entry)"
+            @click="choose(block.entry.item.id)"
+          >
+            <template v-if="block.entry.item.kind === 'hymn'">
+              {{ block.entry.item.songId }}
+            </template>
+          </button>
+        </template>
+      </nav>
+
       <div class="grid gap-5 lg:grid-cols-[22rem_minmax(0,1fr)] items-start">
         <!-- Order -->
         <section class="flex flex-col gap-3" aria-labelledby="c-order">
@@ -486,25 +537,6 @@ onMounted(() => {
               <span v-if="items.length" class="text-xs text-muted tabular-nums">
                 {{ items.length }} {{ items.length === 1 ? 'elemento' : 'elementos' }}<template v-if="hymnCount"> · {{ hymnCount }} {{ hymnCount === 1 ? 'himno' : 'himnos' }}</template>
               </span>
-            </div>
-            <!-- The service at a glance: one segment per element, in order,
-              in the colour of its family. -->
-            <div
-              v-if="items.length > 1"
-              class="flex gap-[3px] h-2"
-              role="img"
-              :aria-label="`Mapa del culto: ${entries.map(e => looks.get(e.item.id)?.label).join(', ')}`"
-            >
-              <button
-                v-for="entry in entries"
-                :key="`map-${entry.item.id}`"
-                type="button"
-                tabindex="-1"
-                class="flex-1 rounded-full bg-(--m-seg) transition-transform hover:scale-y-150"
-                :class="[`moment--${looks.get(entry.item.id)?.tone}`, { 'outline-2 outline-offset-2 outline-primary': entry.item.id === selectedId }]"
-                :title="entry.label"
-                @click="choose(entry.item.id)"
-              />
             </div>
           </div>
           <p v-if="!items.length" class="text-sm opacity-70">
@@ -734,6 +766,36 @@ onMounted(() => {
 </template>
 
 <style>
+/* The service's map: a segment per element, large enough to aim at. */
+.map-seg {
+  flex: 1 1 1.25rem;
+  min-width: 0.875rem;
+  height: 2.25rem;
+  border-radius: 0.5rem;
+  background: var(--m-seg);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  transition:
+    transform 120ms ease,
+    box-shadow 120ms ease;
+}
+.map-seg:hover {
+  transform: translateY(-2px);
+}
+.map-seg--on {
+  box-shadow:
+    0 0 0 2px var(--ui-bg),
+    0 0 0 4px var(--ui-primary);
+}
+@media (prefers-reduced-motion: reduce) {
+  .map-seg {
+    transition: none;
+  }
+}
+
 /* A section of the service: its elements on a tint of its family. */
 .section-box {
   background: color-mix(in oklab, var(--m-seg) 12%, transparent);

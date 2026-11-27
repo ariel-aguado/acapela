@@ -130,6 +130,12 @@ function nextIndexOf(index: number): number {
   return index + 1;
 }
 
+/** The live element's screens, with their place in the service (for the strip). */
+const liveStrip = computed(() => {
+  const id = live.value?.itemId;
+  return flat.value.map((s, at) => ({ s, at })).filter(x => x.s.itemId === id);
+});
+
 /** The next screens in the order they will be shown. */
 const upcoming = computed(() => {
   const list: { s: (typeof flat.value)[number]; at: number }[] = [];
@@ -144,6 +150,10 @@ const upcoming = computed(() => {
   }
   return list;
 });
+
+/** What → shows next: the first of `upcoming`. */
+const nextUp = computed(() => upcoming.value[0] ?? null);
+const nextAt = computed(() => nextUp.value?.at ?? -1);
 
 function next() {
   if (showLogo.value) {
@@ -463,7 +473,10 @@ function saveAsService() {
 </script>
 
 <template>
-  <div class="min-h-dvh flex flex-col bg-muted text-default">
+  <div class="min-h-dvh lg:h-dvh lg:overflow-hidden flex flex-col bg-muted text-default">
+    <!-- On a computer everything fits the window, without scrolling (NN/g:
+      visibility of system status; what is below the fold is barely seen):
+      what is on air, what comes next, where the service is. -->
     <header class="flex flex-wrap items-center gap-2 px-3 py-2 bg-default border-b border-default">
       <UButton
         v-if="quick"
@@ -591,23 +604,26 @@ function saveAsService() {
       </div>
     </div>
 
-    <main v-else class="flex-1 grid gap-4 p-3 lg:grid-cols-[minmax(0,1fr)_20rem] min-h-0">
-      <section class="flex flex-col gap-3 min-w-0" aria-labelledby="v-live">
+    <main v-else class="flex-1 grid gap-4 p-3 lg:grid-cols-[minmax(0,1fr)_20rem] min-h-0 lg:overflow-hidden">
+      <section class="flex flex-col gap-3 min-w-0 min-h-0" aria-labelledby="v-live">
         <h2 id="v-live" class="text-xs font-bold uppercase tracking-wider opacity-70">
           En pantalla · {{ liveEntry?.label }}
           <template v-if="(liveEntry?.screens.length ?? 0) > 1">
             · {{ (live?.index ?? 0) + 1 }} de {{ liveEntry?.screens.length }}
           </template>
         </h2>
-        <div
-          ref="liveWrapRef"
-          class="live-wrap rounded-2xl overflow-hidden ring-2"
-          :class="black ? 'ring-inverted/40' : 'ring-error'"
-          @click="isFullscreen && next()"
-        >
-          <CultoScreen :screen="onAir" :black="black" />
-          <div v-if="black && !isFullscreen" class="absolute inset-0 grid place-items-center text-white/80 text-sm font-semibold pointer-events-none">
-            Pantalla en negro · B para volver
+        <!-- As large as the room left allows, always 16:9. -->
+        <div class="live-fit-box lg:flex-1 lg:min-h-0 flex items-center justify-center">
+          <div
+            ref="liveWrapRef"
+            class="live-wrap live-fit rounded-2xl overflow-hidden ring-2"
+            :class="black ? 'ring-inverted/40' : 'ring-error'"
+            @click="isFullscreen && next()"
+          >
+            <CultoScreen :screen="onAir" :black="black" />
+            <div v-if="black && !isFullscreen" class="absolute inset-0 grid place-items-center text-white/80 text-sm font-semibold pointer-events-none">
+              Pantalla en negro · B para volver
+            </div>
           </div>
         </div>
 
@@ -682,29 +698,63 @@ function saveAsService() {
           </UFieldGroup>
         </div>
 
-        <div class="flex flex-col gap-2">
-          <h2 class="text-xs font-bold uppercase tracking-wider opacity-70">
-            A continuación
-          </h2>
-          <ol class="grid grid-cols-2 xl:grid-cols-4 gap-2">
-            <li v-for="{ s, at } in upcoming" :key="s.key">
+        <!-- The element on air, screen by screen (on air in red, the next one
+          dashed, the ones shown dimmed), the count, and what → shows next,
+          even when it is another element or the way back after an insert. -->
+        <div class="flex items-center gap-3 min-w-0">
+          <ol
+            v-scroll-fade-x
+            class="flex-1 min-w-0 flex gap-2 overflow-x-auto px-1 py-1.5 [scrollbar-width:none]"
+            aria-label="Pantallas del elemento al aire"
+          >
+            <li v-for="{ s, at } in liveStrip" :key="s.key" class="shrink-0">
               <button
                 type="button"
-                class="w-full rounded-xl overflow-hidden ring-1 ring-default hover:ring-primary text-start"
-                :aria-label="`Ir a ${entries[s.itemIndex]?.label}, pantalla ${s.index + 1}`"
+                class="relative block w-28 rounded-lg overflow-hidden transition-opacity"
+                :class="at === liveIndex ? 'ring-2 ring-error' : at === nextAt ? 'outline-2 outline-dashed outline-offset-1 outline-primary' : at < liveIndex ? 'opacity-45 hover:opacity-80' : 'opacity-80 hover:opacity-100'"
+                :data-live-strip="at === liveIndex ? 'on' : undefined"
+                :aria-current="at === liveIndex ? 'true' : undefined"
+                :aria-label="`Proyectar la pantalla ${s.index + 1}`"
                 @click="goTo(at)"
               >
-                <CultoScreen :screen="s.screen" :badge="s.itemId !== live?.itemId ? entries[s.itemIndex]?.label : ''" />
+                <span class="pointer-events-none block"><CultoScreen :screen="s.screen" /></span>
+                <span
+                  class="absolute bottom-1 left-1 grid h-5 min-w-5 place-items-center rounded-full px-1 text-[0.68rem] font-bold tabular-nums"
+                  :class="at === liveIndex ? 'bg-error text-white' : 'bg-black/70 text-white'"
+                  aria-hidden="true"
+                >{{ s.index + 1 }}</span>
               </button>
             </li>
           </ol>
-          <p v-if="!upcoming.length" class="text-sm opacity-70">
+          <span class="shrink-0 text-sm font-semibold tabular-nums opacity-80" aria-live="polite">
+            {{ (live?.index ?? 0) + 1 }} / {{ liveEntry?.screens.length ?? 0 }}
+          </span>
+          <button
+            v-if="nextUp"
+            type="button"
+            class="shrink-0 flex max-w-72 items-center gap-2.5 rounded-xl bg-default py-1.5 ps-1.5 pe-3 text-start shadow-card ring-1 ring-default hover:ring-primary"
+            :aria-label="`Lo que sigue: ${nextUp.s.itemId !== live?.itemId ? entries[nextUp.s.itemIndex]?.label : `pantalla ${nextUp.s.index + 1}`}`"
+            @click="next"
+          >
+            <span class="w-24 shrink-0 overflow-hidden rounded-md outline-2 outline-dashed outline-offset-1 outline-primary"><CultoScreen :screen="nextUp.s.screen" /></span>
+            <span class="min-w-0">
+              <span class="block text-[0.68rem] font-semibold uppercase tracking-wider opacity-60 whitespace-nowrap">Lo que sigue <UKbd value="→" size="sm" /></span>
+              <span class="flex items-center gap-1.5 text-sm font-semibold">
+                <template v-if="nextUp.s.itemId !== live?.itemId">
+                  <CultoMomentTile v-if="entries[nextUp.s.itemIndex]" :item="entries[nextUp.s.itemIndex]!.item" size="sm" />
+                  <span class="truncate">{{ entries[nextUp.s.itemIndex]?.label }}</span>
+                </template>
+                <span v-else>Pantalla {{ nextUp.s.index + 1 }}</span>
+              </span>
+            </span>
+          </button>
+          <p v-else class="shrink-0 text-sm opacity-70">
             Es la última pantalla del culto.
           </p>
         </div>
       </section>
 
-      <aside class="flex flex-col gap-4 min-w-0" aria-label="Culto">
+      <aside class="flex flex-col gap-4 min-w-0 min-h-0 lg:overflow-y-auto soft-scrollbar" aria-label="Culto">
         <div class="flex flex-col gap-0.5">
           <span class="text-5xl font-semibold tabular-nums leading-none">{{ clock }}</span>
           <span class="text-sm opacity-70">{{ elapsed }}</span>
@@ -781,6 +831,18 @@ function saveAsService() {
 <style>
 .live-wrap {
   position: relative;
+}
+/* The live screen as large as the room left allows, always 16:9. */
+.live-fit {
+  width: 100%;
+}
+@media (min-width: 1024px) {
+  .live-fit-box {
+    container-type: size;
+  }
+  .live-fit {
+    width: min(100cqw, 100cqh * 16 / 9);
+  }
 }
 .live-wrap:fullscreen {
   display: flex;
