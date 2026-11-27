@@ -134,15 +134,22 @@ function removeCulto() {
   const target = current.value;
   if (!target)
     return;
-  const copy = structuredClone(toRaw(target));
+  // A plain deep copy for «Deshacer»: structuredClone fails on reactive data.
+  const copy = JSON.parse(JSON.stringify(target)) as typeof target;
   culto.remove(target.id);
-  toast(`Se borró «${copy.title}».`, {
+  // The last one gone: an empty one to keep working on.
+  const fresh = culto.sorted.length
+    ? null
+    : culto.create();
+  toast(`Se borró «${copy.title} · ${cultoWhen(copy)}».`, {
     label: "Deshacer",
     run: () => {
+      if (fresh)
+        culto.remove(fresh.id);
       culto.cultos = [...culto.cultos, copy];
       culto.select(copy.id);
     },
-  });
+  }, 8000);
 }
 
 const showTheme = ref(false);
