@@ -46,7 +46,7 @@ function goTo(id: number) {
 
 <template>
   <nav
-    class="glass float-bottom fixed left-1/2 -translate-x-1/2 z-30 w-[calc(100%-1.5rem)] max-w-md h-[60px] rounded-full flex items-stretch px-1.5"
+    class="lg:hidden glass float-bottom fixed left-1/2 -translate-x-1/2 z-30 w-[calc(100%-1.5rem)] max-w-md h-[60px] rounded-full flex items-stretch px-1.5"
     aria-label="Navegación principal"
   >
     <NuxtLink

@@ -262,6 +262,16 @@ html[data-reading-margin="4"] {
   );
 }
 
+/* Desktop: one 64px top bar (Diaconeo's header) 16px from the edge, and no
+   bottom navigation, so content only keeps a margin at the bottom. */
+@media (min-width: 64rem) {
+  :root {
+    --float-gap: 16px;
+    --bar-top-h: 64px;
+    --bar-bottom: calc(env(safe-area-inset-bottom, 0px) + 1.5rem);
+  }
+}
+
 /* Floating surface (bottom navigation, header actions, reading pager):
    solid, as Diaconeo's floating surfaces, with its soft shadow. */
 .glass {
