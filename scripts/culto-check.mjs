@@ -363,8 +363,8 @@ try {
   await page.send("Browser.setDownloadBehavior", { behavior: "allow", downloadPath: DOWNLOADS }).catch(() => page.send("Page.setDownloadBehavior", { behavior: "allow", downloadPath: DOWNLOADS }))
   const itemsBefore = await page.evaluate(`document.querySelectorAll('ol li').length`)
   await page.evaluate(`document.querySelector('[aria-label="Más opciones del culto"]').click()`)
-  await page.waitFor(`[...document.querySelectorAll('[role=menuitem]')].some(m => m.innerText.includes('Guardar o enviar este culto'))`, 5000)
-  await page.evaluate(`[...document.querySelectorAll('[role=menuitem]')].find(m => m.innerText.includes('Guardar o enviar este culto')).click()`)
+  await page.waitFor(`[...document.querySelectorAll('[role=menuitem]')].some(m => m.innerText.includes('Descargar archivo'))`, 5000)
+  await page.evaluate(`[...document.querySelectorAll('[role=menuitem]')].find(m => m.innerText.includes('Descargar archivo')).click()`)
   let exported = null
   for (let i = 0; i < 40 && !exported; i++) {
     await sleep(250)

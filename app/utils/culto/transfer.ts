@@ -90,28 +90,43 @@ export async function importCulto(file: Blob): Promise<{ culto: Culto; theme?: P
   return { culto, theme: data.theme };
 }
 
-/** Shares the file (phone: WhatsApp, email…) or downloads it. */
-export async function shareOrDownload(file: File): Promise<"shared" | "downloaded"> {
-  if (navigator.canShare?.({
-    files: [file],
-  })) {
-    try {
-      await navigator.share({
-        files: [file],
-        title: file.name,
-      });
-      return "shared";
-    }
-    catch (err) {
-      if ((err as Error).name === "AbortError")
-        return "shared";
-    }
+/**
+ * Whether this browser can hand a file to the system's share sheet (phones,
+ * Chrome on Windows, Safari on a Mac; not Chrome on Linux).
+ */
+export function canShareFiles(): boolean {
+  try {
+    return !!navigator.canShare?.({
+      files: [
+        new File([""], "culto.acapela.json", { type: "application/json" }),
+      ],
+    });
   }
+  catch {
+    return false;
+  }
+}
+
+/** Opens the share sheet with the file (WhatsApp, email…); false if not shared. */
+export async function shareFile(file: File): Promise<boolean> {
+  try {
+    await navigator.share({
+      files: [file],
+      title: file.name,
+    });
+    return true;
+  }
+  catch {
+    return false;
+  }
+}
+
+/** Saves the file in the device's downloads. */
+export function downloadFile(file: File) {
   const url = URL.createObjectURL(file);
   const a = document.createElement("a");
   a.href = url;
   a.download = file.name;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
-  return "downloaded";
 }

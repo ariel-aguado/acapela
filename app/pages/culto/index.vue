@@ -11,7 +11,7 @@ import { formatCultoDate, SCREEN_TEMPLATES } from "~/stores/culto";
 import { importSlides, titleFromFiles } from "~/utils/culto/import-slides";
 import { itemLook, momentTone, spokenLabel } from "~/utils/culto/moment";
 import { blocksOf } from "~/utils/culto/sections";
-import { exportCulto, importCulto, shareOrDownload } from "~/utils/culto/transfer";
+import { canShareFiles, downloadFile, exportCulto, importCulto, shareFile } from "~/utils/culto/transfer";
 
 // Preparing a service: its order (hymns, readings, screens), each element's
 // fields and a preview of the screens it becomes. Works the same on a phone
@@ -111,13 +111,31 @@ const showTheme = ref(false);
 
 const importInput = useTemplateRef<HTMLInputElement>("importFile");
 
-async function exportCurrent() {
-  if (!current.value)
+// Two actions that say what they do (NN/g): «Descargar archivo» everywhere,
+// «Enviar…» only where the browser can hand a file to the share sheet.
+const canSend = ref(false);
+onMounted(() => {
+  canSend.value = canShareFiles();
+});
+
+async function currentFile() {
+  return current.value
+    ? exportCulto(toRaw(current.value), toRaw(culto.theme))
+    : null;
+}
+
+async function downloadCurrent() {
+  const file = await currentFile();
+  if (!file)
     return;
-  const file = await exportCulto(toRaw(current.value), toRaw(culto.theme));
-  const how = await shareOrDownload(file);
-  if (how === "downloaded")
-    toast(`Se guardó «${file.name}». Para cargarlo, en cualquier dispositivo: Culto › Abrir archivo (o arrástralo a la página).`, undefined, 9000);
+  downloadFile(file);
+  toast(`Se descargó «${file.name}». Para enviarlo, adjúntalo a un correo o un chat; para cargarlo, en cualquier dispositivo: Culto › ⋯ › Abrir archivo, o arrástralo a la página.`, undefined, 10000);
+}
+
+async function sendCurrent() {
+  const file = await currentFile();
+  if (file)
+    await shareFile(file);
 }
 
 async function onImportFile(e: Event) {
@@ -196,13 +214,25 @@ const cultoMenu = computed(() => [
     },
   ],
   [
+    // As a file, to take it to another device or share it: save, send,
+    // open (or drop it on the page).
+    { label: "Archivo", type: "label" as const },
     {
-      label: "Guardar o enviar este culto",
-      icon: "i-tabler-share",
-      onSelect: exportCurrent,
+      label: "Descargar archivo",
+      icon: "i-tabler-download",
+      onSelect: downloadCurrent,
     },
+    ...(canSend.value
+      ? [
+          {
+            label: "Enviar…",
+            icon: "i-tabler-send",
+            onSelect: sendCurrent,
+          },
+        ]
+      : []),
     {
-      label: "Abrir archivo de culto…",
+      label: "Abrir archivo…",
       icon: "i-tabler-file-import",
       onSelect: () => importInput.value?.click(),
     },
@@ -626,28 +656,6 @@ onMounted(() => {
           </p>
         </div>
         <div class="flex items-center gap-2 sm:pt-0.5">
-          <!-- Save the service as a file to send it, or open one received
-            (NN/g: frequent actions in sight, not only in a menu). -->
-          <UButton
-            color="neutral"
-            variant="outline"
-            size="xl"
-            icon="i-tabler-share"
-            class="hidden md:inline-flex"
-            label="Guardar o enviar"
-            title="Un archivo con este culto, su tema e imágenes, para abrirlo en otro dispositivo"
-            @click="exportCurrent"
-          />
-          <UButton
-            color="neutral"
-            variant="outline"
-            size="xl"
-            icon="i-tabler-file-import"
-            class="hidden md:inline-flex"
-            label="Abrir archivo"
-            title="Abrir un culto guardado o recibido (también puedes arrastrarlo a la página)"
-            @click="importInput?.click()"
-          />
           <UDropdownMenu :items="cultoMenu">
             <UButton
               color="neutral"
