@@ -185,32 +185,71 @@ const cultoMenu = computed(() => [
 ]);
 
 // ------------------------------------------------------------ adding
+// Three ways to the same place (NN/g: actions next to their object, not
+// only on hover): the buttons at the foot add last, as by default; the
+// chosen element's «+» inserts right after it; a «+» line between rows (on
+// hover, for the mouse) inserts there. Inside a section it stays in it.
+// What is added is chosen, announced with «Deshacer», and lit for a moment.
+
+/** Where something new goes: last, right after an element, or last in a section. */
+type Target = { after: string; loose?: boolean } | { section: string } | null;
 
 const pickHymn = ref(false);
-/** The section a hymn being picked goes to (its «Añadir a…»). */
-const hymnSection = ref<string | null>(null);
+/** Where the hymn being picked, or the slides being read, will go. */
+const pendingTarget = ref<Target>(null);
 const { sections } = storeToRefs(culto);
+const announcement = ref("");
+const flashId = ref<string | null>(null);
 
-// Anything new goes last in the order (a section's own «Añadir a…» puts it
-// last in the section), and is chosen so it can be filled in.
-function add(item: CultoItem) {
-  culto.addItem(item);
-  selectedId.value = item.id;
+function place(item: CultoItem, target: Target) {
+  const placed = target && "section" in target
+    ? culto.addToSection(target.section, item)
+    : target && "after" in target
+      ? culto.insertAfter(target.after, item, target.loose)
+      : culto.addItem(item);
+  done(placed.id, target);
+}
+
+/** After adding: chosen, lit for a moment, announced, with «Deshacer». */
+function done(id: string, target: Target) {
+  selectedId.value = id;
+  flashId.value = id;
+  setTimeout(() => {
+    if (flashId.value === id)
+      flashId.value = null;
+  }, 1600);
+  nextTick(() => {
+    const index = entries.value.findIndex(e => e.item.id === id);
+    const entry = entries.value[index];
+    const after = target && "after" in target
+      ? entries.value.find(e => e.item.id === target.after)
+      : null;
+    const what = entry
+      ? itemLook(entry.item).label
+      : "Elemento";
+    announcement.value = `Se insertó ${what}${after
+      ? ` después de «${spokenLabel(after)}»`
+      : ""}. Posición ${index + 1} de ${entries.value.length}.`;
+    toast(announcement.value, {
+      label: "Deshacer",
+      run: () => culto.removeItem(id),
+    });
+    document.querySelector(`[data-item-id="${id}"]`)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  });
 }
 
 function addHymn(songId: number) {
-  const section = sections.value.find(s => s.id === hymnSection.value);
-  hymnSection.value = null;
-  if (section)
-    addIn(section, culto.newHymn(songbook.currentId, songId));
-  else
-    add(culto.newHymn(songbook.currentId, songId));
+  const target = pendingTarget.value;
+  pendingTarget.value = null;
+  place(culto.newHymn(songbook.currentId, songId), target);
 }
 
 // Slides from a PDF or images: chosen first, then imported as a new element.
 const slidesInput = useTemplateRef<HTMLInputElement>("slidesFile");
 const importing = ref<string | null>(null);
 async function onSlidesFiles(e: Event) {
+  const target = pendingTarget.value;
+  pendingTarget.value = null;
   const files = [
     ...(e.target as HTMLInputElement).files ?? [],
   ];
@@ -223,7 +262,7 @@ async function onSlidesFiles(e: Event) {
       importing.value = `Preparando ${p.name}: ${p.done} de ${p.total}…`;
     });
     if (ids.length)
-      add(culto.newSlides(titleFromFiles(files), ids));
+      place(culto.newSlides(titleFromFiles(files), ids), target);
   }
   catch (err) {
     toast(`No se pudo leer el archivo: ${err instanceof Error
@@ -237,31 +276,90 @@ async function onSlidesFiles(e: Event) {
 
 const SECTION_MOMENTS = new Set<string>(["supper", "offering", "sermon"]);
 
-/** A section with its title screen, last in the order. */
-function addSection(title: string, template: Omit<ScreenItem, "id">) {
+/**
+ * A central moment's template: a section with its title screen (inside a
+ * section, just the screen: sections do not nest).
+ */
+function placeSection(title: string, template: Omit<ScreenItem, "id">, target: Target) {
   const screen = culto.newScreen(template);
-  culto.createSection(template.moment ?? "other", title, [screen]);
-  selectedId.value = screen.id;
+  const after = target && "after" in target
+    ? items.value.find(i => i.id === target.after)
+    : null;
+  if ((target && "section" in target) || (after?.sectionId && !(target && "after" in target && target.loose))) {
+    place(screen, target);
+    return;
+  }
+  const index = after
+    ? items.value.findIndex(i => i.id === after.id) + 1
+    : undefined;
+  culto.createSection(template.moment ?? "other", title, [screen], index);
+  done(screen.id, target);
 }
 
-function addReading() {
-  add(culto.newReading("", bible.currentId));
+function pickHymnFor(target: Target) {
+  pendingTarget.value = target;
+  pickHymn.value = true;
 }
 
-const screenMenu = [
-  SCREEN_TEMPLATES.map(t => ({
+function pickSlidesFor(target: Target) {
+  pendingTarget.value = target;
+  slidesInput.value?.click();
+}
+
+function templateItems(target: Target) {
+  return SCREEN_TEMPLATES.map(t => ({
     label: t.label,
     icon: itemLook({ ...t.item, id: "" }).icon,
     // The central moments come as a section, ready for their passages.
     onSelect: () => SECTION_MOMENTS.has(t.item.moment ?? "other")
-      ? addSection(t.label, t.item)
-      : add(culto.newScreen(t.item)),
-  })),
+      ? placeSection(t.label, t.item, target)
+      : place(culto.newScreen(t.item), target),
+  }));
+}
+
+/** The same menu wherever something is added. */
+function addMenu(target: Target) {
+  return [
+    [
+      {
+        label: "Himno",
+        icon: "i-tabler-music",
+        onSelect: () => pickHymnFor(target),
+      },
+      {
+        label: "Cita bíblica",
+        icon: "i-tabler-book",
+        onSelect: () => place(culto.newReading("", bible.currentId), target),
+      },
+      {
+        label: "Diapositivas",
+        icon: "i-tabler-slideshow",
+        onSelect: () => pickSlidesFor(target),
+      },
+    ],
+    [
+      { label: "Pantalla", type: "label" as const },
+      ...templateItems(target),
+      {
+        label: "Pantalla en blanco",
+        icon: "i-tabler-file",
+        onSelect: () => place(culto.newScreen(), target),
+      },
+    ],
+  ];
+}
+
+function addReading() {
+  place(culto.newReading("", bible.currentId), null);
+}
+
+const screenMenu = [
+  templateItems(null),
   [
     {
       label: "Pantalla en blanco",
       icon: "i-tabler-file",
-      onSelect: () => add(culto.newScreen()),
+      onSelect: () => place(culto.newScreen(), null),
     },
   ],
 ];
@@ -322,7 +420,6 @@ const flatIds = computed(() => dragBlocks.value.flatMap(b => b.kind === "item"
   ? [b.entry.item.id]
   : b.items.map(e => e.item.id)));
 
-const announcement = ref("");
 function announce(id: string) {
   const index = entries.value.findIndex(e => e.item.id === id);
   const entry = entries.value[index];
@@ -391,34 +488,33 @@ async function stepSection(id: string, delta: -1 | 1) {
 }
 
 /** What can be added to a section: a screen of its moment, a passage, a hymn. */
+/** «Añadir a Santa Cena»: a screen of its moment, a passage, a hymn, slides… */
 function sectionMenu(section: CultoSection) {
+  const target: Target = { section: section.id };
   return [
     [
       {
         label: "Pantalla",
         icon: "i-tabler-presentation",
-        onSelect: () => addIn(section, culto.newScreen(undefined, { moment: section.moment, layout: "title", eyebrow: section.title })),
+        onSelect: () => place(culto.newScreen(undefined, { moment: section.moment, layout: "title", eyebrow: section.title }), target),
       },
       {
         label: "Cita bíblica",
         icon: "i-tabler-book",
-        onSelect: () => addIn(section, culto.newReading("", bible.currentId)),
+        onSelect: () => place(culto.newReading("", bible.currentId), target),
       },
       {
         label: "Himno",
         icon: "i-tabler-music",
-        onSelect: () => {
-          hymnSection.value = section.id;
-          pickHymn.value = true;
-        },
+        onSelect: () => pickHymnFor(target),
+      },
+      {
+        label: "Diapositivas",
+        icon: "i-tabler-slideshow",
+        onSelect: () => pickSlidesFor(target),
       },
     ],
   ];
-}
-
-function addIn(section: CultoSection, item: CultoItem) {
-  culto.addToSection(section.id, item);
-  selectedId.value = item.id;
 }
 
 function removeSection(section: CultoSection) {
@@ -583,10 +679,17 @@ onMounted(() => {
             @end="commitDrag"
           >
             <li
-              v-for="block in dragBlocks"
+              v-for="(block, bi) in dragBlocks"
               :key="block.key"
+              class="relative"
               :data-item-id="block.kind === 'item' ? block.entry.item.id : undefined"
             >
+              <!-- «+» in the gap below: inserts right after this block. -->
+              <CultoInsertLine
+                v-if="bi < dragBlocks.length - 1"
+                :items="addMenu(block.kind === 'item' ? { after: block.entry.item.id } : { after: block.items.at(-1)!.item.id, loose: true })"
+                :label="`Insertar después de «${block.kind === 'item' ? spokenLabel(block.entry) : block.section.title}»`"
+              />
               <CultoOrderRow
                 v-if="block.kind === 'item'"
                 :entry="block.entry"
@@ -594,6 +697,8 @@ onMounted(() => {
                 :can-up="flatIds[0] !== block.entry.item.id"
                 :can-down="flatIds.at(-1) !== block.entry.item.id"
                 handle="block-handle"
+                :insert-menu="addMenu({ after: block.entry.item.id })"
+                :flash="flashId === block.entry.item.id"
                 @choose="choose(block.entry.item.id)"
                 @step="d => step(block.entry.item.id, d)"
               />
@@ -656,13 +761,25 @@ onMounted(() => {
                   chosen-class="drag-chosen"
                   @end="commitDrag"
                 >
-                  <li v-for="entry in block.items" :key="entry.item.id" :data-item-id="entry.item.id">
+                  <li
+                    v-for="(entry, ei) in block.items"
+                    :key="entry.item.id"
+                    class="relative"
+                    :data-item-id="entry.item.id"
+                  >
+                    <CultoInsertLine
+                      v-if="ei < block.items.length - 1"
+                      :items="addMenu({ after: entry.item.id })"
+                      :label="`Insertar en ${block.section.title} después de «${spokenLabel(entry)}»`"
+                    />
                     <CultoOrderRow
                       :entry="entry"
                       :selected="entry.item.id === selectedId && !selectedSection"
                       :can-up="true"
                       :can-down="true"
                       handle="item-handle"
+                      :insert-menu="addMenu({ after: entry.item.id })"
+                      :flash="flashId === entry.item.id"
                       @choose="choose(entry.item.id)"
                       @step="d => step(entry.item.id, d)"
                     />
@@ -690,7 +807,7 @@ onMounted(() => {
               variant="outline"
               icon="i-tabler-music"
               label="Himno"
-              @click="pickHymn = true"
+              @click="pickHymnFor(null)"
             />
             <UButton
               color="neutral"
@@ -714,7 +831,7 @@ onMounted(() => {
               icon="i-tabler-slideshow"
               label="Diapositivas"
               :loading="!!importing"
-              @click="slidesInput?.click()"
+              @click="pickSlidesFor(null)"
             />
             <input
               ref="slidesFile"
@@ -819,6 +936,23 @@ onMounted(() => {
 @media (prefers-reduced-motion: reduce) {
   .map-seg {
     transition: none;
+  }
+}
+
+/* Just added: lit for a moment, so the eye finds it. */
+.row-flash {
+  animation: row-flash 1.6s ease-out;
+}
+@keyframes row-flash {
+  0%,
+  35% {
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--ui-primary) 55%, transparent);
+    background: color-mix(in oklab, var(--ui-primary) 14%, var(--ui-bg));
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .row-flash {
+    animation: none;
   }
 }
 

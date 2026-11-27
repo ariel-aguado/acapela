@@ -436,6 +436,27 @@ export const useCultoStore = defineStore("culto", () => {
     return section;
   }
 
+  /**
+   * Adds an element right after another, in that one's section if it has
+   * one (`loose`: on its own, as after a whole section).
+   */
+  function insertAfter(afterId: string, item: CultoItem, loose = false): CultoItem {
+    const culto = ensureCurrent();
+    const at = culto.items.findIndex(i => i.id === afterId);
+    const after = culto.items[at];
+    const placed = { ...item } as CultoItem;
+    if (after?.sectionId && !loose)
+      placed.sectionId = after.sectionId;
+    else
+      delete placed.sectionId;
+    const items = [...culto.items];
+    items.splice(at < 0
+      ? items.length
+      : at + 1, 0, placed);
+    setItems(culto, items);
+    return placed;
+  }
+
   /** Adds an element at the end of a section. */
   function addToSection(sectionId: string, item: CultoItem): CultoItem {
     const culto = ensureCurrent();
@@ -596,6 +617,7 @@ export const useCultoStore = defineStore("culto", () => {
     createSection,
     groupInSection,
     addToSection,
+    insertAfter,
     updateSection,
     dissolveSection,
     removeSection,
