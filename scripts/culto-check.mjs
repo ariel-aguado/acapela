@@ -272,31 +272,46 @@ try {
   const order = await labels()
   check(order[0]?.includes("Haced"), `arrastrar: Santa Cena pasa al primer lugar (${order.slice(0, 2).join(" · ")})`)
 
-  // Hymn: hide its first screen; then drag the second one to the front.
+  // The stage shows the chosen screen; the strip below has one thumbnail
+  // per screen ([data-screen]), and the actions work on the chosen one.
+  const thumbs = "document.querySelectorAll('[data-screen]')"
+  const pressStage = label => page.evaluate(`[...document.querySelectorAll('section[aria-label="Pantallas del elemento"] button')].find(b => b.innerText.trim() === ${JSON.stringify(label)})?.click()`)
+
+  // Hymn: hide its first screen; its verses keep the songbook's order.
   await page.evaluate(`[...document.querySelectorAll('ol li button')].find(b => b.innerText.includes('EL NOMBRE'))?.click()`)
-  await page.waitFor("document.querySelectorAll('figure').length === 4", 10000)
-  await page.evaluate(`[...document.querySelectorAll('figure')][0].querySelector('button').click()`)
+  await page.waitFor(`${thumbs}.length === 4`, 10000)
+  await page.evaluate(`${thumbs}[0].click()`)
+  await sleep(300)
+  await pressStage("Ocultar")
   await page.waitFor(`[...document.querySelectorAll('ol li')].some(l => l.innerText.includes('EL NOMBRE') && l.innerText.includes('3 pantallas'))`, 10000)
   pass("ocultar una estrofa: el himno queda con 3 pantallas")
-  const lastFirst = await page.evaluate(`document.querySelectorAll('figure')[1].querySelector('.projection-lyric')?.innerText.slice(0, 20)`)
-  await drag(await center("document.querySelectorAll('figure')[1].querySelector('.projection-frame')"), await corner("document.querySelectorAll('figure')[0].querySelector('.projection-frame')"))
-  const nowFirst = await page.evaluate(`document.querySelectorAll('figure')[0].querySelector('.projection-lyric')?.innerText.slice(0, 20)`)
-  check(nowFirst === lastFirst, `arrastrar una pantalla: la segunda pasa adelante («${nowFirst}»)`)
-  await page.evaluate(`[...document.querySelectorAll('button')].find(b => b.innerText.includes('Restablecer orden'))?.click()`)
+  const hymnFirst = await page.evaluate(`${thumbs}[0].querySelector('.projection-lyric')?.innerText.slice(0, 20)`)
+  await drag(await center(`${thumbs}[1]`), await corner(`${thumbs}[0]`))
+  const hymnStill = await page.evaluate(`${thumbs}[0].querySelector('.projection-lyric')?.innerText.slice(0, 20)`)
+  const hint = await page.evaluate(`document.querySelector('section[aria-label="Pantallas del elemento"]').innerText.includes('arrastra para ordenar')`)
+  check(hymnStill === hymnFirst && !hint, `un himno no se reordena al arrastrar sus estrofas («${hymnStill}»)`)
+  await page.evaluate(`[...document.querySelectorAll('button')].find(b => b.innerText.includes('Restablecer'))?.click()`)
   await page.waitFor(`[...document.querySelectorAll('ol li')].some(l => l.innerText.includes('EL NOMBRE') && l.innerText.includes('4 pantallas'))`, 10000)
-  pass("restablecer: el himno vuelve a sus 4 pantallas en orden")
+  pass("restablecer: el himno vuelve a sus 4 pantallas")
 
   // Reading: start a new screen inside the first one.
   await page.evaluate(`[...document.querySelectorAll('ol li button')].find(b => b.innerText.includes('Salmos'))?.click()`)
   await page.waitFor("[...document.querySelectorAll('button')].some(b => b.innerText.includes('Partir'))", 15000)
-  const readingBefore = await page.evaluate(`document.querySelectorAll('figure').length`)
+  const readingBefore = await page.evaluate(`${thumbs}.length`)
   await page.evaluate(`[...document.querySelectorAll('button')].find(b => b.innerText.includes('Partir')).click()`)
   await page.waitFor("document.querySelector('[role=menuitem]')", 5000)
   await page.evaluate(`document.querySelector('[role=menuitem]').click()`)
-  await page.waitFor(`document.querySelectorAll('figure').length === ${readingBefore + 1}`, 15000)
+  await page.waitFor(`${thumbs}.length === ${readingBefore + 1}`, 15000)
   pass(`partir: la lectura pasa de ${readingBefore} a ${readingBefore + 1} pantallas`)
+  await page.evaluate(`${thumbs}[1].click()`)
+  await sleep(300)
   const canJoin = await page.evaluate(`[...document.querySelectorAll('button')].some(b => b.innerText.includes('Unir con la anterior'))`)
   check(canJoin, "la pantalla nueva ofrece «Unir con la anterior»")
+  // A reading's screens can be dragged into another order.
+  const readingSecond = await page.evaluate(`${thumbs}[1].innerText.trim().slice(0, 20)`)
+  await drag(await center(`${thumbs}[1]`), await corner(`${thumbs}[0]`))
+  const readingFirst = await page.evaluate(`${thumbs}[0].innerText.trim().slice(0, 20)`)
+  check(readingFirst === readingSecond, `arrastrar una pantalla de la lectura: la segunda pasa adelante («${readingFirst}»)`)
   await shot(page, "gestor")
 
   // ---------------------------------------------------------- theme, slides from a PDF, logo
@@ -304,8 +319,8 @@ try {
   await page.goto(`${ORIGIN}/culto`)
   await page.waitFor("document.querySelectorAll('ol li').length === 6", 20000)
   await page.evaluate(`[...document.querySelectorAll('ol li button')].find(b => b.innerText.includes('Esta semana'))?.click()`)
-  await page.waitFor("document.querySelector('figure .page')", 15000)
-  const themed = await page.evaluate(`(() => { const p = document.querySelector('figure .page'); const cs = getComputedStyle(p); return { color: cs.color, font: cs.fontFamily, footer: p.querySelector('.page-footer')?.innerText ?? '' } })()`)
+  await page.waitFor("document.querySelector('section[aria-label=\"Pantallas del elemento\"] .page')", 15000)
+  const themed = await page.evaluate(`(() => { const p = document.querySelector('section[aria-label="Pantallas del elemento"] .page'); const cs = getComputedStyle(p); return { color: cs.color, font: cs.fontFamily, footer: p.querySelector('.page-footer')?.innerText ?? '' } })()`)
   check(themed.color === "rgb(27, 26, 34)", `tema claro: texto oscuro (${themed.color})`)
   check(themed.font.includes("Literata"), `tema: letra Literata (${themed.font.slice(0, 30)})`)
   check(themed.footer.includes("Iglesia de Prueba"), `tema: el nombre de la iglesia abajo («${themed.footer.trim()}»)`)
@@ -320,8 +335,8 @@ try {
       throw err
     })
   pass("un PDF de 2 páginas se convierte en «Diapositivas» con 2 pantallas")
-  await page.waitFor("[...document.querySelectorAll('figure img')].filter(i => i.complete && i.naturalWidth > 0).length === 2", 15000)
-  const size = await page.evaluate(`(() => { const i = document.querySelector('figure img'); return [i.naturalWidth, i.naturalHeight] })()`)
+  await page.waitFor("[...document.querySelectorAll('[data-screen] img')].filter(i => i.complete && i.naturalWidth > 0).length === 2", 15000)
+  const size = await page.evaluate(`(() => { const i = document.querySelector('[data-screen] img'); return [i.naturalWidth, i.naturalHeight] })()`)
   check(size[0] === 1920, `cada página queda como imagen de ${size[0]}×${size[1]}`)
   await shot(page, "diapositivas")
 
@@ -369,7 +384,7 @@ try {
     await page.waitFor(`document.querySelectorAll('ol li').length === ${itemsBefore}`, 20000)
     pass(`importar en otro dispositivo: el culto llega con sus ${itemsBefore} elementos`)
     await page.evaluate(`[...document.querySelectorAll('ol li button')].find(b => b.innerText.includes('diapositivas'))?.click()`)
-    await page.waitFor("[...document.querySelectorAll('figure img')].filter(i => i.complete && i.naturalWidth > 0).length === 2", 15000)
+    await page.waitFor("[...document.querySelectorAll('[data-screen] img')].filter(i => i.complete && i.naturalWidth > 0).length === 2", 15000)
     pass("las diapositivas llegan con sus imágenes")
     const themeName = await page.evaluate(`JSON.parse(localStorage.getItem('cultoTheme') || '{}').churchName`)
     check(themeName === "Iglesia de Prueba", `y el tema de la iglesia, porque este dispositivo no tenía uno («${themeName}»)`)

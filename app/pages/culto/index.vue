@@ -26,6 +26,13 @@ const { entries } = useCultoScreens(items);
 
 const selectedId = ref<string | null>(null);
 const selected = computed(() => entries.value.find(e => e.item.id === selectedId.value) ?? null);
+/** The element after the chosen one, for the stage's «Siguiente». */
+const nextEntry = computed(() => {
+  const at = entries.value.findIndex(e => e.item.id === selectedId.value);
+  return at >= 0
+    ? entries.value[at + 1] ?? null
+    : null;
+});
 
 watch(items, (list) => {
   if (!list.some(i => i.id === selectedId.value))
@@ -553,7 +560,12 @@ onMounted(() => {
               <p v-if="selected.status === 'error'" class="rounded-2xl bg-warning/10 text-warning px-4 py-3 text-sm font-medium">
                 {{ selected.error }}
               </p>
-              <CultoScreenManager v-if="selected.all.length" :entry="selected" />
+              <CultoScreenManager
+                v-if="selected.all.length"
+                :entry="selected"
+                :next="nextEntry"
+                @next="nextEntry && choose(nextEntry.item.id)"
+              />
               <div v-else-if="selected.status === 'loading'" class="aspect-video rounded-xl bg-muted grid place-items-center">
                 <UIcon name="i-tabler-loader-2" class="size-8 animate-spin opacity-60" aria-label="Preparando" />
               </div>
