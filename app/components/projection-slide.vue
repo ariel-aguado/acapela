@@ -3,7 +3,8 @@ import type { Slide } from "~/utils/slides";
 
 // A projected slide drawn on a fixed 1920×1080 stage and scaled to its box,
 // so the operator's preview and the projector window show exactly the same
-// layout. The lyric size is fitted to the stage (largest size that fits) and
+// layout. The lyric size is fitted to the stage (largest size that fits),
+// or given (`size`: the same for a hymn's screens with as many lines), and
 // then multiplied by the per-hymn scale the operator chose.
 const props = withDefaults(defineProps<{
   slide: Slide | null;
@@ -11,6 +12,8 @@ const props = withDefaults(defineProps<{
   title?: string;
   black?: boolean;
   scale?: number;
+  /** The lyric's size before `scale`, decided for the whole hymn; none: fitted here. */
+  size?: number;
   /** Small text in the corner for the operator's previews ("Siguiente"…). */
   badge?: string;
 }>(), {
@@ -47,18 +50,21 @@ async function fit() {
   await nextTick();
   if (!lyricRef.value || !areaRef.value)
     return;
-  let lo = MIN_PX;
-  let hi = MAX_PX;
-  while (hi - lo > 1) {
-    const mid = Math.floor((lo + hi) / 2);
-    if (fits(mid))
-      lo = mid;
-    else
-      hi = mid;
+  let fitted = props.size ?? 0;
+  if (!fitted) {
+    let lo = MIN_PX;
+    let hi = MAX_PX;
+    while (hi - lo > 1) {
+      const mid = Math.floor((lo + hi) / 2);
+      if (fits(mid))
+        lo = mid;
+      else
+        hi = mid;
+    }
+    fitted = fits(hi)
+      ? hi
+      : lo;
   }
-  const fitted = fits(hi)
-    ? hi
-    : lo;
   const final = Math.round(fitted * props.scale);
   fontPx.value = final;
   lyricRef.value.style.fontSize = `${final}px`;
@@ -74,7 +80,12 @@ function measureFrame() {
 
 useResizeObserver(frameRef, measureFrame);
 
-watch(() => [props.slide?.html, props.scale, props.black], () => fit());
+watch(() => [
+  props.slide?.html,
+  props.scale,
+  props.size,
+  props.black,
+], () => fit());
 
 onMounted(async () => {
   measureFrame();

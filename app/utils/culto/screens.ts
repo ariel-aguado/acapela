@@ -16,6 +16,11 @@ export type Screen
     number: number;
     title: string;
     scale: number;
+    /**
+     * The lyric's size before `scale`, the same for all the hymn's screens
+     * with as many lines (see useCultoScreens); none: fitted on its own.
+     */
+    size?: number;
     look?: Look;
   }
   | {

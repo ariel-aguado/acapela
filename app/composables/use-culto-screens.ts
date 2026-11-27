@@ -142,6 +142,78 @@ function pageMeta(page: PageItem[], i: number) {
   };
 }
 
+// ------------------------------------------------------------ hymn sizes
+// A hymn's screens with as many lines get the same size: the smallest that
+// fits all of them (the longest line decides it), so the letters do not
+// change size from one stanza to the next. Measured on the same stage as
+// ProjectionSlide (its .projection-area and .projection-lyric).
+
+// Its own stage: the pages' one is used across awaits (paginatePage), and
+// measuring a hymn there in between would wipe what it is measuring.
+let lyricStageEl: HTMLElement | null = null;
+function lyricStage(): HTMLElement {
+  if (lyricStageEl?.isConnected)
+    return lyricStageEl;
+  const wrap = document.createElement("div");
+  wrap.setAttribute("aria-hidden", "true");
+  wrap.style.cssText = "position:fixed;left:-30000px;top:0;width:1920px;height:1080px;visibility:hidden;pointer-events:none;overflow:hidden";
+  lyricStageEl = document.createElement("div");
+  lyricStageEl.className = "projection-stage";
+  lyricStageEl.style.cssText = "position:relative;width:1920px;height:1080px";
+  wrap.appendChild(lyricStageEl);
+  document.body.appendChild(wrap);
+  return lyricStageEl;
+}
+
+const LYRIC_MIN_PX = 28;
+const LYRIC_MAX_PX = 112;
+const fittedCache = new Map<string, { px: number; lines: number }>();
+
+function fittedLyric(html: string, font: string): { px: number; lines: number } {
+  const key = `${font}|${html}`;
+  const cached = fittedCache.get(key);
+  if (cached)
+    return cached;
+  const el = lyricStage();
+  el.style.setProperty("--proj-font", font);
+  el.innerHTML = `<div class="projection-area"><div class="projection-lyric">${html}</div></div>`;
+  const area = el.firstElementChild as HTMLElement;
+  const lyric = area.firstElementChild as HTMLElement;
+  const fits = (px: number) => {
+    lyric.style.fontSize = `${px}px`;
+    return lyric.offsetWidth <= area.clientWidth && lyric.offsetHeight <= area.clientHeight;
+  };
+  let lo = LYRIC_MIN_PX;
+  let hi = LYRIC_MAX_PX;
+  while (hi - lo > 1) {
+    const mid = Math.floor((lo + hi) / 2);
+    if (fits(mid))
+      lo = mid;
+    else
+      hi = mid;
+  }
+  const px = fits(hi)
+    ? hi
+    : lo;
+  // Lines: each paragraph, each line break inside one, each table row.
+  const lines = (html.match(/<p[\s>]/gi)?.length ?? 0) + (html.match(/<br\s*\/?>/gi)?.length ?? 0) + (html.match(/<tr[\s>]/gi)?.length ?? 0);
+  el.innerHTML = "";
+  const result = { px, lines };
+  // Kept only once the web fonts are in: their metrics decide the size.
+  if (document.fonts?.status === "loaded")
+    fittedCache.set(key, result);
+  return result;
+}
+
+/** Per slide, the smallest size among the hymn's slides with as many lines. */
+function uniformSizes(htmls: string[], font: string): number[] {
+  const measured = htmls.map(h => fittedLyric(h, font));
+  const smallest = new Map<number, number>();
+  for (const m of measured)
+    smallest.set(m.lines, Math.min(smallest.get(m.lines) ?? Infinity, m.px));
+  return measured.map(m => smallest.get(m.lines)!);
+}
+
 // ------------------------------------------------------------ per kind
 
 /** `prefix` keeps a moment's extra pages apart from its own (keys and break ids). */
@@ -378,6 +450,12 @@ export function useCultoScreens(items: MaybeRefOrGetter<CultoItem[]>) {
   const { songs } = storeToRefs(songStore);
   const { currentId: songbookId, manifest } = storeToRefs(songbookStore);
   const { theme } = storeToRefs(useCultoStore());
+  // The hymn sizes are measured again once the web fonts are in.
+  const fontsTick = ref(0);
+  if (import.meta.client) {
+    document.fonts?.ready.then(() => fontsTick.value++);
+    document.fonts?.addEventListener?.("loadingdone", () => fontsTick.value++);
+  }
 
   // Measured results by item id, valid while the signature matches.
   const done = shallowRef(new Map<string, { sig: string; result: Natural | { error: string } }>());
@@ -448,7 +526,12 @@ export function useCultoScreens(items: MaybeRefOrGetter<CultoItem[]>) {
           };
     }
     const scale = item.scale ?? presentation.scaleFor(song.songId);
-    const natural = buildSlides(song).map((slide, i) => ({
+    const slides = buildSlides(song);
+    void fontsTick.value;
+    const sizes = import.meta.client
+      ? uniformSizes(slides.map(sl => sl.html), resolveLook(theme.value, item).font)
+      : [];
+    const natural = slides.map((slide, i) => ({
       key: `s${i}`,
       natural: i,
       screen: {
@@ -457,6 +540,7 @@ export function useCultoScreens(items: MaybeRefOrGetter<CultoItem[]>) {
         number: song.songId,
         title: song.title,
         scale,
+        size: sizes[i],
       },
     }));
     return {
