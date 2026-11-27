@@ -81,6 +81,27 @@ const position = computed<Position>({
 const black = ref(false);
 /** The church's logo instead of the live screen (L). */
 const showLogo = ref(false);
+/**
+ * What the congregation sees: the content, black or the logo, one at a time
+ * (one selector instead of two toggles: they are states of the same thing).
+ */
+type ProjectorMode = "content" | "black" | "logo";
+const projectorMode = computed<ProjectorMode>({
+  get: () => (black.value
+    ? "black"
+    : showLogo.value
+      ? "logo"
+      : "content"),
+  set: (mode) => {
+    black.value = mode === "black";
+    showLogo.value = mode === "logo";
+  },
+});
+const projectorModes: { value: ProjectorMode; label: string; key?: string }[] = [
+  { value: "content", label: "Contenido" },
+  { value: "black", label: "Negro", key: "B" },
+  { value: "logo", label: "Logo", key: "L" },
+];
 /** After something inserted "now", where to come back to. */
 const returnTo = ref<{ itemId: string; key: string; afterItemId: string } | null>(null);
 /** What stays on the projector after «Aplicar al pasar», until moving on. */
@@ -447,9 +468,13 @@ keys([
 keys(["ArrowLeft", "ArrowUp", "PageUp"], prev);
 keys(["Home"], () => goTo(0));
 keys(["End"], () => goTo(flat.value.length - 1));
-keys(["b", "B", "."], () => (black.value = !black.value));
+keys(["b", "B", "."], () => (projectorMode.value = black.value
+  ? "content"
+  : "black"));
 keys(["i", "I"], () => (showInsert.value = true));
-keys(["l", "L"], () => (showLogo.value = !showLogo.value));
+keys(["l", "L"], () => (projectorMode.value = showLogo.value
+  ? "content"
+  : "logo"));
 keys(["g", "G"], () => (showGoTo.value = true));
 keys(["n", "N"], () => stepHymn(1));
 keys(["p", "P"], () => stepHymn(-1));
@@ -720,8 +745,12 @@ function saveAsService() {
 
     <main v-else class="flex-1 grid gap-4 p-3 lg:grid-cols-[minmax(0,1fr)_20rem] min-h-0 lg:overflow-hidden">
       <div class="flex flex-col gap-3 min-w-0 min-h-0">
+        <!-- On air (NN/g: one primary action, related controls together, the
+          occasional ones one level down): the screen with the element's
+          screens under it, and one bar with what the congregation sees and
+          «Siguiente», which shows what comes next large enough to read. -->
         <CultoPanel
-          title="En pantalla"
+          title="Al aire"
           icon="i-tabler-broadcast"
           head-id="v-live"
           class="lg:flex-1 lg:min-h-0"
@@ -732,7 +761,7 @@ function saveAsService() {
               <CultoMomentTile v-if="liveEntry" :item="liveEntry.item" size="sm" />
               <span class="font-semibold text-default">{{ liveEntry?.item.kind === 'hymn' ? liveEntry.label.replace(`${liveEntry.item.songId} · `, '') : liveEntry?.label }}</span>
               <template v-if="(liveEntry?.screens.length ?? 0) > 1">
-                · {{ (live?.index ?? 0) + 1 }} de {{ liveEntry?.screens.length }}
+                · Pantalla {{ (live?.index ?? 0) + 1 }} de {{ liveEntry?.screens.length }}
               </template>
             </span>
           </template>
@@ -744,6 +773,42 @@ function saveAsService() {
               icon="i-tabler-clock-pause"
               label="Cambiado: se verá al pasar"
             />
+            <!-- Text size: now and then, so behind «Aa». -->
+            <UPopover :content="{ align: 'end', sideOffset: 6 }">
+              <UButton
+                color="neutral"
+                variant="ghost"
+                size="sm"
+                class="tabular-nums"
+                :aria-label="`Tamaño del texto: ${Math.round(liveScale * 100)} %`"
+              >
+                <span class="font-bold">Aa</span> {{ Math.round(liveScale * 100) }} %
+              </UButton>
+              <template #content>
+                <div class="flex items-center gap-1.5 p-2" role="group" aria-label="Tamaño del texto de este elemento">
+                  <span class="px-1.5 text-sm text-muted">Tamaño del texto</span>
+                  <UButton
+                    color="neutral"
+                    variant="outline"
+                    size="lg"
+                    square
+                    icon="i-tabler-minus"
+                    aria-label="Achicar texto"
+                    @click="changeScale(-SCALE_STEP)"
+                  />
+                  <span class="w-14 text-center text-sm font-semibold tabular-nums">{{ Math.round(liveScale * 100) }} %</span>
+                  <UButton
+                    color="neutral"
+                    variant="outline"
+                    size="lg"
+                    square
+                    icon="i-tabler-plus"
+                    aria-label="Agrandar texto"
+                    @click="changeScale(SCALE_STEP)"
+                  />
+                </div>
+              </template>
+            </UPopover>
             <UButton
               v-if="canFix(liveEntry?.item)"
               color="neutral"
@@ -776,88 +841,9 @@ function saveAsService() {
             </div>
           </div>
 
-          <template #footer>
-            <div class="flex flex-wrap items-center gap-2">
-              <UButton
-                color="neutral"
-                variant="outline"
-                size="xl"
-                class="h-11"
-                icon="i-tabler-chevron-left"
-                label="Anterior"
-                :disabled="liveIndex <= 0"
-                @click="prev"
-              />
-              <UButton
-                size="xl"
-                class="h-11 flex-1 min-w-40 justify-center"
-                trailing-icon="i-tabler-chevron-right"
-                label="Siguiente"
-                :disabled="!upcoming.length"
-                @click="next"
-              />
-              <UButton
-                color="neutral"
-                :variant="black ? 'solid' : 'outline'"
-                size="xl"
-                class="h-11"
-                icon="i-tabler-screen-share-off"
-                :aria-pressed="black"
-                @click="black = !black"
-              >
-                {{ black ? 'Mostrar' : 'Negro' }} <UKbd value="B" />
-              </UButton>
-              <UButton
-                color="neutral"
-                :variant="showLogo ? 'solid' : 'outline'"
-                size="xl"
-                class="h-11"
-                icon="i-tabler-building-church"
-                :aria-pressed="showLogo"
-                @click="showLogo = !showLogo"
-              >
-                Logo <UKbd value="L" />
-              </UButton>
-              <UFieldGroup role="group" aria-label="Tamaño del texto de este elemento">
-                <UButton
-                  color="neutral"
-                  variant="outline"
-                  size="xl"
-                  class="h-11"
-                  label="−"
-                  aria-label="Achicar texto"
-                  @click="changeScale(-SCALE_STEP)"
-                />
-                <UButton
-                  color="neutral"
-                  variant="outline"
-                  size="xl"
-                  class="h-11 tabular-nums min-w-16 justify-center"
-                  :label="`${Math.round(liveScale * 100)}%`"
-                  disabled
-                />
-                <UButton
-                  color="neutral"
-                  variant="outline"
-                  size="xl"
-                  class="h-11"
-                  label="+"
-                  aria-label="Agrandar texto"
-                  @click="changeScale(SCALE_STEP)"
-                />
-              </UFieldGroup>
-            </div>
-          </template>
-        </CultoPanel>
-
-        <!-- The element on air, screen by screen (on air in red, the next one
-          dashed, the ones shown dimmed), the count, and what → shows next,
-          even when it is another element or the way back after an insert. -->
-        <CultoPanel title="Pantallas del elemento" icon="i-tabler-layout-cards" body-class="px-3 py-2">
-          <template #meta>
-            {{ (live?.index ?? 0) + 1 }} de {{ liveEntry?.screens.length ?? 0 }}
-          </template>
-          <div class="flex items-center gap-3 min-w-0">
+          <!-- The element's screens, right under the one on air (on air in
+            red, the next one dashed, the ones shown dimmed). -->
+          <div v-if="liveStrip.length > 1" class="flex items-center gap-3 min-w-0">
             <ol
               v-scroll-fade-x
               class="flex-1 min-w-0 flex gap-2 overflow-x-auto px-1 py-1.5 [scrollbar-width:none]"
@@ -885,29 +871,70 @@ function saveAsService() {
             <span class="sr-only" aria-live="polite">
               {{ (live?.index ?? 0) + 1 }} / {{ liveEntry?.screens.length ?? 0 }}
             </span>
-            <button
-              v-if="nextUp"
-              type="button"
-              class="shrink-0 flex max-w-72 items-center gap-2.5 rounded-xl bg-elevated/60 py-1.5 ps-1.5 pe-3 text-start ring-1 ring-default hover:ring-primary"
-              :aria-label="`Lo que sigue: ${nextUp.s.itemId !== live?.itemId ? entries[nextUp.s.itemIndex]?.label : `pantalla ${nextUp.s.index + 1}`}`"
-              @click="next"
-            >
-              <span class="w-24 shrink-0 overflow-hidden rounded-md outline-2 outline-dashed outline-offset-1 outline-primary"><CultoScreen :screen="nextUp.s.screen" /></span>
-              <span class="min-w-0">
-                <span class="block text-[0.68rem] font-semibold uppercase tracking-wider opacity-60 whitespace-nowrap">Lo que sigue <UKbd value="→" size="sm" /></span>
-                <span class="flex items-center gap-1.5 text-sm font-semibold">
-                  <template v-if="nextUp.s.itemId !== live?.itemId">
-                    <CultoMomentTile v-if="entries[nextUp.s.itemIndex]" :item="entries[nextUp.s.itemIndex]!.item" size="sm" />
-                    <span class="truncate">{{ entries[nextUp.s.itemIndex]?.label }}</span>
-                  </template>
-                  <span v-else>Pantalla {{ nextUp.s.index + 1 }}</span>
-                </span>
-              </span>
-            </button>
-            <p v-else class="shrink-0 text-sm opacity-70">
-              Es la última pantalla del culto.
-            </p>
           </div>
+
+          <template #footer>
+            <div class="flex flex-wrap items-center gap-x-4 gap-y-3">
+              <!-- What the congregation sees: one of three. -->
+              <div class="flex flex-col gap-1">
+                <span id="v-projector" class="text-xs font-semibold text-muted">La congregación ve</span>
+                <div role="radiogroup" aria-labelledby="v-projector" class="flex gap-0.5 rounded-xl bg-elevated p-1 ring-1 ring-default">
+                  <button
+                    v-for="m in projectorModes"
+                    :key="m.value"
+                    type="button"
+                    role="radio"
+                    :aria-checked="projectorMode === m.value"
+                    class="flex h-11 items-center gap-2 rounded-lg px-4 text-[0.95rem]"
+                    :class="projectorMode === m.value
+                      ? (m.value === 'content' ? 'bg-default font-semibold text-highlighted shadow-sm ring-1 ring-default' : 'bg-inverted font-semibold text-inverted')
+                      : 'text-toned hover:bg-default/60'"
+                    @click="projectorMode = m.value"
+                  >
+                    {{ m.label }}
+                    <UKbd v-if="m.key" :value="m.key" size="sm" />
+                  </button>
+                </div>
+              </div>
+              <span class="flex-1" />
+              <UButton
+                color="neutral"
+                variant="outline"
+                size="xl"
+                class="h-15 px-5 text-base"
+                icon="i-tabler-chevron-left"
+                label="Anterior"
+                :disabled="liveIndex <= 0"
+                @click="prev"
+              />
+              <!-- The primary action, with what comes next large enough to
+                read from where the operator sits. -->
+              <button
+                type="button"
+                class="flex min-w-0 max-w-full items-center gap-4 rounded-2xl bg-primary py-2 ps-5 pe-2 text-start text-inverted shadow-sm transition-colors hover:bg-primary/90 disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                :disabled="!upcoming.length"
+                :aria-label="nextUp ? `Siguiente: ${nextUp.s.itemId !== live?.itemId ? entries[nextUp.s.itemIndex]?.label : `pantalla ${nextUp.s.index + 1}`}` : 'Siguiente'"
+                @click="next"
+              >
+                <span class="flex min-w-0 flex-col gap-1">
+                  <span class="flex items-center gap-2 text-lg font-bold">
+                    Siguiente <UIcon name="i-tabler-arrow-right" class="size-5" />
+                  </span>
+                  <span v-if="nextUp" class="flex min-w-0 items-center gap-1.5 text-sm opacity-90">
+                    <template v-if="nextUp.s.itemId !== live?.itemId">
+                      <CultoMomentTile v-if="entries[nextUp.s.itemIndex]" :item="entries[nextUp.s.itemIndex]!.item" size="sm" />
+                      <span class="truncate max-w-48">{{ entries[nextUp.s.itemIndex]?.label }}</span>
+                    </template>
+                    <span v-else>Pantalla {{ nextUp.s.index + 1 }}</span>
+                  </span>
+                  <span v-else class="text-sm opacity-90">Es la última pantalla</span>
+                </span>
+                <span v-if="nextUp" class="w-56 shrink-0 overflow-hidden rounded-lg ring-2 ring-white/70 xl:w-64">
+                  <CultoScreen :screen="nextUp.s.screen" />
+                </span>
+              </button>
+            </div>
+          </template>
         </CultoPanel>
       </div>
 
