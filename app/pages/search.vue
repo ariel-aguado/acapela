@@ -2,6 +2,7 @@
 import { onKeyStroke, useDebounceFn, useMediaQuery } from "@vueuse/core";
 import Mark from "mark.js";
 
+import type { ElsewhereHit } from "~/composables/use-search-elsewhere";
 import type { FilteredSong, FullSearchResult, Song } from "~~/lib/types";
 
 // One search for everything a person may remember: the number, the title or
@@ -12,6 +13,10 @@ import type { FilteredSong, FullSearchResult, Song } from "~~/lib/types";
 // right (click selects, double click or Enter opens it). Without a query,
 // recents are a row of cards and every hymn sits in a three-column grid with
 // a horizontal index. The phone keeps its single column.
+//
+// When the chosen songbook has nothing, the same query runs in the other
+// songbooks (a hymn of another one opens at /himno without changing the
+// choice), and each word of the query is offered as a search of its own.
 
 type Scope = "all" | "titles" | "lyrics";
 type LyricHit = {
@@ -86,6 +91,8 @@ const numberMatch = computed<FilteredSong | null>(() => {
 
 const titleHits = ref<FilteredSong[]>([]);
 const lyricHits = ref<LyricHit[]>([]);
+/** Each word of a query that found nothing, with how many hymns it finds. */
+const wordSuggestions = ref<Array<{ word: string; count: number }>>([]);
 const searching = ref(false);
 const titleLimit = ref(PAGE);
 const lyricLimit = ref(PAGE);
@@ -99,6 +106,7 @@ async function runSearch(text: string) {
   if (!q) {
     titleHits.value = [];
     lyricHits.value = [];
+    wordSuggestions.value = [];
     searching.value = false;
     return;
   }
@@ -144,7 +152,60 @@ async function runSearch(text: string) {
         more: r.matchedLines.length - 1,
       };
     });
+  const empty = titles.length === 0 && full.length === 0 && !numberMatch.value;
+  const suggestions = empty
+    ? await suggestWords(q, favoriteIds)
+    : [];
+  if (mySeq !== searchSeq)
+    return;
+  wordSuggestions.value = suggestions;
   searching.value = false;
+}
+
+// Words that say nothing on their own are not offered.
+const STOPWORDS = new Set([
+  "al",
+  "con",
+  "del",
+  "el",
+  "en",
+  "es",
+  "la",
+  "las",
+  "los",
+  "mas",
+  "más",
+  "me",
+  "mi",
+  "nos",
+  "oh",
+  "para",
+  "por",
+  "que",
+  "se",
+  "su",
+  "te",
+  "tu",
+  "tú",
+  "un",
+  "una",
+  "y",
+]);
+
+async function suggestWords(q: string, favoriteIds: number[]) {
+  const words = [
+    ...new Set(q.split(/\s+/).map(w => w.replace(/[^\p{L}\p{N}]/gu, "")).filter(w => w.length >= 3 && !STOPWORDS.has(w.toLowerCase()))),
+  ];
+  if (words.length < 2)
+    return [];
+  const counts = await Promise.all(words.map(async (word) => {
+    const found = await workerSearch(word, { mode: "full", favoriteIds, limit: 400 }) as FullSearchResult[];
+    return { word, count: found.length };
+  }));
+  return counts
+    .filter(c => c.count > 0)
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 4);
 }
 
 const visibleTitles = computed(() => (scope.value === "lyrics"
@@ -153,37 +214,99 @@ const visibleTitles = computed(() => (scope.value === "lyrics"
 const visibleLyrics = computed(() => (scope.value === "titles"
   ? []
   : lyricHits.value));
+const totalHits = computed(() => titleHits.value.length + lyricHits.value.length);
+/** The chosen songbook has nothing at all for a (non-number) query. */
+const noLocalHits = computed(() =>
+  hasQuery.value
+  && !isNumberQuery.value
+  && !searching.value
+  && totalHits.value === 0,
+);
+const elsewhere = useSearchElsewhere(trimmed, noLocalHits);
+const { hits: elsewhereHits, loading: elsewhereLoading } = elsewhere;
+const searchedList = computed(() => {
+  const names = elsewhere.searchedNames.value;
+  return names.length > 1
+    ? `${names.slice(0, -1).join(", ")} y ${names.at(-1)}`
+    : names[0] ?? "";
+});
+const elsewhereBooks = computed(() => [
+  ...new Set(elsewhereHits.value.map(h => h.songbook.name)),
+]);
+const emptyHeadline = computed(() => {
+  if (elsewhereHits.value.length)
+    return `No está en ${songbookName.value}`;
+  if (elsewhereLoading.value)
+    return `Nada en ${songbookName.value} con «${trimmed.value}»`;
+  return `Ningún himno coincide con «${trimmed.value}»`;
+});
+const emptySubline = computed(() => {
+  if (elsewhereHits.value.length) {
+    return elsewhereBooks.value.length === 1
+      ? `Pero lo encontramos en ${elsewhereBooks.value[0]}.`
+      : "Pero lo encontramos en otros himnarios.";
+  }
+  if (elsewhereLoading.value)
+    return "Buscando en los otros himnarios…";
+  return elsewhere.searchedNames.value.length > 1
+    ? `Buscamos en ${searchedList.value}.`
+    : "Revisa la ortografía o prueba con menos palabras.";
+});
+/** Nothing here and nothing in the other songbooks either. */
+const nothingAnywhere = computed(() =>
+  noLocalHits.value && !elsewhere.loading.value && elsewhere.hits.value.length === 0,
+);
 const nothingFound = computed(() =>
   hasQuery.value
   && !searching.value
   && !numberMatch.value
+  && totalHits.value > 0
   && visibleTitles.value.length === 0
   && visibleLyrics.value.length === 0,
 );
 
 // ------------------------------------------------- desktop: selection/preview
-type Picked = { songId: number; blockIndex: number };
+/** A result in the order shown; `songbookId` only for another songbook. */
+type Picked = { songId: number; blockIndex: number; songbookId?: string };
+
+function keyOf(songId: number, songbookId = ""): string {
+  return `${songbookId}:${songId}`;
+}
 
 /** Every visible result, in the order shown, for ↑ ↓ and the preview. */
-const ordered = computed<Picked[]>(() => [
-  ...(numberMatch.value
-    ? [
-        { songId: numberMatch.value.songId, blockIndex: -1 },
-      ]
-    : []),
-  ...visibleTitles.value.slice(0, titleLimit.value).map(s => ({ songId: s.songId, blockIndex: -1 })),
-  ...visibleLyrics.value.slice(0, lyricLimit.value).map(h => ({ songId: h.song.songId, blockIndex: h.blockIndex })),
-]);
-const selectedId = ref<number | null>(null);
+const ordered = computed<Picked[]>(() => noLocalHits.value
+  ? elsewhere.hits.value.map(h => ({ songId: h.song.songId, blockIndex: h.blockIndex, songbookId: h.songbook.id }))
+  : [
+      ...(numberMatch.value
+        ? [
+            { songId: numberMatch.value.songId, blockIndex: -1 },
+          ]
+        : []),
+      ...visibleTitles.value.slice(0, titleLimit.value).map(s => ({ songId: s.songId, blockIndex: -1 })),
+      ...visibleLyrics.value.slice(0, lyricLimit.value).map(h => ({ songId: h.song.songId, blockIndex: h.blockIndex })),
+    ]);
+const selectedKey = ref<string | null>(null);
 // Keep the selection while it is still among the results; else the first.
 watch(ordered, (list) => {
-  if (!list.some(p => p.songId === selectedId.value))
-    selectedId.value = list[0]?.songId ?? null;
+  if (!list.some(p => keyOf(p.songId, p.songbookId) === selectedKey.value)) {
+    const first = list[0];
+    selectedKey.value = first
+      ? keyOf(first.songId, first.songbookId)
+      : null;
+  }
 }, { immediate: true });
-const selected = computed(() => ordered.value.find(p => p.songId === selectedId.value) ?? null);
-const previewSong = computed<Song | null>(() => (selected.value
-  ? songs.value[selected.value.songId - 1] ?? null
+const selected = computed(() => ordered.value.find(p => keyOf(p.songId, p.songbookId) === selectedKey.value) ?? null);
+const selectedHit = computed(() => (selected.value?.songbookId
+  ? elsewhere.hits.value.find(h => h.songbook.id === selected.value!.songbookId && h.song.songId === selected.value!.songId) ?? null
   : null));
+const previewSong = computed<Song | null>(() => {
+  if (!selected.value)
+    return null;
+  if (selected.value.songbookId)
+    return selectedHit.value?.song ?? null;
+  return songs.value[selected.value.songId - 1] ?? null;
+});
+const previewSongbookName = computed(() => selectedHit.value?.songbook.name ?? songbookName.value);
 const previewBlocks = computed(() => (previewSong.value?.blocks ?? [])
   .map((block, index) => ({ block, index }))
   .filter(({ block }) => block.kind !== "citation"));
@@ -208,9 +331,9 @@ function moveSelection(step: number) {
   const list = ordered.value;
   if (!list.length)
     return;
-  const at = list.findIndex(p => p.songId === selectedId.value);
-  const next = Math.max(0, Math.min(list.length - 1, at + step));
-  selectedId.value = list[next]!.songId;
+  const at = list.findIndex(p => keyOf(p.songId, p.songbookId) === selectedKey.value);
+  const next = list[Math.max(0, Math.min(list.length - 1, at + step))]!;
+  selectedKey.value = keyOf(next.songId, next.songbookId);
   nextTick(() => {
     resultsRef.value
       ?.querySelector("[aria-current=\"true\"]")
@@ -226,6 +349,11 @@ function onInputKeydown(e: KeyboardEvent) {
   }
   if (!isLarge.value || !hasQuery.value)
     return;
+  if (e.key === "Enter" && !selected.value && wordSuggestions.value[0]) {
+    e.preventDefault();
+    useSuggestion(wordSuggestions.value[0].word);
+    return;
+  }
   if (e.key === "ArrowDown" || e.key === "ArrowUp") {
     e.preventDefault();
     moveSelection(e.key === "ArrowDown"
@@ -240,7 +368,29 @@ function onInputKeydown(e: KeyboardEvent) {
 
 function sing(pick: Picked) {
   onOpen();
+  if (pick.songbookId) {
+    navigateTo({
+      path: "/himno",
+      query: {
+        himnario: pick.songbookId,
+        n: pick.songId,
+        ...(pick.blockIndex >= 0
+          ? { estrofa: pick.blockIndex }
+          : {}),
+      },
+    });
+    return;
+  }
   songStore.navigateToSong(pick.songId, pick.blockIndex);
+}
+
+function hitPick(hit: ElsewhereHit): Picked {
+  return { songId: hit.song.songId, blockIndex: hit.blockIndex, songbookId: hit.songbook.id };
+}
+
+function useSuggestion(word: string) {
+  query.value = word;
+  inputRef.value?.focus();
 }
 
 function project(pick: Picked) {
@@ -250,7 +400,7 @@ function project(pick: Picked) {
 }
 
 function addToCulto(pick: Picked) {
-  const item = cultoStore.addItem(cultoStore.newHymn(songbookStore.currentId, pick.songId));
+  const item = cultoStore.addItem(cultoStore.newHymn(pick.songbookId ?? songbookStore.currentId, pick.songId));
   useUndoToast().show("Agregado al culto", {
     label: "Deshacer",
     run: () => cultoStore.removeItem(item.id),
@@ -388,7 +538,8 @@ watch([
   titleLimit,
   lyricLimit,
   hasQuery,
-  selectedId,
+  selectedKey,
+  elsewhere.hits,
 ], () => {
   nextTick().then(performMark);
 });
@@ -452,7 +603,7 @@ onMounted(async () => {
         </UInput>
 
         <div
-          v-if="hasQuery && !isNumberQuery"
+          v-if="hasQuery && !isNumberQuery && totalHits > 0"
           class="flex flex-wrap gap-2 lg:flex-nowrap lg:gap-1 lg:rounded-full lg:bg-(--well-bg) lg:p-1"
           role="radiogroup"
           aria-label="Buscar en"
@@ -516,7 +667,7 @@ onMounted(async () => {
       <div
         ref="resultsRef"
         class="context flex-1 min-w-0 overflow-y-auto pad-bar-bottom lg:pb-2"
-        :class="hasQuery ? 'lg:flex-none lg:w-[30rem] lg:rounded-2xl lg:bg-default lg:shadow-card lg:p-2' : ''"
+        :class="hasQuery && !nothingAnywhere ? 'lg:flex-none lg:w-[30rem] lg:rounded-2xl lg:bg-default lg:shadow-card lg:p-2' : ''"
       >
         <!-- ===================== Results ===================== -->
         <template v-if="hasQuery">
@@ -528,9 +679,9 @@ onMounted(async () => {
               v-if="numberMatch"
               :song="numberMatch"
               :selectable="isLarge"
-              :selected="selectedId === numberMatch.songId"
+              :selected="selectedKey === keyOf(numberMatch.songId)"
               @open="onOpen"
-              @select="selectedId = $event"
+              @select="selectedKey = keyOf($event)"
             />
             <p v-else class="px-4 py-3 text-sm opacity-80 no-mark">
               {{ songbookName }} tiene {{ songs.length }} himnos.
@@ -546,9 +697,9 @@ onMounted(async () => {
                 <SongItem
                   :song
                   :selectable="isLarge"
-                  :selected="selectedId === song.songId"
+                  :selected="selectedKey === keyOf(song.songId)"
                   @open="onOpen"
-                  @select="selectedId = $event"
+                  @select="selectedKey = keyOf($event)"
                 />
               </li>
             </ul>
@@ -574,9 +725,9 @@ onMounted(async () => {
                   :tag="[hit.tag, hit.more > 0 ? `${hit.more} ${hit.more === 1 ? 'coincidencia' : 'coincidencias'} más` : ''].filter(Boolean).join(' · ')"
                   :block-index="hit.blockIndex"
                   :selectable="isLarge"
-                  :selected="selectedId === hit.song.songId"
+                  :selected="selectedKey === keyOf(hit.song.songId)"
                   @open="onOpen"
-                  @select="selectedId = $event"
+                  @select="selectedKey = keyOf($event)"
                 />
               </li>
             </ul>
@@ -594,21 +745,149 @@ onMounted(async () => {
             <UIcon name="i-tabler-loader-2" class="size-8 animate-spin text-primary" aria-label="Buscando" />
           </div>
 
+          <!-- A scope (Títulos / Letra) with nothing while the other has hits. -->
           <div v-if="nothingFound && !isNumberQuery" class="flex flex-col items-center text-center gap-2 px-6 py-10 no-mark">
-            <img src="/img/empty-state.webp" alt="Empty state" class="w-20 h-auto opacity-80">
             <p class="text-lg font-bold">
-              Ningún himno de {{ songbookName }} coincide con «{{ trimmed }}»
-            </p>
-            <p class="opacity-80">
-              Revisa la ortografía o prueba con menos palabras.
+              {{ scope === 'titles' ? 'Ningún título' : 'Ninguna letra' }} coincide con «{{ trimmed }}»
             </p>
             <UButton
               color="neutral"
-              variant="ghost"
-              class="mt-2"
-              label="Ver todos los himnos"
-              @click="clearQuery"
+              variant="soft"
+              class="mt-1"
+              :label="`Ver los ${totalHits} resultados`"
+              @click="scope = 'all'"
             />
+          </div>
+
+          <!-- ============ Nothing in this songbook ============ -->
+          <div v-if="noLocalHits" class="flex flex-col gap-5 px-4 py-6 lg:px-2 lg:py-3" data-empty-state>
+            <div
+              class="flex flex-col items-center text-center gap-2 no-mark"
+              :class="nothingAnywhere ? 'lg:py-10' : 'lg:flex-row lg:items-center lg:text-start lg:gap-4 lg:px-2'"
+            >
+              <AppEmptyIllustration class="shrink-0 w-36" :class="nothingAnywhere ? 'lg:w-48' : 'lg:w-28'" />
+              <div class="flex flex-col gap-1 min-w-0">
+                <p class="hidden lg:block text-xs font-bold uppercase tracking-wider text-muted">
+                  {{ songbookName }}: 0 coincidencias
+                </p>
+                <h2 class="text-xl font-bold text-highlighted text-balance">
+                  {{ emptyHeadline }}
+                </h2>
+                <p class="text-muted flex items-center gap-2" :class="nothingAnywhere ? 'justify-center' : 'justify-center lg:justify-start'">
+                  <UIcon v-if="elsewhereLoading && !elsewhereHits.length" name="i-tabler-loader-2" class="size-4 animate-spin" />
+                  {{ emptySubline }}
+                </p>
+              </div>
+            </div>
+
+            <!-- Phone: the first hymn found, ready to sing; the rest as rows. -->
+            <template v-if="!isLarge && elsewhereHits.length">
+              <div class="rounded-2xl bg-default shadow-card p-4 flex flex-col gap-3.5">
+                <div class="flex items-center gap-3.5">
+                  <span class="size-14 shrink-0 rounded-[1.125rem] bg-primary/10 text-primary grid place-items-center text-2xl font-extrabold tabular-nums dark:bg-lime-300/15 dark:text-lime-300">
+                    {{ elsewhereHits[0]!.song.songId }}
+                  </span>
+                  <div class="min-w-0 flex flex-col items-start gap-0.5">
+                    <span class="songbook-badge no-mark">{{ elsewhereHits[0]!.songbook.name }}</span>
+                    <span class="text-lg font-bold leading-snug text-highlighted">{{ elsewhereHits[0]!.song.title }}</span>
+                    <span class="max-w-full font-lyric italic text-sm text-muted truncate">{{ elsewhereHits[0]!.line }}</span>
+                  </div>
+                </div>
+                <UButton
+                  size="lg"
+                  icon="i-tabler-music"
+                  block
+                  class="h-12 no-mark"
+                  :label="`Cantar desde ${elsewhereHits[0]!.songbook.name}`"
+                  @click="sing(hitPick(elsewhereHits[0]!))"
+                />
+                <p class="text-sm text-muted text-center no-mark">
+                  Tu himnario sigue siendo {{ songbookName }}.
+                </p>
+              </div>
+              <section v-if="elsewhereHits.length > 1" aria-labelledby="g-elsewhere-more">
+                <h3 id="g-elsewhere-more" class="group-title px-0! no-mark">
+                  Más en otros himnarios
+                </h3>
+                <ul>
+                  <li v-for="hit in elsewhereHits.slice(1)" :key="`em-${hit.songbook.id}-${hit.song.songId}`" class="border-t border-muted first:border-t-0">
+                    <button type="button" class="w-full flex items-center gap-3 py-2.5 text-start" @click="sing(hitPick(hit))">
+                      <span class="w-12 shrink-0 text-lg font-bold text-primary tabular-nums">{{ hit.song.songId }}</span>
+                      <span class="flex-1 min-w-0 flex flex-col items-start gap-0.5">
+                        <span class="songbook-badge no-mark">{{ hit.songbook.name }}</span>
+                        <span class="max-w-full font-semibold text-highlighted truncate">{{ hit.song.title }}</span>
+                        <span class="max-w-full font-lyric italic text-sm text-muted truncate">{{ hit.line }}</span>
+                      </span>
+                    </button>
+                  </li>
+                </ul>
+              </section>
+            </template>
+
+            <!-- Desktop: rows to choose from; the hymn is shown on the right. -->
+            <section v-if="isLarge && elsewhereHits.length" aria-labelledby="g-elsewhere">
+              <h3 id="g-elsewhere" class="group-title no-mark">
+                En otros himnarios · {{ elsewhereHits.length }}
+              </h3>
+              <ul class="flex flex-col gap-1">
+                <li v-for="hit in elsewhereHits" :key="`el-${hit.songbook.id}-${hit.song.songId}`">
+                  <button
+                    type="button"
+                    class="w-full flex items-center gap-3.5 rounded-2xl px-4 py-2.5 text-start"
+                    :class="selectedKey === keyOf(hit.song.songId, hit.songbook.id) ? 'bg-primary/8 ring-[1.5px] ring-inset ring-primary/35' : 'hover:bg-muted'"
+                    :aria-current="selectedKey === keyOf(hit.song.songId, hit.songbook.id) ? 'true' : undefined"
+                    @click="selectedKey = keyOf(hit.song.songId, hit.songbook.id)"
+                    @dblclick="sing(hitPick(hit))"
+                  >
+                    <span class="w-16 shrink-0 flex flex-col items-center gap-0.5">
+                      <span class="songbook-badge no-mark">{{ hit.songbook.name }}</span>
+                      <span class="text-xl font-extrabold leading-tight text-primary tabular-nums dark:text-lime-300">{{ hit.song.songId }}</span>
+                    </span>
+                    <span class="flex-1 min-w-0 flex flex-col gap-0.5">
+                      <span class="font-semibold text-highlighted truncate">{{ hit.song.title }}</span>
+                      <span class="font-lyric italic text-sm text-muted truncate">{{ hit.line }}</span>
+                    </span>
+                  </button>
+                </li>
+              </ul>
+            </section>
+
+            <!-- Other searches: each word on its own, or every hymn. -->
+            <section
+              v-if="!elsewhereLoading || elsewhereHits.length"
+              aria-labelledby="g-try"
+              class="flex flex-col gap-2.5 no-mark lg:px-2"
+              :class="{ 'items-center': nothingAnywhere }"
+            >
+              <h3 id="g-try" class="text-xs font-bold uppercase tracking-wider text-muted">
+                {{ elsewhereHits.length ? 'O prueba otra búsqueda' : 'Prueba otra búsqueda' }}
+              </h3>
+              <div class="flex flex-wrap gap-2" :class="{ 'justify-center': nothingAnywhere }">
+                <UButton
+                  v-for="s in wordSuggestions"
+                  :key="`w-${s.word}`"
+                  color="neutral"
+                  variant="outline"
+                  icon="i-tabler-search"
+                  class="h-10 rounded-full px-3.5 font-medium"
+                  :aria-label="`Buscar «${s.word}»: ${s.count} ${s.count === 1 ? 'himno' : 'himnos'}`"
+                  @click="useSuggestion(s.word)"
+                >
+                  {{ s.word }}
+                  <span class="tabular-nums text-muted">{{ s.count }}</span>
+                </UButton>
+                <UButton
+                  color="neutral"
+                  variant="outline"
+                  class="h-10 rounded-full px-3.5 font-medium"
+                  label="Todos los himnos"
+                  @click="clearQuery"
+                />
+              </div>
+              <p v-if="!wordSuggestions.length" class="text-sm text-muted" :class="{ 'text-center': nothingAnywhere }">
+                El número, una palabra del título o una frase corta de la letra.
+              </p>
+            </section>
           </div>
         </template>
 
@@ -748,13 +1027,20 @@ onMounted(async () => {
         class="flex-1 min-w-0 flex flex-col rounded-2xl bg-default shadow-card overflow-hidden"
         :aria-label="`Vista previa del himno ${previewSong.songId}`"
       >
+        <div
+          v-if="selected.songbookId"
+          class="flex items-center gap-2.5 px-7 py-2.5 bg-aqua-50 text-aqua-800 text-sm font-medium no-mark dark:bg-aqua-950 dark:text-aqua-200"
+        >
+          <UIcon name="i-tabler-info-circle" class="size-5 shrink-0" />
+          Este himno es de {{ previewSongbookName }}. Se abre desde allí, sin cambiar tu himnario.
+        </div>
         <header class="flex flex-wrap items-center gap-x-5 gap-y-3 px-7 pt-6 pb-5 border-b border-muted">
           <span class="min-w-18 h-18 px-3 rounded-2xl bg-primary/10 text-primary grid place-items-center text-3xl font-extrabold tabular-nums dark:bg-lime-300/15 dark:text-lime-300">
             {{ previewSong.songId }}
           </span>
           <div class="flex-[1_1_16rem] min-w-0">
             <p class="text-xs font-bold uppercase tracking-wider text-muted">
-              {{ songbookName }} · {{ previewSummary }}
+              {{ previewSongbookName }} · {{ previewSummary }}
             </p>
             <h2 class="mt-1 text-2xl font-bold leading-tight text-highlighted text-balance">
               {{ previewSong.title }}
@@ -772,6 +1058,7 @@ onMounted(async () => {
               @click="sing(selected)"
             />
             <UButton
+              v-if="!selected.songbookId"
               size="lg"
               color="neutral"
               variant="soft"
@@ -790,6 +1077,7 @@ onMounted(async () => {
               @click="addToCulto(selected)"
             />
             <UButton
+              v-if="!selected.songbookId"
               size="lg"
               :color="isFavorite(previewSong.songId) ? 'secondary' : 'neutral'"
               variant="soft"
@@ -829,7 +1117,7 @@ onMounted(async () => {
 
         <footer class="flex flex-wrap items-center gap-x-5 gap-y-1 px-7 py-3 border-t border-muted text-sm text-muted no-mark">
           <span class="inline-flex items-center gap-1"><UKbd value="↑" /><UKbd value="↓" /> elegir</span>
-          <span class="inline-flex items-center gap-1"><UKbd value="Enter" /> o doble clic: cantar</span>
+          <span class="inline-flex items-center gap-1"><UKbd value="Enter" /> o doble clic: cantar<template v-if="selected.songbookId"> desde {{ previewSongbookName }}</template></span>
           <span class="inline-flex items-center gap-1"><UKbd value="/" /> buscar</span>
           <span class="inline-flex items-center gap-1"><UKbd value="Esc" /> borrar</span>
         </footer>
@@ -849,6 +1137,18 @@ onMounted(async () => {
 }
 .no-scrollbar {
   scrollbar-width: none;
+}
+/* The songbook a hymn of another one comes from. */
+.songbook-badge {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 1.3;
+  border-radius: 0.375rem;
+  padding: 0.0625rem 0.375rem;
+  color: var(--color-aqua-700);
+  background: var(--color-aqua-100);
 }
 /* Desktop preview: blocks flow in two columns, never split. */
 .preview-lyric {
@@ -888,5 +1188,14 @@ onMounted(async () => {
   color: inherit;
   border-radius: 2px;
   padding: 0 1px;
+}
+</style>
+
+<style>
+/* Dark mode, unscoped (`:global(.dark) .x` compiles to `.dark` alone);
+   `html` outranks the scoped light values. */
+html.dark .songbook-badge {
+  color: var(--color-aqua-200);
+  background: var(--color-aqua-950);
 }
 </style>

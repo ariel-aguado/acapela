@@ -17,7 +17,7 @@ const left = [
     to: "/search",
     label: "Buscar",
     icon: "tabler:search",
-    match: ["/search", "/fully-search"],
+    match: ["/search", "/fully-search", "/himno"],
   },
 ];
 const right = [

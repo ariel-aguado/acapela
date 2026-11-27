@@ -14,6 +14,7 @@ const titles: Record<string, string> = {
   "/": "Inicio",
   "/search": "Buscar",
   "/fully-search": "Buscar",
+  "/himno": "Himno de otro himnario",
   "/favorites": "Favoritos",
   "/settings": "Ajustes",
   "/about": "Acerca de",
@@ -50,7 +51,7 @@ const sections = [
     to: "/search",
     label: "Buscar",
     icon: "i-tabler-search",
-    match: ["/search", "/fully-search"],
+    match: ["/search", "/fully-search", "/himno"],
   },
   {
     to: "/favorites",
