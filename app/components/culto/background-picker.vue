@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Background, ScreenMoment } from "~~/lib/culto";
 
-import { GALLERY, galleryThumb } from "~/utils/culto/backgrounds";
+import { GALLERY, galleryThumb, isLightGallery } from "~/utils/culto/backgrounds";
 import { importImage, mediaUrl } from "~/utils/culto/media";
 
 // What is behind the text: one of Acapela's gallery (the ones for this
@@ -57,22 +57,32 @@ const CROSS: Tile = {
   thumb: "/img/background-fullscreen.webp",
   value: { kind: "acapela" },
 };
+// Dark and light ones apart: dark text goes on the light ones.
+const tone = ref<"dark" | "light">(model.value?.kind === "gallery" && isLightGallery(model.value.id)
+  ? "light"
+  : "dark");
+const toneItems = [
+  { label: "Oscuros", value: "dark" },
+  { label: "Claros", value: "light" },
+];
 const tiles = computed(() => {
-  const all: Tile[] = GALLERY.map(g => ({
-    key: g.id,
-    label: g.label,
-    thumb: galleryThumb(g.id),
-    value: { kind: "gallery", id: g.id },
-  }));
+  const all: Tile[] = GALLERY
+    .filter(g => !!g.light === (tone.value === "light"))
+    .map(g => ({
+      key: g.id,
+      label: g.label,
+      thumb: galleryThumb(g.id),
+      value: { kind: "gallery", id: g.id },
+    }));
   const mine = props.moment
     ? all.filter(t => GALLERY.find(g => g.id === t.key)!.for.includes(props.moment!))
     : [];
+  const rest = all.filter(t => !mine.includes(t));
   return {
     mine,
-    rest: [
-      CROSS,
-      ...all.filter(t => !mine.includes(t)),
-    ],
+    rest: tone.value === "dark"
+      ? [CROSS, ...rest]
+      : rest,
   };
 });
 function isChosen(tile: Tile) {
@@ -140,6 +150,14 @@ watchEffect(async () => {
     />
     <!-- The gallery -->
     <div v-if="kind === 'gallery'" class="flex flex-col gap-3">
+      <UTabs
+        v-model="tone"
+        :items="toneItems"
+        :content="false"
+        size="sm"
+        class="w-full sm:w-64"
+        aria-label="Fondos oscuros o claros"
+      />
       <template v-for="group in [{ name: momentLabel ? `Para ${momentLabel}` : '', list: tiles.mine }, { name: tiles.mine.length ? 'Más fondos' : '', list: tiles.rest }]" :key="group.name">
         <div v-if="group.list.length" class="flex flex-col gap-1.5">
           <p v-if="group.name" class="text-xs font-bold uppercase tracking-wider text-muted">

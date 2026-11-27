@@ -1,6 +1,6 @@
 import type { Background, CultoItem, Look, ProjectionTheme } from "~~/lib/culto";
 
-import { galleryUrl } from "~/utils/culto/backgrounds";
+import { galleryUrl, isLightGallery } from "~/utils/culto/backgrounds";
 import { PROJECTION_FONTS } from "~~/lib/culto";
 
 /** Relative luminance of a #rrggbb colour (0 black – 1 white). */
@@ -20,7 +20,8 @@ export function luminance(hex: string): number {
 /** The look of an element's screens: its own background or the theme's. */
 export function resolveLook(theme: ProjectionTheme, item?: Pick<CultoItem, "background">): Look {
   const background: Background = item?.background ?? theme.background;
-  const darkText = background.kind === "color" && luminance(background.color) > 0.45;
+  const darkText = (background.kind === "color" && luminance(background.color) > 0.45)
+    || (background.kind === "gallery" && isLightGallery(background.id));
   // A light accent on a light background would not be read.
   const accent = darkText && luminance(theme.accent) > 0.6
     ? "#1b1a22"
@@ -44,8 +45,12 @@ export function lookVars(look: Look | undefined, imageUrl: string | null): Recor
     vars["--proj-bg"] = look.background.color;
   }
   else if (look.background.kind === "gallery") {
-    // Already dark in the middle: a lighter veil than a photo needs.
-    vars["--proj-bg"] = `linear-gradient(rgba(0, 0, 0, 0.12), rgba(0, 0, 0, 0.22)), url("${galleryUrl(look.background.id)}") center / cover no-repeat`;
+    // Already calm in the middle: a lighter veil than a photo needs (a
+    // light one on the light pictures, under dark text).
+    const veil = isLightGallery(look.background.id)
+      ? "rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.2)"
+      : "rgba(0, 0, 0, 0.12), rgba(0, 0, 0, 0.22)";
+    vars["--proj-bg"] = `linear-gradient(${veil}), url("${galleryUrl(look.background.id)}") center / cover no-repeat`;
   }
   else if (look.background.kind === "image") {
     vars["--proj-bg"] = imageUrl

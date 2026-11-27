@@ -117,14 +117,44 @@ async function exportCurrent() {
   const file = await exportCulto(toRaw(current.value), toRaw(culto.theme));
   const how = await shareOrDownload(file);
   if (how === "downloaded")
-    toast(`Se descargó «${file.name}». Ábrelo en el otro dispositivo desde ⋯ › Abrir un culto recibido.`, undefined, 8000);
+    toast(`Se guardó «${file.name}». Para cargarlo, en cualquier dispositivo: Culto › Abrir archivo (o arrástralo a la página).`, undefined, 9000);
 }
 
 async function onImportFile(e: Event) {
   const file = (e.target as HTMLInputElement).files?.[0];
   (e.target as HTMLInputElement).value = "";
+  if (file)
+    await openFile(file);
+}
+
+// A service file dropped anywhere on the page opens too.
+const dropping = ref(false);
+function hasFiles(e: DragEvent) {
+  return [
+    ...(e.dataTransfer?.types ?? []),
+  ].includes("Files");
+}
+function onDragOver(e: DragEvent) {
+  if (!hasFiles(e))
+    return;
+  e.preventDefault();
+  dropping.value = true;
+}
+function onDragLeave(e: DragEvent) {
+  if (e.relatedTarget === null || !(e.currentTarget as HTMLElement).contains(e.relatedTarget as Node))
+    dropping.value = false;
+}
+async function onDrop(e: DragEvent) {
+  dropping.value = false;
+  const file = e.dataTransfer?.files?.[0];
   if (!file)
     return;
+  e.preventDefault();
+  await openFile(file);
+}
+
+/** Opens a service file: it is added, chosen and ready to project. */
+async function openFile(file: File) {
   try {
     const { culto: received, theme } = await importCulto(file);
     culto.cultos = [...culto.cultos, received];
@@ -133,7 +163,10 @@ async function onImportFile(e: Event) {
     const own = culto.theme;
     if (theme && !own.churchName && !own.logoId && own.background.kind === "acapela")
       culto.setTheme(theme);
-    toast(`Se abrió «${received.title}».`);
+    toast(`Se abrió «${received.title}». Listo para proyectar.`, {
+      label: "Iniciar culto",
+      run: () => navigateTo("/culto/vivo"),
+    }, 9000);
   }
   catch (err) {
     toast(err instanceof Error
@@ -164,12 +197,12 @@ const cultoMenu = computed(() => [
   ],
   [
     {
-      label: "Enviar a otro dispositivo",
+      label: "Guardar o enviar este culto",
       icon: "i-tabler-share",
       onSelect: exportCurrent,
     },
     {
-      label: "Abrir un culto recibido…",
+      label: "Abrir archivo de culto…",
       icon: "i-tabler-file-import",
       onSelect: () => importInput.value?.click(),
     },
@@ -332,7 +365,7 @@ function addMenu(target: Target) {
         onSelect: () => place(culto.newReading("", bible.currentId), target),
       },
       {
-        label: "Diapositivas",
+        label: "Diapositivas (PDF o imágenes)",
         icon: "i-tabler-slideshow",
         onSelect: () => pickSlidesFor(target),
       },
@@ -509,7 +542,7 @@ function sectionMenu(section: CultoSection) {
         onSelect: () => pickHymnFor(target),
       },
       {
-        label: "Diapositivas",
+        label: "Diapositivas (PDF o imágenes)",
         icon: "i-tabler-slideshow",
         onSelect: () => pickSlidesFor(target),
       },
@@ -536,7 +569,22 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="page-scroll">
+  <div
+    class="page-scroll relative"
+    @dragover="onDragOver"
+    @dragleave="onDragLeave"
+    @drop="onDrop"
+  >
+    <!-- A service file being dragged over the page. -->
+    <div
+      v-if="dropping"
+      class="pointer-events-none fixed inset-4 z-50 grid place-items-center rounded-3xl border-4 border-dashed border-primary bg-primary/10 backdrop-blur-sm"
+    >
+      <p class="flex items-center gap-3 rounded-2xl bg-default px-6 py-4 text-lg font-semibold shadow-card">
+        <UIcon name="i-tabler-file-import" class="size-7 text-primary" />
+        Suelta el archivo para abrir el culto
+      </p>
+    </div>
     <div class="w-full max-w-7xl mx-auto px-4 py-4 flex flex-col gap-5">
       <!-- The service -->
       <header class="flex flex-wrap items-start gap-3">
@@ -578,6 +626,28 @@ onMounted(() => {
           </p>
         </div>
         <div class="flex items-center gap-2 sm:pt-0.5">
+          <!-- Save the service as a file to send it, or open one received
+            (NN/g: frequent actions in sight, not only in a menu). -->
+          <UButton
+            color="neutral"
+            variant="outline"
+            size="xl"
+            icon="i-tabler-share"
+            class="hidden md:inline-flex"
+            label="Guardar o enviar"
+            title="Un archivo con este culto, su tema e imágenes, para abrirlo en otro dispositivo"
+            @click="exportCurrent"
+          />
+          <UButton
+            color="neutral"
+            variant="outline"
+            size="xl"
+            icon="i-tabler-file-import"
+            class="hidden md:inline-flex"
+            label="Abrir archivo"
+            title="Abrir un culto guardado o recibido (también puedes arrastrarlo a la página)"
+            @click="importInput?.click()"
+          />
           <UDropdownMenu :items="cultoMenu">
             <UButton
               color="neutral"
@@ -829,7 +899,7 @@ onMounted(() => {
               color="neutral"
               variant="outline"
               icon="i-tabler-slideshow"
-              label="Diapositivas"
+              label="Diapositivas (PDF o imágenes)"
               :loading="!!importing"
               @click="pickSlidesFor(null)"
             />

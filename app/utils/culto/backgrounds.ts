@@ -10,6 +10,8 @@ export type GalleryBackground = {
   label: string;
   /** Moments it suits; "reading" for Bible readings. Empty: any screen. */
   for: (ScreenMoment | "reading")[];
+  /** Light: the text on it is dark. */
+  light?: boolean;
 };
 
 export const GALLERY: GalleryBackground[] = [
@@ -89,7 +91,61 @@ export const GALLERY: GalleryBackground[] = [
     for: ["farewell"],
   },
   { id: "general-suave", label: "Suave", for: [] },
+  // Light ones, for dark text.
+  {
+    id: "claro-cena-lino",
+    label: "Copa y pan, claro",
+    for: ["supper"],
+    light: true,
+  },
+  {
+    id: "claro-ofrenda-trigal",
+    label: "Trigal claro",
+    for: ["offering"],
+    light: true,
+  },
+  {
+    id: "claro-palabra-pagina",
+    label: "Página abierta",
+    for: ["sermon", "reading"],
+    light: true,
+  },
+  {
+    id: "claro-bienvenida-manana",
+    label: "Mañana",
+    for: ["welcome"],
+    light: true,
+  },
+  {
+    id: "claro-oracion-nubes",
+    label: "Nubes",
+    for: ["prayer"],
+    light: true,
+  },
+  {
+    id: "claro-anuncios-formas",
+    label: "Formas claras",
+    for: ["notices"],
+    light: true,
+  },
+  {
+    id: "claro-despedida-mar",
+    label: "Mar al atardecer",
+    for: ["farewell"],
+    light: true,
+  },
+  {
+    id: "claro-suave",
+    label: "Claro suave",
+    for: [],
+    light: true,
+  },
 ];
+
+/** Whether a gallery background is light (its text goes dark). */
+export function isLightGallery(id: string): boolean {
+  return !!GALLERY.find(g => g.id === id)?.light;
+}
 
 export function galleryUrl(id: string): string {
   return `/img/culto/fondos/${id}.webp`;

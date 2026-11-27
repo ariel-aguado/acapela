@@ -329,6 +329,103 @@ const SCENES = {
     ${finish}`,
 }
 
+// ------------------------------------------------------------ light scenes
+// For dark text: luminous and calm in the middle, the subject in soft ink at
+// an edge. The app knows them as light (app/utils/culto/backgrounds.ts).
+
+const finishLight = `<rect width="${W}" height="${H}" fill="url(#vignetteLight)"/><rect width="${W}" height="${H}" filter="url(#grain)" opacity="0.6"/>`
+const defsLight = `${defs}
+  <radialGradient id="vignetteLight" cx="50%" cy="50%" r="80%">
+    <stop offset="60%" stop-color="#5a4a30" stop-opacity="0"/>
+    <stop offset="100%" stop-color="#5a4a30" stop-opacity="0.16"/>
+  </radialGradient>`
+
+Object.assign(SCENES, {
+  "claro-cena-lino": () => `
+    <defs>${defsLight}${linear("bg", [[0, "#fbf6ec"], [1, "#efe3cc"]], 1, 1)}</defs>
+    <rect width="${W}" height="${H}" fill="url(#bg)"/>
+    ${glow(1500, 300, 420, "#ffffff", 0.7)}
+    <g fill="none" stroke="#9c7440" stroke-width="5" opacity="0.7" stroke-linecap="round">
+      <path d="M1480 650 Q1482 790 1560 806 Q1638 790 1640 650 Z"/>
+      <path d="M1560 806 V880 M1490 892 Q1560 872 1630 892"/>
+      <ellipse cx="1760" cy="870" rx="115" ry="42"/>
+      <path d="M1690 858 l26 18 M1745 850 l28 22 M1800 858 l24 18"/>
+    </g>
+    <rect x="0" y="928" width="${W}" height="${H - 928}" fill="#e6d6b8" opacity="0.6"/>
+    ${finishLight}`,
+
+  "claro-ofrenda-trigal": () => {
+    const r = rng(41)
+    let field = ""
+    for (let i = 0; i < 130; i++)
+      field += wheat(-40 + r() * (W + 80), H + 60, 200 + r() * 220, -40 + r() * 80, i % 3 ? "#d9b06a" : "#c99a4f", 0.75)
+    return `
+    <defs>${defsLight}${linear("sky", [[0, "#fdfaf2"], [0.7, "#f8ecd2"], [1, "#f1d9a6"]])}</defs>
+    <rect width="${W}" height="${H}" fill="url(#sky)"/>
+    ${glow(960, 760, 420, "#fff6dc", 0.8)}
+    ${field}
+    ${finishLight}`
+  },
+
+  "claro-palabra-pagina": () => `
+    <defs>${defsLight}
+      <filter id="paperLight"><feTurbulence type="fractalNoise" baseFrequency="0.006" numOctaves="4" seed="9"/><feColorMatrix type="matrix" values="0 0 0 0 0.55  0 0 0 0 0.45  0 0 0 0 0.3  0 0 0 0.12 0"/></filter>
+    </defs>
+    <rect width="${W}" height="${H}" fill="#f7f1e4"/>
+    <rect width="${W}" height="${H}" filter="url(#paperLight)"/>
+    <path d="M560 960 Q760 900 960 935 Q1160 900 1360 960" fill="none" stroke="#8c6c3e" stroke-width="5" opacity="0.7"/>
+    <path d="M960 935 L960 975" stroke="#8c6c3e" stroke-width="4" opacity="0.6"/>
+    <path d="M600 990 Q780 940 960 970 Q1140 940 1320 990" fill="none" stroke="#8c6c3e" stroke-width="4" opacity="0.5"/>
+    ${finishLight}`,
+
+  "claro-bienvenida-manana": () => `
+    <defs>${defsLight}${linear("sky", [[0, "#eef4fb"], [0.6, "#fbefe4"], [1, "#fde2c8"]])}</defs>
+    <rect width="${W}" height="${H}" fill="url(#sky)"/>
+    ${glow(1450, 760, 360, "#fff3d6", 0.9)}
+    <path d="M0 880 Q300 800 620 850 T1280 830 T1920 860 V1080 H0 Z" fill="#e6d3e6" opacity="0.8"/>
+    <path d="M0 950 Q420 890 880 930 T1920 940 V1080 H0 Z" fill="#d9c2dc" opacity="0.8"/>
+    <path d="M0 1010 Q520 975 1000 1000 T1920 1005 V1080 H0 Z" fill="#cbb1d0"/>
+    ${finishLight}`,
+
+  "claro-oracion-nubes": () => `
+    <defs>${defsLight}${linear("sky", [[0, "#f1eefb"], [1, "#e4ddf5"]])}</defs>
+    <rect width="${W}" height="${H}" fill="url(#sky)"/>
+    ${glow(380, 260, 260, "#ffffff", 0.9, "blur60")}
+    ${glow(620, 300, 220, "#ffffff", 0.8, "blur60")}
+    ${glow(1500, 860, 300, "#ffffff", 0.9, "blur60")}
+    ${glow(1760, 820, 220, "#ffffff", 0.8, "blur60")}
+    ${glow(960, 120, 300, "#fff4dc", 0.6)}
+    ${finishLight}`,
+
+  "claro-anuncios-formas": () => `
+    <defs>${defsLight}${linear("bg", [[0, "#ffffff"], [1, "#f4f2fe"]], 1, 1)}</defs>
+    <rect width="${W}" height="${H}" fill="url(#bg)"/>
+    ${glow(260, 200, 300, "#d7cff9", 0.8)}
+    ${glow(1700, 920, 340, "#d5f4fa", 0.9)}
+    ${glow(1650, 160, 200, "#ffe9d4", 0.9)}
+    <g fill="none" stroke="#9583ea" stroke-width="3" opacity="0.25">
+      <rect x="1400" y="120" width="380" height="380" rx="80" transform="rotate(14 1590 310)"/>
+      <circle cx="220" cy="900" r="170"/>
+    </g>
+    ${finishLight}`,
+
+  "claro-despedida-mar": () => `
+    <defs>${defsLight}${linear("sky", [[0, "#fbf3ee"], [0.6, "#fbe2d2"], [1, "#f7cdb3"]])}${linear("sea", [[0, "#dfe8f0"], [1, "#cfdbe6"]])}</defs>
+    <rect width="${W}" height="740" fill="url(#sky)"/>
+    ${glow(960, 720, 300, "#fff1d8", 0.9)}
+    <circle cx="960" cy="740" r="90" fill="#fff3dd" opacity="0.95"/>
+    <rect x="0" y="740" width="${W}" height="${H - 740}" fill="url(#sea)"/>
+    <g stroke="#ffffff" stroke-width="3" opacity="0.7"><path d="M880 780 h160 M860 830 h200 M840 890 h240"/></g>
+    ${finishLight}`,
+
+  "claro-suave": () => `
+    <defs>${defsLight}${linear("bg", [[0, "#fbfaf7"], [1, "#f1efe8"]], 1, 1)}</defs>
+    <rect width="${W}" height="${H}" fill="url(#bg)"/>
+    ${glow(1500, 260, 420, "#efe8ff", 0.8)}
+    ${glow(300, 900, 380, "#e6f4f6", 0.8)}
+    ${finishLight}`,
+})
+
 // ------------------------------------------------------------ rendering
 
 const only = process.argv.slice(2)
