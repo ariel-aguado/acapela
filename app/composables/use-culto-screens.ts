@@ -266,8 +266,11 @@ async function screenPages(item: ScreenItem, theme: ProjectionTheme, prefix = ""
 async function readingPages(item: ReadingItem, theme: ProjectionTheme, prefix = ""): Promise<Natural> {
   const bible = useBibleStore();
   const passage = await bible.passage(item.reference, item.versionId || undefined);
-  if (!passage || !passage.verses.length)
-    throw new Error(`No reconozco la cita «${item.reference}».`);
+  if (!passage || !passage.verses.length) {
+    throw new Error(item.reference.trim()
+      ? `No reconozco la cita «${item.reference}».`
+      : "Elige la cita.");
+  }
   const version = bible.versions.find(v => v.id === passage.versionId)?.label ?? "";
   const base: PageScreen = {
     type: "page",

@@ -22,6 +22,8 @@ const emit = defineEmits<{
   next: [];
   /** Choose the previous element (← on its first screen). */
   prev: [];
+  /** Go to the field that gives it its screens (a reading's passage). */
+  complete: [];
 }>();
 
 const culto = useCultoStore();
@@ -141,6 +143,42 @@ watch(() => active.value?.key, (key) => {
   nextTick(() => stripRef.value?.querySelector(`[data-screen="${CSS.escape(key ?? "")}"]`)?.scrollIntoView({ block: "nearest", inline: "nearest" }));
 });
 
+/** What the stage waits for when the element has no screens yet. */
+const waiting = computed(() => {
+  const { item, status, error } = props.entry;
+  if (status === "loading") {
+    return {
+      icon: "i-tabler-loader-2",
+      spin: true,
+      title: "Preparando las pantallas…",
+      text: "Se reparten a la medida del proyector.",
+    };
+  }
+  if (item.kind === "reading" && !item.reference.trim()) {
+    return {
+      icon: "i-tabler-book-2",
+      title: "Elige la cita",
+      text: "Escríbela en «Cita», en el panel de al lado (Juan 3:16, sal23 1-6, 1co 13…), o búscala con «Elegir».",
+      action: "Elegir la cita",
+      actionIcon: "i-tabler-pencil",
+    };
+  }
+  if (item.kind === "reading" && status === "error") {
+    return {
+      icon: "i-tabler-alert-triangle",
+      title: "No reconozco esa cita",
+      text: `«${item.reference}»: revisa el libro, el capítulo y los versículos.`,
+      action: "Corregir la cita",
+      actionIcon: "i-tabler-pencil",
+    };
+  }
+  if (status === "error")
+    return { icon: "i-tabler-alert-triangle", title: "No se pudo preparar", text: error ?? "" };
+  if (item.kind === "slides")
+    return { icon: "i-tabler-presentation", title: "Todavía no hay diapositivas", text: "Agrégalas con «Agregar PDF o imágenes», en el panel de al lado." };
+  return { icon: "i-tabler-layout-cards", title: "Todavía no hay pantallas", text: "Completa el contenido en el panel de al lado." };
+});
+
 const nextLook = computed(() => (props.next
   ? itemLook(props.next.item)
   : null));
@@ -171,6 +209,35 @@ const nextTitle = computed(() => {
       <span v-if="active.hidden" class="pointer-events-none absolute inset-0 grid place-items-center text-base font-bold">
         Oculta · no se proyecta
       </span>
+    </div>
+
+    <!-- No screens yet: the stage keeps its size and says what it waits
+      for (NN/g: visibility of system status, empty states that guide). -->
+    <div v-else class="relative grid aspect-video place-items-center p-6 text-center">
+      <div class="pointer-events-none absolute inset-3 rounded-xl border-2 border-dashed border-white/15" aria-hidden="true" />
+      <p class="absolute top-3 left-3 inline-flex max-w-[85%] items-center gap-2 rounded-full bg-black/60 py-1 ps-1 pe-3.5 text-sm font-semibold">
+        <CultoMomentTile :item="entry.item" size="sm" />
+        <span class="truncate">{{ look.label }}</span>
+      </p>
+      <div class="relative flex max-w-sm flex-col items-center gap-3" aria-live="polite">
+        <span class="grid size-14 place-items-center rounded-2xl bg-white/10">
+          <UIcon :name="waiting.icon" class="size-7" :class="{ 'animate-spin': waiting.spin }" />
+        </span>
+        <p class="text-lg font-semibold">
+          {{ waiting.title }}
+        </p>
+        <p class="text-sm text-white/70">
+          {{ waiting.text }}
+        </p>
+        <UButton
+          v-if="waiting.action"
+          size="md"
+          class="mt-1 bg-(--color-tangerine-400) text-(--color-tangerine-950) hover:bg-(--color-tangerine-300)"
+          :icon="waiting.actionIcon"
+          :label="waiting.action"
+          @click="emit('complete')"
+        />
+      </div>
     </div>
 
     <!-- What can be done with it -->
@@ -226,6 +293,7 @@ const nextTitle = computed(() => {
     <!-- The strip and the count; under them, the next element. -->
     <div class="flex flex-wrap items-center gap-x-3 gap-y-1 py-2 ps-1.5 pe-3">
       <div
+        v-if="entry.all.length"
         ref="strip"
         v-scroll-fade-x
         class="no-bar flex-[1_1_16rem] min-w-0 overflow-x-auto"
@@ -275,7 +343,7 @@ const nextTitle = computed(() => {
         </VueDraggable>
       </div>
 
-      <span class="shrink-0 text-sm font-semibold tabular-nums text-white/80" aria-live="polite">
+      <span v-if="entry.all.length" class="shrink-0 text-sm font-semibold tabular-nums text-white/80" aria-live="polite">
         <template v-if="active && !active.hidden">{{ projectedNumber(active) }} / {{ visible.length }}</template>
         <template v-else>{{ visible.length }} {{ visible.length === 1 ? 'pantalla' : 'pantallas' }}</template>
       </span>

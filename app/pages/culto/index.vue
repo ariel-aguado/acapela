@@ -575,6 +575,14 @@ const looks = computed(() => new Map(items.value.map(i => [
   itemLook(i),
 ])));
 const hymnCount = computed(() => items.value.filter(i => i.kind === "hymn").length);
+/** The chosen element's first field to fill (a reading's passage), focused. */
+function focusEditorField() {
+  const field = document.querySelector<HTMLInputElement>("#c-selected input[role='combobox'], #c-selected input, #c-selected textarea");
+  field?.scrollIntoView({ block: "center", behavior: "smooth" });
+  field?.focus({ preventScroll: true });
+  field?.select();
+}
+
 /** Room for an element's name over its segment in the map, in rem. */
 function mapLabelBasis(label: string | undefined) {
   return Math.max(1.25, (label?.length ?? 0) * 0.42 + 0.5);
@@ -1127,7 +1135,7 @@ onMounted(() => {
             <!-- Sticky 1rem from the window's top: the page box has the bar's
               height as top padding, but the bar goes up with the page. -->
             <div class="flex flex-col gap-3 min-w-0" :class="{ 'sticky top-[calc(1rem-var(--bar-top))] z-10': isWide }">
-              <p v-if="selected.status === 'error'" class="rounded-2xl bg-warning/10 text-warning px-4 py-3 text-sm font-medium">
+              <p v-if="selected.status === 'error' && selected.all.length" class="rounded-2xl bg-warning/10 text-warning px-4 py-3 text-sm font-medium">
                 {{ selected.error }}
               </p>
               <CultoPanel title="Pantallas" icon="i-tabler-device-desktop" body-class="p-3">
@@ -1137,15 +1145,12 @@ onMounted(() => {
                   </template>
                 </template>
                 <CultoScreenManager
-                  v-if="selected.all.length"
                   :entry="selected"
                   :next="nextEntry"
                   @next="nextEntry && choose(nextEntry.item.id)"
                   @prev="prevEntry && choose(prevEntry.item.id)"
+                  @complete="focusEditorField"
                 />
-                <div v-else-if="selected.status === 'loading'" class="aspect-video rounded-xl bg-muted grid place-items-center">
-                  <UIcon name="i-tabler-loader-2" class="size-8 animate-spin opacity-60" aria-label="Preparando" />
-                </div>
               </CultoPanel>
             </div>
             <div class="rounded-2xl p-4 bg-default shadow-card">

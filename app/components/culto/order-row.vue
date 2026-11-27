@@ -24,6 +24,8 @@ const emit = defineEmits<{
 const look = computed(() => itemLook(props.entry.item));
 const title = computed(() => rowTitle(props.entry));
 const spoken = computed(() => spokenLabel(props.entry));
+/** A reading just added, still without its passage: waiting, not wrong. */
+const missingPassage = computed(() => props.entry.item.kind === "reading" && !props.entry.item.reference.trim());
 </script>
 
 <template>
@@ -51,11 +53,12 @@ const spoken = computed(() => spokenLabel(props.entry));
         <span class="text-xs text-muted truncate">
           <span class="font-semibold text-(--m-label)" :class="`moment--${look.tone}`">{{ look.label }}</span>
           <template v-if="entry.status === 'ready'"> · {{ entry.screens.length }} {{ entry.screens.length === 1 ? 'pantalla' : 'pantallas' }}</template>
+          <template v-if="missingPassage"> · elige la cita</template>
           <template v-if="entry.item.inserted"> · insertado en vivo</template>
         </span>
       </span>
       <UIcon
-        v-if="entry.status === 'error'"
+        v-if="entry.status === 'error' && !missingPassage"
         name="i-tabler-alert-triangle"
         class="size-5 text-warning shrink-0"
         :aria-label="entry.error"
