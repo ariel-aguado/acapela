@@ -291,8 +291,8 @@ onMounted(() => {
 
 <template>
   <div class="flex flex-col gap-4">
-    <!-- What is being edited, always in sight. -->
-    <header class="editor-head sticky top-0 z-10 -mx-4 -mt-4 flex items-center gap-3 rounded-t-2xl border-b border-muted bg-default px-4 py-3">
+    <!-- What is being edited. -->
+    <header class="editor-head -mx-4 -mt-4 flex items-center gap-3 rounded-t-2xl border-b border-muted bg-default px-4 py-3">
       <CultoMomentTile :item="item" />
       <div class="flex min-w-0 flex-1 flex-col">
         <h2 class="truncate font-semibold text-highlighted">

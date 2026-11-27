@@ -154,7 +154,7 @@ async function key(page, k, code = k, vk = k.toUpperCase().charCodeAt(0)) {
   await sleep(400)
 }
 const right = page => key(page, "ArrowRight", "ArrowRight", 39)
-const liveLabel = page => page.evaluate(`document.querySelector('#v-live')?.innerText ?? ''`)
+const liveLabel = page => page.evaluate(`(document.querySelector('#v-live')?.innerText ?? '').toUpperCase()`)
 function check(ok, msg) {
   ok ? pass(msg) : fail(msg)
 }
@@ -202,7 +202,7 @@ try {
   // Live console
   await page.goto(`${ORIGIN}/culto/vivo`)
   await page.waitFor("document.querySelector('#v-live')", 20000)
-  await page.waitFor(`document.querySelector('#v-live').innerText.includes('NOS ALEGRA')`, 20000)
+  await page.waitFor(`document.querySelector('#v-live').innerText.toUpperCase().includes('NOS ALEGRA')`, 20000)
   pass("la consola empieza por la bienvenida")
   await right(page)
   check((await liveLabel(page)).includes("12"), `→ pasa al himno: ${await liveLabel(page)}`)
@@ -219,7 +219,7 @@ try {
   pass("«jn 3:16» se reconoce como Juan 3:16")
   await shot(page, "insertar")
   await page.evaluate(`[...document.querySelectorAll('[role=dialog] button')].find(b => b.innerText.trim() === 'Insertar').click()`)
-  await page.waitFor(`document.querySelector('#v-live').innerText.includes('JUAN 3:16')`, 20000)
+  await page.waitFor(`document.querySelector('#v-live').innerText.toUpperCase().includes('JUAN 3:16')`, 20000)
   pass("insertado ahora: en pantalla Juan 3:16")
   // The console ignores keys while a dialog is open, and it is still
   // closing (its leave transition) right after "Insertar".

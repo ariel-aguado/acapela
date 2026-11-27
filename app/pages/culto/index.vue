@@ -53,6 +53,17 @@ async function choose(id: string) {
   }
 }
 
+// On a computer, the chosen element stays in sight in the order: going to
+// the next one from the screens («Siguiente») scrolls the list only when
+// the element was out of view.
+const isWide = useMediaQuery("(min-width: 1280px)");
+watch(selectedId, async (id) => {
+  if (!isLarge.value || !id)
+    return;
+  await nextTick();
+  document.querySelector(`.c-order [data-item-id="${id}"]`)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+});
+
 const totalScreens = computed(() => entries.value.reduce((n, e) => n + e.screens.length, 0));
 
 // ------------------------------------------------------------ the service
@@ -866,17 +877,17 @@ onMounted(() => {
 
       <div class="grid gap-5 lg:grid-cols-[22rem_minmax(0,1fr)] items-start">
         <!-- Order -->
-        <section class="flex flex-col gap-3" aria-labelledby="c-order">
-          <div class="flex flex-col gap-2.5">
-            <div class="flex items-baseline justify-between gap-2">
-              <h2 id="c-order" class="text-xs font-bold uppercase tracking-wider opacity-70">
-                Orden del culto
-              </h2>
-              <span v-if="items.length" class="text-xs text-muted tabular-nums">
-                {{ items.length }} {{ items.length === 1 ? 'elemento' : 'elementos' }} · {{ totalScreens }} {{ totalScreens === 1 ? 'pantalla' : 'pantallas' }}<template v-if="hymnCount"> · {{ hymnCount }} {{ hymnCount === 1 ? 'himno' : 'himnos' }}</template>
-              </span>
-            </div>
-          </div>
+        <CultoPanel
+          title="Orden del culto"
+          icon="i-tabler-list-numbers"
+          body-class="flex flex-col gap-3 p-3"
+          class="c-order"
+        >
+          <template v-if="items.length" #meta>
+            {{ items.length }} {{ items.length === 1 ? 'elemento' : 'elementos' }} · {{ totalScreens }} {{ totalScreens === 1 ? 'pantalla' : 'pantallas' }}<template v-if="hymnCount">
+              · {{ hymnCount }} {{ hymnCount === 1 ? 'himno' : 'himnos' }}
+            </template>
+          </template>
           <p v-if="!items.length" class="text-sm opacity-70">
             Todavía no hay nada. Empieza por un himno o una pantalla de bienvenida.
           </p>
@@ -897,7 +908,7 @@ onMounted(() => {
             <li
               v-for="(block, bi) in dragBlocks"
               :key="block.key"
-              class="relative"
+              class="relative scroll-mt-28 scroll-mb-6"
               :data-item-id="block.kind === 'item' ? block.entry.item.id : undefined"
             >
               <!-- «+» in the gap below: inserts right after this block. -->
@@ -980,7 +991,7 @@ onMounted(() => {
                   <li
                     v-for="(entry, ei) in block.items"
                     :key="entry.item.id"
-                    class="relative"
+                    class="relative scroll-mt-28 scroll-mb-6"
                     :data-item-id="entry.item.id"
                   >
                     <CultoInsertLine
@@ -1017,54 +1028,59 @@ onMounted(() => {
           <p class="sr-only" aria-live="polite">
             {{ announcement }}
           </p>
-          <div class="flex flex-wrap gap-2">
-            <UButton
-              color="neutral"
-              variant="outline"
-              icon="i-tabler-music"
-              label="Himno"
-              @click="pickHymnFor(null)"
-            />
-            <UButton
-              color="neutral"
-              variant="outline"
-              icon="i-tabler-book"
-              label="Lectura"
-              @click="addReading"
-            />
-            <UDropdownMenu :items="screenMenu">
-              <UButton
-                color="neutral"
-                variant="outline"
-                icon="i-tabler-presentation"
-                label="Pantalla"
-                trailing-icon="i-tabler-chevron-down"
-              />
-            </UDropdownMenu>
-            <UButton
-              color="neutral"
-              variant="outline"
-              icon="i-tabler-slideshow"
-              label="Diapositivas (PDF o imágenes)"
-              :loading="!!importing"
-              @click="pickSlidesFor(null)"
-            />
-            <input
-              ref="slidesFile"
-              type="file"
-              accept="application/pdf,image/*"
-              multiple
-              class="hidden"
-              @change="onSlidesFiles"
-            >
-          </div>
-          <p class="text-xs opacity-60">
-            Lo nuevo se agrega al final del orden.
-          </p>
-          <p v-if="importing" class="text-xs opacity-80">
-            {{ importing }}
-          </p>
-        </section>
+          <template #footer>
+            <div class="flex flex-col gap-2">
+              <span class="text-xs font-bold text-muted">Agregar</span>
+              <div class="flex flex-wrap gap-2">
+                <UButton
+                  color="neutral"
+                  variant="outline"
+                  icon="i-tabler-music"
+                  label="Himno"
+                  @click="pickHymnFor(null)"
+                />
+                <UButton
+                  color="neutral"
+                  variant="outline"
+                  icon="i-tabler-book"
+                  label="Lectura"
+                  @click="addReading"
+                />
+                <UDropdownMenu :items="screenMenu">
+                  <UButton
+                    color="neutral"
+                    variant="outline"
+                    icon="i-tabler-presentation"
+                    label="Pantalla"
+                    trailing-icon="i-tabler-chevron-down"
+                  />
+                </UDropdownMenu>
+                <UButton
+                  color="neutral"
+                  variant="outline"
+                  icon="i-tabler-slideshow"
+                  label="Diapositivas (PDF o imágenes)"
+                  :loading="!!importing"
+                  @click="pickSlidesFor(null)"
+                />
+                <input
+                  ref="slidesFile"
+                  type="file"
+                  accept="application/pdf,image/*"
+                  multiple
+                  class="hidden"
+                  @change="onSlidesFiles"
+                >
+              </div>
+              <p class="text-xs opacity-60">
+                Lo nuevo se agrega al final del orden.
+              </p>
+              <p v-if="importing" class="text-xs opacity-80">
+                {{ importing }}
+              </p>
+            </div>
+          </template>
+        </CultoPanel>
 
         <!-- Selected element -->
         <section
@@ -1074,19 +1090,27 @@ onMounted(() => {
           aria-label="Elemento elegido"
         >
           <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,24rem)] items-start">
-            <div class="flex flex-col gap-3 min-w-0">
+            <!-- The screens stay at the top while the panel beside them scrolls. -->
+            <div class="flex flex-col gap-3 min-w-0" :class="{ 'sticky top-0 z-10': isWide }">
               <p v-if="selected.status === 'error'" class="rounded-2xl bg-warning/10 text-warning px-4 py-3 text-sm font-medium">
                 {{ selected.error }}
               </p>
-              <CultoScreenManager
-                v-if="selected.all.length"
-                :entry="selected"
-                :next="nextEntry"
-                @next="nextEntry && choose(nextEntry.item.id)"
-              />
-              <div v-else-if="selected.status === 'loading'" class="aspect-video rounded-xl bg-muted grid place-items-center">
-                <UIcon name="i-tabler-loader-2" class="size-8 animate-spin opacity-60" aria-label="Preparando" />
-              </div>
+              <CultoPanel title="Pantallas" icon="i-tabler-device-desktop" body-class="p-3">
+                <template #meta>
+                  {{ looks.get(selected.item.id)?.label }}<template v-if="selected.status === 'ready'">
+                    · {{ selected.screens.length }} {{ selected.screens.length === 1 ? 'pantalla' : 'pantallas' }}
+                  </template>
+                </template>
+                <CultoScreenManager
+                  v-if="selected.all.length"
+                  :entry="selected"
+                  :next="nextEntry"
+                  @next="nextEntry && choose(nextEntry.item.id)"
+                />
+                <div v-else-if="selected.status === 'loading'" class="aspect-video rounded-xl bg-muted grid place-items-center">
+                  <UIcon name="i-tabler-loader-2" class="size-8 animate-spin opacity-60" aria-label="Preparando" />
+                </div>
+              </CultoPanel>
             </div>
             <div class="rounded-2xl p-4 bg-default shadow-card">
               <CultoSectionEditor

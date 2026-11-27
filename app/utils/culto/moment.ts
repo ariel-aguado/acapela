@@ -50,7 +50,8 @@ const CLUES: [ScreenMoment, RegExp][] = [
 
 /** The moment a screen stands for: its own, or deduced from its text. */
 export function screenMoment(item: ScreenItem): ScreenMoment {
-  if (item.moment)
+  // One this version does not know (a file from a newer one): guessed.
+  if (item.moment && item.moment in SCREEN_MOMENT_LABELS)
     return item.moment;
   const text = normalizeLyric(`${item.eyebrow} ${item.title}`);
   return CLUES.find(([, clue]) => clue.test(text))?.[0] ?? "other";

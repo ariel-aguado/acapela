@@ -33,7 +33,7 @@ const spoken = computed(() => spokenLabel(props.entry));
 <template>
   <div
     class="flex items-center gap-1 rounded-2xl border transition-colors"
-    :class="[selected ? 'border-primary bg-primary/10' : 'border-transparent bg-default shadow-card hover:bg-muted', { 'row-flash': flash }]"
+    :class="[selected ? 'border-primary bg-primary/10' : 'border-default bg-default hover:bg-elevated/60', { 'row-flash': flash }]"
   >
     <span
       class="self-stretch flex items-center ps-2 cursor-grab touch-none opacity-50 hover:opacity-100"
