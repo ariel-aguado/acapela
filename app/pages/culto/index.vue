@@ -575,6 +575,10 @@ const looks = computed(() => new Map(items.value.map(i => [
   itemLook(i),
 ])));
 const hymnCount = computed(() => items.value.filter(i => i.kind === "hymn").length);
+/** Room for an element's name over its segment in the map, in rem. */
+function mapLabelBasis(label: string | undefined) {
+  return Math.max(1.25, (label?.length ?? 0) * 0.42 + 0.5);
+}
 
 // ------------------------------------------------------------ order, with sections
 // The order in blocks: an element on its own, or a section (the Lord's
@@ -847,7 +851,7 @@ onMounted(() => {
             :class="`moment--${momentTone(block.section.moment)}`"
             :style="{ flexGrow: block.items.length, flexBasis: `${block.items.length * 1.25}rem` }"
           >
-            <span class="truncate text-[0.68rem] font-bold uppercase tracking-wider text-(--m-label)">{{ block.section.title }}</span>
+            <span class="map-label truncate text-(--m-label)">{{ block.section.title }}</span>
             <span class="flex gap-1">
               <button
                 v-for="entry in block.items"
@@ -865,8 +869,10 @@ onMounted(() => {
               </button>
             </span>
           </div>
+          <!-- A hymn shows its number; any other element on its own, its
+            name on top, as a section does (smaller, it names one element). -->
           <button
-            v-else
+            v-else-if="block.entry.item.kind === 'hymn'"
             type="button"
             class="map-seg self-end"
             :class="[`moment--${looks.get(block.entry.item.id)?.tone}`, { 'map-seg--on': block.entry.item.id === selectedId }]"
@@ -876,9 +882,29 @@ onMounted(() => {
             :title="spokenLabel(block.entry)"
             @click="choose(block.entry.item.id)"
           >
-            <span v-if="block.entry.item.kind === 'hymn'" class="map-seg__mark">{{ block.entry.item.songId }}</span>
-            <UIcon v-else :name="looks.get(block.entry.item.id)?.icon ?? ''" class="map-seg__mark size-4" />
+            <span class="map-seg__mark">{{ block.entry.item.songId }}</span>
           </button>
+          <div
+            v-else
+            class="flex min-w-0 flex-col gap-1"
+            :class="`moment--${looks.get(block.entry.item.id)?.tone}`"
+            :style="{ flexGrow: 1, flexBasis: `${mapLabelBasis(looks.get(block.entry.item.id)?.label)}rem` }"
+          >
+            <span class="map-label truncate text-(--m-label)">{{ looks.get(block.entry.item.id)?.label }}</span>
+            <span class="flex">
+              <button
+                type="button"
+                class="map-seg"
+                :class="[`moment--${looks.get(block.entry.item.id)?.tone}`, { 'map-seg--on': block.entry.item.id === selectedId }]"
+                :aria-label="spokenLabel(block.entry)"
+                :aria-current="block.entry.item.id === selectedId ? 'true' : undefined"
+                :title="spokenLabel(block.entry)"
+                @click="choose(block.entry.item.id)"
+              >
+                <UIcon :name="looks.get(block.entry.item.id)?.icon ?? ''" class="map-seg__mark size-4" />
+              </button>
+            </span>
+          </div>
         </template>
       </nav>
 
@@ -1249,5 +1275,13 @@ onMounted(() => {
   outline: 2px solid var(--ui-primary);
   outline-offset: 2px;
   border-radius: 1rem;
+}
+/* The names over the service's map: sections and lone elements, small. */
+.map-label {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  line-height: 1.2;
+  text-transform: uppercase;
 }
 </style>
