@@ -6,11 +6,11 @@ import { TRANSITION_LABELS, TRANSITION_SPEED_LABELS } from "~~/lib/culto";
 
 // Choosing a transition by seeing it (NN/g: recognition over recall): each
 // option is a thumbnail that plays its animation on hover or focus, and
-// «Probar» plays it on a sample screen. With `inherit`, «Del tema» leaves
-// the element on the theme's.
+// «Probar» plays it on a sample screen. With `inherit`, «Predeterminado»
+// leaves the element on the theme's, shown with its own animation.
 const props = defineProps<{
   inherit?: boolean;
-  /** What «Del tema» stands for, to show and try it. */
+  /** What «Predeterminado» stands for, to show and try it. */
   inherited?: ScreenTransition;
   /** Read aloud: "Transición entre pantallas". */
   label: string;
@@ -80,10 +80,11 @@ function play() {
         :aria-checked="!model"
         @click="pick('inherit')"
       >
-        <span class="tp-mini tp-mini--theme" aria-hidden="true">
-          <UIcon name="i-tabler-palette" class="size-5 opacity-80" />
+        <span class="tp-mini" aria-hidden="true">
+          <span class="tp-a" />
+          <span v-if="inherited" class="tp-b" :class="`tp-b--${inherited.kind}`" />
         </span>
-        <span class="tp-name">Del tema</span>
+        <span class="tp-name">Predeterminado</span>
         <span v-if="inherited" class="tp-sub">{{ TRANSITION_LABELS[inherited.kind] }}</span>
       </button>
       <button
@@ -167,9 +168,6 @@ function play() {
   overflow: hidden;
   border-radius: 0.375rem;
   background: var(--color-iris-500);
-}
-.tp-mini--theme {
-  background: var(--ui-bg-elevated);
 }
 .tp-a,
 .tp-b {

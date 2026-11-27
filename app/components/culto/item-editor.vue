@@ -6,8 +6,8 @@ import type { Background, CultoItem, FieldStyle, ReadingMode, ScreenLayout, Scre
 import { GALLERY } from "~/utils/culto/backgrounds";
 import { importSlides } from "~/utils/culto/import-slides";
 import { importImage, mediaUrl } from "~/utils/culto/media";
-import { itemLook, screenMoment } from "~/utils/culto/moment";
-import { DEFAULT_TRANSITIONS, ITEM_KIND_LABELS, SCREEN_LAYOUT_LABELS, SCREEN_MOMENT_LABELS, TRANSITION_LABELS, TRANSITION_SPEED_LABELS } from "~~/lib/culto";
+import { itemLook, rowTitle, screenMoment } from "~/utils/culto/moment";
+import { DEFAULT_TRANSITIONS, SCREEN_LAYOUT_LABELS, SCREEN_MOMENT_LABELS, TRANSITION_LABELS, TRANSITION_SPEED_LABELS } from "~~/lib/culto";
 
 // The fields of one element of the service, by kind. Every change is saved
 // at once (the store writes to this device) and the screens re-flow.
@@ -241,7 +241,7 @@ const presentationOpen = ref(false);
 const backgroundName = computed(() => {
   const b = background.value;
   if (!b)
-    return "Fondo del tema";
+    return "Fondo predeterminado";
   if (b.kind === "acapela")
     return "La cruz al amanecer";
   if (b.kind === "gallery")
@@ -259,11 +259,17 @@ const transition = computed({
 const transitionName = computed(() => {
   const t = transition.value;
   if (!t)
-    return "transición del tema";
+    return "transición predeterminada";
   return t.kind === "cut"
     ? "corte"
     : `${TRANSITION_LABELS[t.kind].toLowerCase()} ${TRANSITION_SPEED_LABELS[t.speed].toLowerCase()}`;
 });
+
+/** The background it shows, its own or the theme's, as a small picture. */
+const backgroundThumb = useBackgroundThumb(() => background.value ?? culto.theme.background);
+
+const headLook = computed(() => itemLook(item.value));
+const headTitle = computed(() => rowTitle(props.entry));
 
 const presentationSummary = computed(() => {
   if (item.value.kind === "slides")
@@ -284,18 +290,24 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="flex flex-col gap-5">
-    <div class="flex items-center justify-between gap-3">
-      <h2 class="text-xs font-bold uppercase tracking-wider opacity-70">
-        {{ ITEM_KIND_LABELS[item.kind] }}
-        <UBadge
-          v-if="item.inserted"
-          class="ms-2 normal-case tracking-normal"
-          color="primary"
-          variant="soft"
-          label="Insertado en vivo"
-        />
-      </h2>
+  <div class="flex flex-col gap-4">
+    <!-- What is being edited, always in sight. -->
+    <header class="editor-head sticky top-0 z-10 -mx-4 -mt-4 flex items-center gap-3 rounded-t-2xl border-b border-muted bg-default px-4 py-3">
+      <CultoMomentTile :item="item" />
+      <div class="flex min-w-0 flex-1 flex-col">
+        <h2 class="truncate font-semibold text-highlighted">
+          {{ headTitle }}
+        </h2>
+        <p class="truncate text-xs text-muted">
+          <span class="font-semibold text-(--m-label)" :class="`moment--${headLook.tone}`">{{ headLook.label }}</span>
+          <template v-if="entry.status === 'ready'">
+            · {{ entry.screens.length }} {{ entry.screens.length === 1 ? 'pantalla' : 'pantallas' }}
+          </template>
+          <template v-if="item.inserted">
+            · insertado en vivo
+          </template>
+        </p>
+      </div>
       <UButton
         color="error"
         variant="ghost"
@@ -303,10 +315,10 @@ onMounted(() => {
         label="Quitar"
         @click="emit('remove')"
       />
-    </div>
+    </header>
 
     <!-- Hymn -->
-    <template v-if="item.kind === 'hymn'">
+    <CultoEditorBlock v-if="item.kind === 'hymn'" icon="i-tabler-music" title="Himno">
       <div class="flex flex-wrap gap-3">
         <UFormField label="Número de himno">
           <UInputNumber
@@ -326,10 +338,10 @@ onMounted(() => {
           />
         </UFormField>
       </div>
-    </template>
+    </CultoEditorBlock>
 
     <!-- Reading -->
-    <template v-else-if="item.kind === 'reading'">
+    <CultoEditorBlock v-else-if="item.kind === 'reading'" icon="i-tabler-book" title="Lectura">
       <div class="flex flex-wrap gap-3">
         <UFormField label="Cita" class="flex-1 min-w-64" help="Escríbela o elige libro, capítulo y versículos.">
           <CultoPassagePicker v-model="reference" :version-id="item.versionId" />
@@ -352,10 +364,10 @@ onMounted(() => {
           @update:model-value="v => set({ mode: v as ReadingMode })"
         />
       </UFormField>
-    </template>
+    </CultoEditorBlock>
 
     <!-- Slides -->
-    <template v-else-if="item.kind === 'slides'">
+    <CultoEditorBlock v-else-if="item.kind === 'slides'" icon="i-tabler-presentation" title="Diapositivas">
       <UFormField label="Nombre" help="Para reconocerlas en el orden; no se proyecta.">
         <UInput v-model="title" size="lg" class="w-full" />
       </UFormField>
@@ -388,121 +400,132 @@ onMounted(() => {
           @change="onPages"
         >
       </div>
-    </template>
+    </CultoEditorBlock>
 
     <!-- Screen -->
     <template v-else>
-      <UFormField label="Momento" help="Su icono y su color en el orden del culto.">
-        <USelect
-          v-model="moment"
-          :items="momentItems"
-          size="lg"
-          class="w-full sm:w-64"
-        />
-      </UFormField>
-      <UFormField label="Diseño">
-        <URadioGroup
-          :model-value="item.layout"
-          :items="layoutItems"
-          orientation="horizontal"
-          variant="card"
-          @update:model-value="v => set({ layout: v as ScreenLayout })"
-        />
-      </UFormField>
-      <UFormField v-if="item.layout === 'image'" label="Imagen" help="Un afiche, una foto: se muestra entera.">
-        <div class="flex items-center gap-3">
-          <img
-            v-if="imageUrl"
-            :src="imageUrl"
-            alt=""
-            class="h-16 aspect-video object-contain rounded-lg ring-1 ring-default bg-muted"
-          >
-          <UButton
-            color="neutral"
-            variant="outline"
-            icon="i-tabler-photo"
-            :label="item.mediaId ? 'Cambiar imagen' : 'Elegir imagen'"
-            @click="imageInput?.click()"
+      <CultoEditorBlock icon="i-tabler-category" title="Qué es">
+        <UFormField label="Momento" help="Su icono y su color en el orden del culto.">
+          <USelect
+            v-model="moment"
+            :items="momentItems"
+            size="lg"
+            class="w-full sm:w-64"
           />
-        </div>
-        <input
-          ref="image"
-          type="file"
-          accept="image/*"
-          class="hidden"
-          @change="onImage"
-        >
-      </UFormField>
-      <p v-if="item.layout === 'logo'" class="text-sm opacity-75">
-        El logo y el nombre son los del tema de la iglesia (en el menú ⋯ del culto).
-      </p>
-      <!-- What it says: each text with its own style right under it. -->
-      <h3 class="-mb-2 border-t border-muted pt-4 text-xs font-bold uppercase tracking-wider opacity-70">
-        Contenido
-      </h3>
-      <template v-for="f in textFields" :key="f.field">
-        <UFormField
-          v-if="f.field !== 'body' || item.layout === 'text'"
-          :label="f.label"
-          :help="f.help"
-        >
-          <template #hint>
+        </UFormField>
+        <UFormField label="Diseño">
+          <URadioGroup
+            :model-value="item.layout"
+            :items="layoutItems"
+            orientation="horizontal"
+            variant="card"
+            @update:model-value="v => set({ layout: v as ScreenLayout })"
+          />
+        </UFormField>
+        <UFormField v-if="item.layout === 'image'" label="Imagen" help="Un afiche, una foto: se muestra entera.">
+          <div class="flex items-center gap-3">
+            <img
+              v-if="imageUrl"
+              :src="imageUrl"
+              alt=""
+              class="h-16 aspect-video object-contain rounded-lg ring-1 ring-default bg-muted"
+            >
             <UButton
               color="neutral"
-              :variant="openStyles.has(f.field) ? 'soft' : 'ghost'"
-              size="xs"
-              class="relative font-semibold"
-              :aria-expanded="openStyles.has(f.field)"
-              :aria-label="`Estilo ${ofName(f.name)}${styleOf(f.field) ? ' (cambiado)' : ''}`"
-              :title="`Alineación y tamaño ${ofName(f.name)}`"
-              @click="toggleStyle(f.field)"
-            >
-              Aa
-              <span v-if="styleOf(f.field)" class="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-primary" aria-hidden="true" />
-            </UButton>
-          </template>
-          <div class="flex flex-col gap-2">
-            <UTextarea
-              v-if="f.field === 'title' || f.field === 'body'"
-              v-model="fieldModels[f.field].value"
-              :rows="f.field === 'title' ? 2 : 6"
-              autoresize
-              size="lg"
-              class="w-full"
-            />
-            <UInput
-              v-else
-              v-model="fieldModels[f.field].value"
-              size="lg"
-              class="w-full"
-            />
-            <CultoFieldStyle
-              v-if="openStyles.has(f.field)"
-              :model-value="styleOf(f.field)"
-              :name="f.name"
-              :inherited-align="screenAlign"
-              @update:model-value="v => setStyle(f.field, v)"
+              variant="outline"
+              icon="i-tabler-photo"
+              :label="item.mediaId ? 'Cambiar imagen' : 'Elegir imagen'"
+              @click="imageInput?.click()"
             />
           </div>
+          <input
+            ref="image"
+            type="file"
+            accept="image/*"
+            class="hidden"
+            @change="onImage"
+          >
         </UFormField>
-      </template>
+        <p v-if="item.layout === 'logo'" class="text-sm opacity-75">
+          El logo y el nombre son los del tema de la iglesia (en el menú ⋯ del culto).
+        </p>
+      </CultoEditorBlock>
+      <!-- What it says: each text with its own style right under it. -->
+      <CultoEditorBlock icon="i-tabler-forms" title="Contenido">
+        <template v-for="f in textFields" :key="f.field">
+          <UFormField
+            v-if="f.field !== 'body' || item.layout === 'text'"
+            :label="f.label"
+            :help="f.help"
+          >
+            <template #hint>
+              <UButton
+                color="neutral"
+                :variant="openStyles.has(f.field) ? 'soft' : 'ghost'"
+                size="xs"
+                class="relative font-semibold"
+                :aria-expanded="openStyles.has(f.field)"
+                :aria-label="`Estilo ${ofName(f.name)}${styleOf(f.field) ? ' (cambiado)' : ''}`"
+                :title="`Alineación y tamaño ${ofName(f.name)}`"
+                @click="toggleStyle(f.field)"
+              >
+                Aa
+                <span v-if="styleOf(f.field)" class="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-primary" aria-hidden="true" />
+              </UButton>
+            </template>
+            <div class="flex flex-col gap-2">
+              <UTextarea
+                v-if="f.field === 'title' || f.field === 'body'"
+                v-model="fieldModels[f.field].value"
+                :rows="f.field === 'title' ? 2 : 6"
+                autoresize
+                size="lg"
+                class="w-full"
+              />
+              <UInput
+                v-else
+                v-model="fieldModels[f.field].value"
+                size="lg"
+                class="w-full"
+              />
+              <CultoFieldStyle
+                v-if="openStyles.has(f.field)"
+                :model-value="styleOf(f.field)"
+                :name="f.name"
+                :inherited-align="screenAlign"
+                @update:model-value="v => setStyle(f.field, v)"
+              />
+            </div>
+          </UFormField>
+        </template>
+      </CultoEditorBlock>
     </template>
 
-    <!-- How it looks: folded, with a summary. -->
-    <UCollapsible v-model:open="presentationOpen" class="flex flex-col border-t border-muted pt-3">
+    <!-- How it looks: folded, with a summary and the background's picture. -->
+    <UCollapsible v-model:open="presentationOpen" class="editor-block flex flex-col rounded-2xl bg-elevated/50 ring-1 ring-default">
       <UButton
         color="neutral"
         variant="ghost"
-        class="-mx-2 justify-between text-start"
+        class="w-full gap-3 rounded-2xl p-4 text-start"
         :trailing-icon="presentationOpen ? 'i-tabler-chevron-up' : 'i-tabler-chevron-down'"
+        :ui="{ trailingIcon: 'ms-auto' }"
       >
-        <span class="flex min-w-0 flex-col items-start">
-          <span class="text-xs font-bold uppercase tracking-wider opacity-70">Presentación</span>
+        <span class="flex min-w-0 flex-1 flex-col items-start gap-1">
+          <span class="flex items-center gap-2 text-sm font-bold text-highlighted">
+            <UIcon name="i-tabler-palette" class="size-4.5 text-primary" />
+            Presentación
+          </span>
           <span class="text-sm font-normal text-muted text-pretty">{{ presentationSummary }}</span>
         </span>
+        <span
+          v-if="item.kind !== 'slides'"
+          class="h-10 aspect-video shrink-0 rounded-md ring-1 ring-default bg-muted"
+          :style="backgroundThumb"
+          aria-hidden="true"
+        />
       </UButton>
       <template #content>
-        <div class="flex flex-col gap-5 pt-3 pb-1">
+        <div class="flex flex-col gap-5 px-4 pt-1 pb-4">
           <UFormField
             v-if="item.kind === 'screen' && (item.layout === 'title' || item.layout === 'quote' || item.layout === 'text')"
             label="Alineación de toda la pantalla"
@@ -551,39 +574,42 @@ onMounted(() => {
       </template>
     </UCollapsible>
 
-    <!-- The section it belongs to (the Lord's supper, the offering…). -->
-    <UFormField
-      v-if="sectionItems.length > 1 || canGroup"
-      label="Sección"
-      help="Una sección junta pantallas, citas e himnos de un momento del culto, y se mueven juntos."
-    >
-      <div class="flex flex-wrap items-center gap-2">
-        <USelect
-          v-if="sectionItems.length > 1"
-          :model-value="item.sectionId ?? 'none'"
-          :items="sectionItems"
-          size="lg"
-          class="w-full sm:w-64"
-          @update:model-value="v => culto.setItemSection(item.id, v === 'none' ? undefined : String(v))"
-        />
-        <UButton
-          v-if="canGroup"
-          color="neutral"
-          variant="outline"
-          icon="i-tabler-stack-2"
-          label="Agrupar en una sección"
-          @click="culto.groupInSection(item.id)"
-        />
-      </div>
-    </UFormField>
+    <!-- Where it is in the order and the notes: nothing projected. -->
+    <CultoEditorBlock icon="i-tabler-list-details" title="En el orden">
+      <!-- The section it belongs to (the Lord's supper, the offering…). -->
+      <UFormField
+        v-if="sectionItems.length > 1 || canGroup"
+        label="Sección"
+        help="Una sección junta pantallas, citas e himnos de un momento del culto, y se mueven juntos."
+      >
+        <div class="flex flex-wrap items-center gap-2">
+          <USelect
+            v-if="sectionItems.length > 1"
+            :model-value="item.sectionId ?? 'none'"
+            :items="sectionItems"
+            size="lg"
+            class="w-full sm:w-64"
+            @update:model-value="v => culto.setItemSection(item.id, v === 'none' ? undefined : String(v))"
+          />
+          <UButton
+            v-if="canGroup"
+            color="neutral"
+            variant="outline"
+            icon="i-tabler-stack-2"
+            label="Agrupar en una sección"
+            @click="culto.groupInSection(item.id)"
+          />
+        </div>
+      </UFormField>
 
-    <UFormField label="Notas para quien dirige" help="No se proyectan; se ven en la consola.">
-      <UTextarea
-        v-model="notes"
-        :rows="2"
-        autoresize
-        class="w-full"
-      />
-    </UFormField>
+      <UFormField label="Notas para quien dirige" help="No se proyectan; se ven en la consola.">
+        <UTextarea
+          v-model="notes"
+          :rows="2"
+          autoresize
+          class="w-full"
+        />
+      </UFormField>
+    </CultoEditorBlock>
   </div>
 </template>

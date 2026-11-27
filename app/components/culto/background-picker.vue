@@ -6,7 +6,8 @@ import { importImage, mediaUrl } from "~/utils/culto/media";
 
 // What is behind the text: one of Acapela's gallery (the ones for this
 // moment first), a colour or a picture of the church's own. With `inherit`,
-// "Del tema" leaves the element on the theme's.
+// «Predeterminado» leaves the element on the theme's, shown with its
+// picture (NN/g: show the value rather than name it).
 const props = defineProps<{
   inherit?: boolean;
   /** The element's moment, to offer its backgrounds first. */
@@ -41,7 +42,7 @@ const kind = computed<Kind>(() => {
 const items = computed(() => [
   ...(props.inherit
     ? [
-        { label: "Del tema", value: "inherit" },
+        { label: "Predeterminado", value: "inherit" },
       ]
     : []),
   { label: "Galería", value: "gallery" },
@@ -130,6 +131,9 @@ async function onFile(e: Event) {
   }
 }
 
+const culto = useCultoStore();
+const inheritedThumb = useBackgroundThumb(() => culto.theme.background);
+
 const preview = ref<string | null>(null);
 watchEffect(async () => {
   preview.value = model.value?.kind === "image"
@@ -148,6 +152,13 @@ watchEffect(async () => {
       size="sm"
       @update:model-value="v => setKind(v as Kind)"
     />
+    <!-- The one every screen has unless it has its own. -->
+    <div v-if="kind === 'inherit'" class="flex items-center gap-3">
+      <span class="h-14 aspect-video shrink-0 rounded-lg ring-1 ring-default bg-muted" :style="inheritedThumb" aria-hidden="true" />
+      <p class="text-sm text-muted">
+        El mismo de todo el culto. Se cambia en ⋯ › Tema de la iglesia.
+      </p>
+    </div>
     <!-- The gallery -->
     <div v-if="kind === 'gallery'" class="flex flex-col gap-3">
       <UTabs
