@@ -30,6 +30,13 @@ const { entries } = useCultoScreens(items);
 
 const selectedId = ref<string | null>(null);
 const selected = computed(() => entries.value.find(e => e.item.id === selectedId.value) ?? null);
+/** The element before the chosen one, for ← on its first screen. */
+const prevEntry = computed(() => {
+  const at = entries.value.findIndex(e => e.item.id === selectedId.value);
+  return at > 0
+    ? entries.value[at - 1] ?? null
+    : null;
+});
 /** The element after the chosen one, for the stage's «Siguiente». */
 const nextEntry = computed(() => {
   const at = entries.value.findIndex(e => e.item.id === selectedId.value);
@@ -1091,7 +1098,9 @@ onMounted(() => {
         >
           <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,24rem)] items-start">
             <!-- The screens stay at the top while the panel beside them scrolls. -->
-            <div class="flex flex-col gap-3 min-w-0" :class="{ 'sticky top-0 z-10': isWide }">
+            <!-- Sticky 1rem from the window's top: the page box has the bar's
+              height as top padding, but the bar goes up with the page. -->
+            <div class="flex flex-col gap-3 min-w-0" :class="{ 'sticky top-[calc(1rem-var(--bar-top))] z-10': isWide }">
               <p v-if="selected.status === 'error'" class="rounded-2xl bg-warning/10 text-warning px-4 py-3 text-sm font-medium">
                 {{ selected.error }}
               </p>
@@ -1106,6 +1115,7 @@ onMounted(() => {
                   :entry="selected"
                   :next="nextEntry"
                   @next="nextEntry && choose(nextEntry.item.id)"
+                  @prev="prevEntry && choose(prevEntry.item.id)"
                 />
                 <div v-else-if="selected.status === 'loading'" class="aspect-video rounded-xl bg-muted grid place-items-center">
                   <UIcon name="i-tabler-loader-2" class="size-8 animate-spin opacity-60" aria-label="Preparando" />

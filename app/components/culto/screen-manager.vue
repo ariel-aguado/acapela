@@ -20,6 +20,8 @@ const props = defineProps<{
 const emit = defineEmits<{
   /** Choose the next element. */
   next: [];
+  /** Choose the previous element (← on its first screen). */
+  prev: [];
 }>();
 
 const culto = useCultoStore();
@@ -32,8 +34,13 @@ const activeKey = ref<string | null>(null);
 const active = computed<ManagedScreen | null>(() =>
   props.entry.all.find(s => s.key === activeKey.value) ?? props.entry.all[0] ?? null,
 );
+// ← from the first screen goes to the previous element, on its last one.
+let landOnLast = false;
 watch(itemId, () => {
-  activeKey.value = null;
+  activeKey.value = landOnLast
+    ? props.entry.all.at(-1)?.key ?? null
+    : null;
+  landOnLast = false;
 });
 
 // A hymn's verses keep the songbook's order: they can be hidden, never
@@ -85,6 +92,49 @@ function step(delta: number) {
   activeKey.value = target.key;
   nextTick(() => stripRef.value?.querySelector<HTMLElement>(`[data-screen="${CSS.escape(target.key)}"]`)?.focus());
 }
+
+// ← → anywhere in the editor, as in the presenter: through the screens of
+// the element, and on to the next or back to the previous element at its
+// ends. Not while typing, nor where the arrows already mean something (a
+// choice of options, a list, a menu, an open dialog), nor on the strip,
+// which moves its own focus.
+const ARROWS_TAKEN = "input, textarea, select, [contenteditable=''], [contenteditable='true'], [role=radiogroup], [role=radio], [role=listbox], [role=option], [role=menu], [role=menuitem], [role=tablist], [role=slider], [role=spinbutton], [role=dialog]";
+function stepAcross(delta: number) {
+  const list = props.entry.all;
+  const at = active.value
+    ? list.indexOf(active.value)
+    : 0;
+  if (delta > 0 && at >= list.length - 1) {
+    if (props.next)
+      emit("next");
+    return;
+  }
+  if (delta < 0 && at <= 0) {
+    landOnLast = true;
+    emit("prev");
+    // No element before: nothing changed, forget it.
+    nextTick(() => {
+      landOnLast = false;
+    });
+    return;
+  }
+  activeKey.value = list[at + delta]!.key;
+}
+useEventListener(window, "keydown", (event: KeyboardEvent) => {
+  if ((event.key !== "ArrowLeft" && event.key !== "ArrowRight") || event.defaultPrevented
+    || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
+    return;
+  }
+  const target = event.target as HTMLElement | null;
+  if (target?.closest(ARROWS_TAKEN) || stripRef.value?.contains(target)
+    || document.querySelector("[role=dialog][data-state=open], [role=dialog]:not([data-state])")) {
+    return;
+  }
+  event.preventDefault();
+  stepAcross(event.key === "ArrowRight"
+    ? 1
+    : -1);
+});
 
 // The chosen thumbnail stays in view inside the strip.
 watch(() => active.value?.key, (key) => {
