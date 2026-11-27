@@ -97,10 +97,20 @@ const projectorMode = computed<ProjectorMode>({
     showLogo.value = mode === "logo";
   },
 });
-const projectorModes: { value: ProjectorMode; label: string; key?: string }[] = [
-  { value: "content", label: "Contenido" },
-  { value: "black", label: "Negro", key: "B" },
-  { value: "logo", label: "Logo", key: "L" },
+const projectorModes: { value: ProjectorMode; label: string; icon: string; key?: string }[] = [
+  { value: "content", label: "Contenido", icon: "i-tabler-device-tv" },
+  {
+    value: "black",
+    label: "Negro",
+    icon: "i-tabler-screen-share-off",
+    key: "B",
+  },
+  {
+    value: "logo",
+    label: "Logo",
+    icon: "i-tabler-building-church",
+    key: "L",
+  },
 ];
 /** After something inserted "now", where to come back to. */
 const returnTo = ref<{ itemId: string; key: string; afterItemId: string } | null>(null);
@@ -874,39 +884,47 @@ function saveAsService() {
           </div>
 
           <template #footer>
-            <div class="flex flex-wrap items-center gap-x-4 gap-y-3">
+            <!-- Everything as tall as «Siguiente» (its preview sets the height):
+              tiles with an icon over the label, nothing floating in the middle. -->
+            <div class="flex flex-wrap items-stretch gap-3">
               <!-- What the congregation sees: one of three. -->
-              <div class="flex flex-col gap-1">
-                <span id="v-projector" class="text-xs font-semibold text-muted">La congregación ve</span>
-                <div role="radiogroup" aria-labelledby="v-projector" class="flex gap-0.5 rounded-xl bg-elevated p-1 ring-1 ring-default">
+              <div class="flex flex-col gap-1.5 rounded-2xl bg-elevated p-1.5 ring-1 ring-default">
+                <span id="v-projector" class="px-1.5 pt-0.5 text-[0.7rem] font-bold uppercase tracking-wider text-muted">La congregación ve</span>
+                <div role="radiogroup" aria-labelledby="v-projector" class="flex flex-1 gap-1">
                   <button
                     v-for="m in projectorModes"
                     :key="m.value"
                     type="button"
                     role="radio"
                     :aria-checked="projectorMode === m.value"
-                    class="flex h-11 items-center gap-2 rounded-lg px-4 text-[0.95rem]"
+                    class="relative flex min-h-20 w-24 flex-col items-center justify-center gap-1.5 rounded-xl text-sm transition-colors"
                     :class="projectorMode === m.value
-                      ? (m.value === 'content' ? 'bg-default font-semibold text-highlighted shadow-sm ring-1 ring-default' : 'bg-inverted font-semibold text-inverted')
-                      : 'text-toned hover:bg-default/60'"
+                      ? (m.value === 'content' ? 'bg-default font-semibold text-highlighted shadow-sm ring-1 ring-default' : 'bg-inverted font-semibold text-inverted shadow-sm')
+                      : 'text-toned hover:bg-default/70'"
                     @click="projectorMode = m.value"
                   >
+                    <UIcon :name="m.icon" class="size-6" />
                     {{ m.label }}
-                    <UKbd v-if="m.key" :value="m.key" size="sm" />
+                    <UKbd
+                      v-if="m.key"
+                      :value="m.key"
+                      size="sm"
+                      class="absolute end-1.5 top-1.5"
+                    />
                   </button>
                 </div>
               </div>
               <span class="flex-1" />
-              <UButton
-                color="neutral"
-                variant="outline"
-                size="xl"
-                class="h-15 px-5 text-base"
-                icon="i-tabler-chevron-left"
-                label="Anterior"
+              <button
+                type="button"
+                class="flex min-h-20 w-28 flex-col items-center justify-center gap-1.5 rounded-2xl bg-default text-toned ring-1 ring-default transition-colors hover:bg-elevated hover:text-highlighted disabled:opacity-45 disabled:hover:bg-default focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                 :disabled="liveIndex <= 0"
                 @click="prev"
-              />
+              >
+                <UIcon name="i-tabler-arrow-left" class="size-7" />
+                <span class="text-sm font-semibold">Anterior</span>
+                <UKbd value="←" size="sm" />
+              </button>
               <!-- The primary action, with what comes next large enough to
                 read from where the operator sits. -->
               <button
@@ -916,9 +934,10 @@ function saveAsService() {
                 :aria-label="nextUp ? `Siguiente: ${nextUp.s.itemId !== live?.itemId ? entries[nextUp.s.itemIndex]?.label : `pantalla ${nextUp.s.index + 1}`}` : 'Siguiente'"
                 @click="next"
               >
-                <span class="flex min-w-0 flex-col gap-1">
+                <span class="flex min-w-0 flex-col justify-between gap-2 self-stretch py-1.5">
                   <span class="flex items-center gap-2 text-lg font-bold">
                     Siguiente <UIcon name="i-tabler-arrow-right" class="size-5" />
+                    <UKbd value="→" size="sm" class="ms-1 opacity-80" />
                   </span>
                   <span v-if="nextUp" class="flex min-w-0 items-center gap-1.5 text-sm opacity-90">
                     <template v-if="nextUp.s.itemId !== live?.itemId">
