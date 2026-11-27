@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { refDebounced, useElementSize, useLocalStorage, useMediaQuery } from "@vueuse/core";
+import { onKeyStroke, refDebounced, useElementSize, useLocalStorage, useMediaQuery } from "@vueuse/core";
 
 import type { FilteredSong, FullSearchResult } from "~~/lib/types";
 
@@ -217,6 +217,47 @@ function unfavorite() {
   });
 }
 
+// ------------------------------------------------------------ the one beside
+// On a computer the list is one column, and the chosen hymn's lyric is shown
+// beside it (as in Buscar): ↑ ↓ to go through the list, Enter to open it.
+const shown = computed(() => groups.value.flatMap(g => g.songs));
+const previewId = ref<number | null>(null);
+watch(shown, (list) => {
+  if (!list.some(f => f.songId === previewId.value))
+    previewId.value = list[0]?.songId ?? null;
+}, { immediate: true });
+const previewSong = computed(() => (previewId.value
+  ? songs.value[previewId.value - 1] ?? null
+  : null));
+function step(delta: 1 | -1) {
+  const list = shown.value;
+  const at = list.findIndex(f => f.songId === previewId.value);
+  const next = list[Math.min(list.length - 1, Math.max(0, at + delta))];
+  if (!next)
+    return;
+  previewId.value = next.songId;
+  nextTick(() => document.querySelector(`[data-fav="${next.songId}"]`)?.scrollIntoView({ block: "nearest" }));
+}
+onKeyStroke(["ArrowDown", "ArrowUp", "Enter"], (e: KeyboardEvent) => {
+  if (!isLarge.value || selecting.value || e.defaultPrevented)
+    return;
+  const target = e.target as HTMLElement | null;
+  // From the search field, the page or a row of the list; not from another
+  // button or a menu.
+  const fromList = !target || target === document.body || target.tagName === "INPUT" || !!target.closest(".song-row");
+  if (!fromList)
+    return;
+  if (e.key === "Enter") {
+    if (previewId.value)
+      songStore.navigateToSong(previewId.value);
+    return;
+  }
+  e.preventDefault();
+  step(e.key === "ArrowDown"
+    ? 1
+    : -1);
+});
+
 function searchEverywhere() {
   navigateTo({
     path: "/search",
@@ -266,13 +307,19 @@ function searchEverywhere() {
               <span class="font-normal text-muted"> en {{ currentSongbook?.name }}</span>
             </span>
             <span class="flex-1" />
-            <UTabs
-              v-model="sortBy"
-              :items="sortItems"
-              :content="false"
-              size="xs"
-              aria-label="Ordenar favoritos"
-            />
+            <UFieldGroup role="radiogroup" aria-label="Ordenar favoritos" class="shrink-0">
+              <UButton
+                v-for="o in sortItems"
+                :key="o.value"
+                color="neutral"
+                :variant="sortBy === o.value ? 'solid' : 'outline'"
+                size="sm"
+                role="radio"
+                :aria-checked="sortBy === o.value"
+                :label="o.label"
+                @click="sortBy = o.value as SortBy"
+              />
+            </UFieldGroup>
             <UButton
               v-if="isLarge"
               color="neutral"
@@ -348,36 +395,48 @@ function searchEverywhere() {
           </ul>
         </section>
 
-        <!-- The list, by group. -->
-        <div v-if="filtered.length" class="flex flex-col gap-3 lg:pb-6">
-          <section
-            v-for="g in groups"
-            :id="`fav-group-${g.key}`"
-            :key="g.key"
-            class="fav-group lg:rounded-2xl lg:bg-default lg:shadow-card"
-            :aria-label="g.label || 'Favoritos'"
-          >
-            <h2
-              v-if="g.label"
-              class="fav-group__head sticky z-10 border-b border-muted bg-default/95 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-muted backdrop-blur lg:rounded-t-2xl"
+        <!-- One under the other; on a computer, the chosen one's lyric beside. -->
+        <div v-if="filtered.length" class="lg:grid lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] lg:items-start lg:gap-4 lg:pb-6">
+          <div class="flex flex-col gap-3">
+            <section
+              v-for="g in groups"
+              :id="`fav-group-${g.key}`"
+              :key="g.key"
+              class="fav-group lg:rounded-2xl lg:bg-default lg:shadow-card"
+              :aria-label="g.label || 'Favoritos'"
             >
-              {{ g.label }}
-              <span class="font-semibold normal-case tracking-normal">· {{ g.songs.length }}</span>
-            </h2>
-            <ul class="bg-default lg:grid lg:grid-cols-3 lg:gap-x-2 lg:rounded-2xl lg:p-2">
-              <li v-for="song in g.songs" :key="song.songId" class="border-t border-muted first:border-t-0 lg:[&:nth-child(-n+3)]:border-t-0">
-                <SongItem
-                  :song
-                  :detail="song.detail"
-                  :selectable="selecting"
-                  :selected="chosen.has(song.songId)"
-                  :show-favorite="!selecting"
-                  class="lg:rounded-2xl lg:hover:bg-muted"
-                  @select="pick"
-                />
-              </li>
-            </ul>
-          </section>
+              <h2
+                v-if="g.label"
+                class="fav-group__head sticky z-10 border-b border-muted bg-default/95 px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-muted backdrop-blur lg:rounded-t-2xl"
+              >
+                {{ g.label }}
+                <span class="font-semibold normal-case tracking-normal">· {{ g.songs.length }}</span>
+              </h2>
+              <ul class="bg-default lg:rounded-2xl lg:p-1.5">
+                <li
+                  v-for="song in g.songs"
+                  :key="song.songId"
+                  class="border-t border-muted first:border-t-0 lg:border-t-0"
+                  :data-fav="song.songId"
+                >
+                  <SongItem
+                    :song
+                    :detail="song.detail"
+                    :selectable="isLarge"
+                    :selected="selecting ? chosen.has(song.songId) : song.songId === previewId"
+                    :show-favorite="!selecting"
+                    @select="id => selecting ? pick(id) : (previewId = id)"
+                  />
+                </li>
+              </ul>
+            </section>
+          </div>
+          <HymnPreview
+            v-if="isLarge && previewSong"
+            :song="previewSong"
+            :songbook-name="currentSongbook?.name"
+            class="fav-preview sticky"
+          />
         </div>
 
         <!-- Nothing matches. -->
@@ -434,5 +493,10 @@ function searchEverywhere() {
 /* The group heading sits under the bar while its group scrolls by. */
 .fav-group__head {
   top: var(--fav-bar-h, 0px);
+}
+/* The lyric beside the list stays in sight, under the bar. */
+.fav-preview {
+  top: calc(var(--fav-bar-h, 0px) + 0.5rem);
+  max-height: calc(100dvh - var(--fav-bar-h, 0px) - 8rem);
 }
 </style>
