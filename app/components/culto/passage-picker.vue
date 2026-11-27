@@ -340,7 +340,11 @@ async function onSearchKeydown(event: KeyboardEvent) {
                 :aria-activedescendant="searchPassages.length ? `${searchListId}-${searchActive}` : undefined"
                 autofocus
                 @keydown="onSearchKeydown"
-              />
+              >
+                <template v-if="filter" #trailing>
+                  <AppClearButton label="Borrar la búsqueda" @clear="filter = ''" />
+                </template>
+              </UInput>
               <CultoReferenceSuggestions
                 v-if="searchPassages.length"
                 :id="searchListId"

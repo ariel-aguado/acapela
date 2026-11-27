@@ -11,11 +11,20 @@ import { DEFAULT_TRANSITIONS, SCREEN_LAYOUT_LABELS, SCREEN_MOMENT_LABELS, TRANSI
 
 // The fields of one element of the service, by kind. Every change is saved
 // at once (the store writes to this device) and the screens re-flow.
+// `live`: editing while the service is projected. The changes are only
+// proposed ("change") over a copy, applied when the operator says so; what
+// changes the order itself (removing it, its section) is left to the editor.
 const props = defineProps<{
   entry: ItemScreens;
+  live?: boolean;
 }>();
 
-const emit = defineEmits<{ (e: "remove"): void }>();
+const emit = defineEmits<{
+  (e: "remove"): void;
+  (e: "change", changes: Partial<CultoItem>): void;
+  /** Enter on a complete passage in its field. */
+  (e: "referenceDone"): void;
+}>();
 
 const culto = useCultoStore();
 const bible = useBibleStore();
@@ -26,7 +35,10 @@ const { manifest } = storeToRefs(songbook);
 const item = computed(() => props.entry.item);
 
 function set(changes: Partial<CultoItem>) {
-  culto.updateItem(item.value.id, changes);
+  if (props.live)
+    emit("change", changes);
+  else
+    culto.updateItem(item.value.id, changes);
 }
 
 function field<K extends string>(key: K) {
@@ -292,7 +304,7 @@ onMounted(() => {
 <template>
   <div class="flex flex-col gap-4">
     <!-- What is being edited. -->
-    <header class="editor-head -mx-4 -mt-4 flex items-center gap-3 rounded-t-2xl border-b border-muted bg-default px-4 py-3">
+    <header v-if="!live" class="editor-head -mx-4 -mt-4 flex items-center gap-3 rounded-t-2xl border-b border-muted bg-default px-4 py-3">
       <CultoMomentTile :item="item" />
       <div class="flex min-w-0 flex-1 flex-col">
         <h2 class="truncate font-semibold text-highlighted">
@@ -309,6 +321,7 @@ onMounted(() => {
         </p>
       </div>
       <UButton
+        v-if="!live"
         color="error"
         variant="ghost"
         icon="i-tabler-trash"
@@ -344,7 +357,7 @@ onMounted(() => {
     <CultoEditorBlock v-else-if="item.kind === 'reading'" icon="i-tabler-book" title="Lectura">
       <div class="flex flex-wrap gap-3">
         <UFormField label="Cita" class="flex-1 min-w-64" help="Escríbela o elige libro, capítulo y versículos.">
-          <CultoPassagePicker v-model="reference" :version-id="item.versionId" />
+          <CultoPassagePicker v-model="reference" :version-id="item.versionId" @done="emit('referenceDone')" />
         </UFormField>
         <UFormField label="Versión" class="w-56">
           <USelect
@@ -369,7 +382,11 @@ onMounted(() => {
     <!-- Slides -->
     <CultoEditorBlock v-else-if="item.kind === 'slides'" icon="i-tabler-presentation" title="Diapositivas">
       <UFormField label="Nombre" help="Para reconocerlas en el orden; no se proyecta.">
-        <UInput v-model="title" size="lg" class="w-full" />
+        <UInput v-model="title" size="lg" class="w-full">
+          <template v-if="title" #trailing>
+            <AppClearButton @clear="title = ''" />
+          </template>
+        </UInput>
       </UFormField>
       <div class="flex flex-col gap-2">
         <span class="text-sm">{{ item.pages.length }} {{ item.pages.length === 1 ? 'diapositiva' : 'diapositivas' }}</span>
@@ -481,13 +498,22 @@ onMounted(() => {
                 autoresize
                 size="lg"
                 class="w-full"
-              />
+                :ui="{ base: 'pe-9', trailing: 'items-start pt-1.5' }"
+              >
+                <template v-if="fieldModels[f.field].value" #trailing>
+                  <AppClearButton :label="`Borrar ${f.name}`" @clear="fieldModels[f.field].value = ''" />
+                </template>
+              </UTextarea>
               <UInput
                 v-else
                 v-model="fieldModels[f.field].value"
                 size="lg"
                 class="w-full"
-              />
+              >
+                <template v-if="fieldModels[f.field].value" #trailing>
+                  <AppClearButton :label="`Borrar ${f.name}`" @clear="fieldModels[f.field].value = ''" />
+                </template>
+              </UInput>
               <CultoFieldStyle
                 v-if="openStyles.has(f.field)"
                 :model-value="styleOf(f.field)"
@@ -578,7 +604,7 @@ onMounted(() => {
     <CultoEditorBlock icon="i-tabler-list-details" title="En el orden">
       <!-- The section it belongs to (the Lord's supper, the offering…). -->
       <UFormField
-        v-if="sectionItems.length > 1 || canGroup"
+        v-if="!live && (sectionItems.length > 1 || canGroup)"
         label="Sección"
         help="Una sección junta pantallas, citas e himnos de un momento del culto, y se mueven juntos."
       >
@@ -608,7 +634,12 @@ onMounted(() => {
           :rows="2"
           autoresize
           class="w-full"
-        />
+          :ui="{ base: 'pe-9', trailing: 'items-start pt-1' }"
+        >
+          <template v-if="notes" #trailing>
+            <AppClearButton label="Borrar las notas" @clear="notes = ''" />
+          </template>
+        </UTextarea>
       </UFormField>
     </CultoEditorBlock>
   </div>

@@ -140,8 +140,13 @@ const whereItems: { label: string; description: string; value: InsertWhere }[] =
           placeholder="12, jn 3:16, Oremos por…"
           class="w-full"
           aria-label="Qué insertar"
+          :ui="{ base: 'pe-10', trailing: 'items-start pt-2' }"
           @keydown="onKeydown"
-        />
+        >
+          <template v-if="text" #trailing>
+            <AppClearButton label="Borrar" @clear="text = ''" />
+          </template>
+        </UTextarea>
 
         <ul
           v-if="options.length"

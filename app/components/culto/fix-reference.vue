@@ -1,13 +1,14 @@
 <script lang="ts" setup>
 import type { ItemScreens } from "~/composables/use-culto-screens";
-import type { CultoItem, ReadingMode } from "~~/lib/culto";
+import type { CultoItem } from "~~/lib/culto";
 
 // Editing an element while the service is live (NN/g: recovering from an
 // error is quick and at hand, and nothing changes on the congregation's
-// screen without the operator seeing it first): a reading's passage (with
-// its live recognition), version and how it is split, or every text of a
-// screen; the screens it will give, and how to apply it. A side panel over
-// the order, so the screen on air stays in sight.
+// screen without the operator seeing it first): everything the editor has
+// for it (a hymn's number, a reading's passage, a screen's texts, design,
+// styles and background…), over a copy; the screens it will give; and how
+// to apply it. A side panel over the order, so the screen on air stays in
+// sight.
 const props = defineProps<{
   entry: ItemScreens | null;
   /** The element is on air: show it now or when moving on. */
@@ -17,96 +18,30 @@ const emit = defineEmits<{
   apply: [changes: Partial<CultoItem>, show: "now" | "later" | "none"];
 }>();
 const open = defineModel<boolean>("open", { required: true });
-const bible = useBibleStore();
-const { versions } = storeToRefs(bible);
-const versionItems = computed(() => versions.value.map(v => ({ label: v.label, value: v.id })));
-const modeItems: { label: string; value: ReadingMode }[] = [
-  { label: "Ajustar a la pantalla", value: "fit" },
-  { label: "Un versículo por pantalla", value: "verse" },
-];
 
-/** The fields that can be edited, as the element has them now. */
-type Fields = {
-  reference: string;
-  versionId: string;
-  mode: ReadingMode;
-  eyebrow: string;
-  title: string;
-  body: string;
-};
-const form = reactive<Fields>({
-  reference: "",
-  versionId: "",
-  mode: "fit",
-  eyebrow: "",
-  title: "",
-  body: "",
-});
-
-function fieldsOf(item: CultoItem): Fields {
-  return {
-    reference: item.kind === "reading" || item.kind === "screen"
-      ? item.reference
-      : "",
-    versionId: item.kind === "reading"
-      ? item.versionId || bible.currentId
-      : "",
-    mode: item.kind === "reading"
-      ? item.mode ?? "fit"
-      : "fit",
-    eyebrow: item.kind === "screen"
-      ? item.eyebrow
-      : "",
-    title: item.kind === "screen"
-      ? item.title
-      : "",
-    body: item.kind === "screen"
-      ? item.body
-      : "",
-  };
-}
-
+/** What the operator changed, not yet applied. */
+const edits = ref<Partial<CultoItem>>({});
 watch([
   open,
   () => props.entry?.item.id,
 ], () => {
-  const item = props.entry?.item;
-  if (open.value && item)
-    Object.assign(form, fieldsOf(item));
+  edits.value = {};
 }, { immediate: true });
 
-const isReading = computed(() => props.entry?.item.kind === "reading");
-const screen = computed(() => (props.entry?.item.kind === "screen"
-  ? props.entry.item
-  : null));
-/** A screen's long text: only the «Texto» layout shows it, as in the editor. */
-const hasBody = computed(() => screen.value?.layout === "text");
+function propose(changes: Partial<CultoItem>) {
+  edits.value = {
+    ...edits.value,
+    ...changes,
+  } as Partial<CultoItem>;
+}
 
-/** What differs from the element, trimmed as the editor would keep it. */
+/** The changes that really differ from the element. */
 const changes = computed<Partial<CultoItem>>(() => {
-  const item = props.entry?.item;
+  const item = props.entry?.item as Record<string, unknown> | undefined;
   if (!item)
     return {};
-  const now = fieldsOf(item);
-  const keys: (keyof Fields)[] = item.kind === "reading"
-    ? ["reference", "versionId", "mode"]
-    : hasBody.value
-      ? [
-          "eyebrow",
-          "title",
-          "reference",
-          "body",
-        ]
-      : ["eyebrow", "title", "reference"];
-  const out: Record<string, string> = {};
-  for (const key of keys) {
-    const value = key === "body" || key === "title"
-      ? form[key].replace(/\s+$/, "")
-      : form[key].trim();
-    if (value !== now[key])
-      out[key] = value;
-  }
-  return out as Partial<CultoItem>;
+  return Object.fromEntries(Object.entries(edits.value)
+    .filter(([key, value]) => JSON.stringify(value) !== JSON.stringify(item[key]))) as Partial<CultoItem>;
 });
 const changed = computed(() => Object.keys(changes.value).length > 0);
 
@@ -115,7 +50,7 @@ const draft = computed<CultoItem[]>(() => (props.entry && open.value
   ? [
       {
         ...props.entry.item,
-        ...changes.value,
+        ...edits.value,
         id: `${props.entry.item.id}-fix`,
       } as CultoItem,
     ]
@@ -124,49 +59,70 @@ const { entries: preview } = useCultoScreens(draft);
 const previewEntry = computed(() => preview.value[0] ?? null);
 const ready = computed(() => changed.value && previewEntry.value?.status === "ready" && previewEntry.value.screens.length > 0);
 
-// Enter in the field takes the reference; the next Enter applies it: the
-// button that does is focused as soon as its screens are ready (it stays
-// disabled until then). Typing something else drops it.
-const focusFor = ref<string | null>(null);
+// Enter in a field (the passage, a hymn's number, a title…) takes it; the
+// next Enter applies it: the button that does is focused as soon as its
+// screens are ready (it stays disabled until then). Typing on drops it.
+const wantCta = ref(false);
+// Not while Enter is still down: the same key press would press the button
+// (a hymn's screens are ready at once) and apply it without a second Enter.
+const enterDown = ref(false);
 const cta = useTemplateRef<HTMLElement>("cta");
 function referenceDone() {
-  focusFor.value = form.reference.trim();
+  wantCta.value = true;
 }
+function onFormKeydown(event: KeyboardEvent) {
+  const target = event.target as HTMLElement;
+  if (event.key === "Enter" && !event.shiftKey && target.tagName === "INPUT")
+    wantCta.value = true;
+  else if (event.key.length === 1 || event.key === "Backspace" || event.key === "Delete")
+    wantCta.value = false;
+}
+// Anywhere (the passage's «Elegir» opens outside the form).
+useEventListener("keydown", (event: KeyboardEvent) => {
+  if (event.key === "Enter")
+    enterDown.value = true;
+}, { capture: true });
+useEventListener("keyup", (event: KeyboardEvent) => {
+  if (event.key === "Enter")
+    enterDown.value = false;
+});
 watch([
   ready,
-  focusFor,
+  wantCta,
+  enterDown,
 ], async () => {
-  if (!ready.value || focusFor.value === null)
+  if (!ready.value || !wantCta.value || enterDown.value)
     return;
-  if (focusFor.value !== form.reference.trim()) {
-    focusFor.value = null;
-    return;
-  }
-  focusFor.value = null;
+  wantCta.value = false;
   await nextTick();
   cta.value?.querySelector<HTMLElement>("[data-cta]")?.focus();
 });
-// Opens in the first field, with what it holds selected: ready to type over.
-const picker = useTemplateRef<{ focus: () => void }>("picker");
-const fields = useTemplateRef<HTMLElement>("fields");
+
+// Opens in the first text field, with what it holds selected: ready to
+// type over it.
+const form = useTemplateRef<HTMLElement>("form");
 watch(open, (isOpen) => {
-  focusFor.value = null;
+  wantCta.value = false;
+  enterDown.value = false;
   if (!isOpen)
     return;
   setTimeout(() => {
-    if (picker.value) {
-      picker.value.focus();
-      return;
-    }
-    const first = fields.value?.querySelector<HTMLInputElement | HTMLTextAreaElement>("input, textarea");
+    const fields = form.value?.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>("input:not([type=hidden]):not([type=radio]):not([type=checkbox]):not([type=file]), textarea");
+    const first = [
+      ...fields ?? [],
+    ].find(el => el.offsetParent !== null);
     first?.focus();
     first?.select();
-  }, 50);
+  }, 80);
 });
 
-const title = computed(() => (isReading.value
-  ? "Corregir la cita"
-  : "Editar la pantalla"));
+const TITLES: Record<CultoItem["kind"], string> = {
+  reading: "Corregir la cita",
+  hymn: "Editar el himno",
+  slides: "Editar las diapositivas",
+  screen: "Editar la pantalla",
+};
+const title = computed(() => TITLES[props.entry?.item.kind ?? "screen"]);
 
 function apply(show: "now" | "later" | "none") {
   emit("apply", changes.value, show);
@@ -181,84 +137,42 @@ function apply(show: "now" | "later" | "none") {
     :overlay="false"
     :title="title"
     :description="entry?.label"
-    :ui="{ content: 'max-w-md' }"
+    :ui="{ content: 'max-w-lg' }"
   >
     <template #body>
-      <div v-if="entry" class="flex flex-col gap-4">
-        <template v-if="isReading">
-          <UFormField label="Cita" help="Escríbela o elige libro, capítulo y versículos.">
-            <CultoPassagePicker
-              ref="picker"
-              v-model="form.reference"
-              :version-id="form.versionId"
-              @done="referenceDone"
-            />
-          </UFormField>
-          <UFormField label="Versión">
-            <USelect
-              v-model="form.versionId"
-              :items="versionItems"
-              size="lg"
-              class="w-full"
-            />
-          </UFormField>
-          <UFormField label="Cómo repartir">
-            <URadioGroup v-model="form.mode" :items="modeItems" />
-          </UFormField>
-        </template>
-        <div v-else-if="screen" ref="fields" class="flex flex-col gap-4">
-          <UFormField label="Etiqueta" help="Arriba, en letra pequeña: «Santa Cena», «Anuncios»…">
-            <UInput v-model="form.eyebrow" size="lg" class="w-full" />
-          </UFormField>
-          <UFormField label="Título">
-            <UTextarea
-              v-model="form.title"
-              :rows="2"
-              autoresize
-              size="lg"
-              class="w-full"
-            />
-          </UFormField>
-          <UFormField label="Referencia o subtítulo">
-            <UInput
-              v-model="form.reference"
-              size="lg"
-              class="w-full"
-              placeholder="1 Corintios 11:24"
-            />
-          </UFormField>
-          <UFormField v-if="hasBody" label="Texto" help="Si no cabe, sigue en otras pantallas. Una línea en blanco separa párrafos.">
-            <UTextarea
-              v-model="form.body"
-              :rows="5"
-              autoresize
-              :maxrows="12"
-              size="lg"
-              class="w-full"
-            />
-          </UFormField>
-        </div>
-
+      <div v-if="entry && previewEntry" class="flex flex-col gap-5">
         <section class="flex flex-col gap-2" aria-label="Cómo quedará">
           <h3 class="text-xs font-bold uppercase tracking-wider text-muted">
             Cómo quedará
-            <template v-if="previewEntry?.status === 'ready'">
+            <template v-if="previewEntry.status === 'ready'">
               · {{ previewEntry.screens.length }} {{ previewEntry.screens.length === 1 ? 'pantalla' : 'pantallas' }}
             </template>
+            <template v-if="!changed">
+              · sin cambios
+            </template>
           </h3>
-          <p v-if="previewEntry?.status === 'error'" class="rounded-xl bg-warning/10 px-3 py-2 text-sm font-medium text-warning">
+          <p v-if="previewEntry.status === 'error'" class="rounded-xl bg-warning/10 px-3 py-2 text-sm font-medium text-warning">
             {{ previewEntry.error }}
           </p>
-          <div v-else-if="previewEntry?.status === 'loading'" class="grid aspect-video place-items-center rounded-xl bg-muted">
+          <div v-else-if="previewEntry.status === 'loading' && !previewEntry.screens.length" class="grid aspect-video place-items-center rounded-xl bg-muted">
             <UIcon name="i-tabler-loader-2" class="size-6 animate-spin opacity-60" aria-label="Preparando" />
           </div>
-          <ol v-else-if="previewEntry" class="grid grid-cols-2 gap-2">
+          <ol v-else class="soft-scrollbar grid max-h-64 grid-cols-3 gap-2 overflow-y-auto">
             <li v-for="(s, i) in previewEntry.screens" :key="i" class="relative overflow-hidden rounded-lg ring-1 ring-default">
               <CultoScreen :screen="s" />
               <span class="absolute bottom-1 left-1 grid h-5 min-w-5 place-items-center rounded-full bg-black/70 px-1 text-[0.68rem] font-bold text-white tabular-nums">{{ i + 1 }}</span>
             </li>
           </ol>
         </section>
+
+        <div ref="form" @keydown="onFormKeydown">
+          <CultoItemEditor
+            :entry="previewEntry"
+            live
+            @change="propose"
+            @reference-done="referenceDone"
+          />
+        </div>
       </div>
     </template>
     <template #footer>

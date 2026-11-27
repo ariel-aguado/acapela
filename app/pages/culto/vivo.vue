@@ -322,8 +322,8 @@ watch(onAirKey, (key) => {
 const reducedMotion = usePreferredReducedMotion();
 
 // ------------------------------------------------------------ correcting live
-// A wrong passage, or a screen's texts, is corrected right here (C, or the
-// pencil in the order).
+// Any element (a passage, a hymn, a screen's texts and look) is corrected
+// right here (C, or the pencil in the order), over a copy until applied.
 // On air, «Aplicar y mostrar» shows its first corrected screen at once;
 // «Aplicar al pasar» keeps the screen the congregation sees until → (which
 // then shows the corrected element from its start).
@@ -336,15 +336,19 @@ const showFix = computed({
   },
 });
 const fixEntry = computed(() => entries.value.find(e => e.item.id === fixingId.value) ?? null);
-/** A reading (its passage) or a screen (its texts) can be edited live. */
+/** Every element can be edited live, all that the editor has for it. */
 function canFix(item: CultoItem | undefined) {
-  return item?.kind === "reading" || item?.kind === "screen";
+  return !!item;
 }
-/** What its pencil does: a passage is corrected, a screen edited. */
+const FIX_LABELS: Record<CultoItem["kind"], string> = {
+  reading: "Corregir la cita",
+  hymn: "Editar el himno",
+  slides: "Editar las diapositivas",
+  screen: "Editar la pantalla",
+};
+/** What its pencil does: a passage is corrected, the rest edited. */
 function fixLabel(item: CultoItem | undefined) {
-  return item?.kind === "reading"
-    ? "Corregir la cita"
-    : "Editar la pantalla";
+  return FIX_LABELS[item?.kind ?? "screen"];
 }
 function fix(itemId: string | undefined) {
   if (itemId && canFix(entries.value.find(e => e.item.id === itemId)?.item))
@@ -360,9 +364,12 @@ function applyFix(changes: Partial<CultoItem>, show: "now" | "later" | "none") {
   culto.updateItem(item.id, changes, liveCulto.value?.id);
   if (show === "now")
     position.value = { itemId: item.id, key: "" };
-  const done = item.kind === "reading"
-    ? "Se corrigió la cita"
-    : "Se actualizó la pantalla";
+  const done = ({
+    reading: "Se corrigió la cita",
+    hymn: "Se cambió el himno",
+    slides: "Se cambiaron las diapositivas",
+    screen: "Se actualizó la pantalla",
+  } as const)[item.kind];
   toast(show === "later"
     ? `${done}: se verá al pasar.`
     : `${done}.`, {
@@ -483,7 +490,7 @@ const serviceShortcuts: ShortcutGroup[] = [
       },
       {
         keys: ["C"],
-        label: "Corregir la cita o editar la pantalla de lo que está en el proyector",
+        label: "Editar lo que está en el proyector (la cita, el himno, la pantalla…)",
       },
     ],
   },
