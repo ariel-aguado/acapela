@@ -1,12 +1,19 @@
 <script setup lang="ts">
-import type { Background } from "~~/lib/culto";
+import type { Background, ScreenMoment } from "~~/lib/culto";
 
+import { GALLERY, galleryThumb, isLightGallery } from "~/utils/culto/backgrounds";
 import { importImage, mediaUrl } from "~/utils/culto/media";
 
-// What is behind the text: Acapela's picture, a colour or a picture of the
-// church's own. With `inherit`, "Del tema" leaves the element on the theme's.
+// What is behind the text: one of Acapela's gallery (the ones for this
+// moment first), a colour or a picture of the church's own. With `inherit`,
+// «Predeterminado» leaves the element on the theme's, shown with its
+// picture (NN/g: show the value rather than name it).
 const props = defineProps<{
   inherit?: boolean;
+  /** The element's moment, to offer its backgrounds first. */
+  moment?: ScreenMoment | "reading";
+  /** Its name ("Santa Cena"), for the heading of those. */
+  momentLabel?: string;
 }>();
 const model = defineModel<Background | undefined>();
 
@@ -19,21 +26,72 @@ const SWATCHES = [
   "#ffffff",
 ];
 
-type Kind = "inherit" | Background["kind"];
-const kind = computed<Kind>(() => model.value?.kind ?? (props.inherit
-  ? "inherit"
-  : "acapela"));
+type Kind = "inherit" | "gallery" | "color" | "image";
+const kind = computed<Kind>(() => {
+  const k = model.value?.kind;
+  if (!k) {
+    return props.inherit
+      ? "inherit"
+      : "gallery";
+  }
+  return k === "acapela"
+    ? "gallery"
+    : k;
+});
 
 const items = computed(() => [
   ...(props.inherit
     ? [
-        { label: "Del tema", value: "inherit" },
+        { label: "Predeterminado", value: "inherit" },
       ]
     : []),
-  { label: "Imagen de Acapela", value: "acapela" },
+  { label: "Galería", value: "gallery" },
   { label: "Color", value: "color" },
   { label: "Imagen propia", value: "image" },
 ]);
+
+// The gallery: Acapela's cross and the illustrations, the moment's first.
+type Tile = { key: string; label: string; thumb: string; value: Background };
+const CROSS: Tile = {
+  key: "acapela",
+  label: "La cruz al amanecer",
+  thumb: "/img/background-fullscreen.webp",
+  value: { kind: "acapela" },
+};
+// Dark and light ones apart: dark text goes on the light ones.
+const tone = ref<"dark" | "light">(model.value?.kind === "gallery" && isLightGallery(model.value.id)
+  ? "light"
+  : "dark");
+const toneItems = [
+  { label: "Oscuros", value: "dark" },
+  { label: "Claros", value: "light" },
+];
+const tiles = computed(() => {
+  const all: Tile[] = GALLERY
+    .filter(g => !!g.light === (tone.value === "light"))
+    .map(g => ({
+      key: g.id,
+      label: g.label,
+      thumb: galleryThumb(g.id),
+      value: { kind: "gallery", id: g.id },
+    }));
+  const mine = props.moment
+    ? all.filter(t => GALLERY.find(g => g.id === t.key)!.for.includes(props.moment!))
+    : [];
+  const rest = all.filter(t => !mine.includes(t));
+  return {
+    mine,
+    rest: tone.value === "dark"
+      ? [CROSS, ...rest]
+      : rest,
+  };
+});
+function isChosen(tile: Tile) {
+  const v = model.value;
+  if (tile.value.kind === "acapela")
+    return v?.kind === "acapela" || (!v && !props.inherit);
+  return v?.kind === "gallery" && tile.value.kind === "gallery" && v.id === tile.value.id;
+}
 
 const fileInput = useTemplateRef<HTMLInputElement>("file");
 const busy = ref(false);
@@ -42,8 +100,9 @@ function setKind(value: Kind) {
   if (value === "inherit") {
     model.value = undefined;
   }
-  else if (value === "acapela") {
-    model.value = { kind: "acapela" };
+  else if (value === "gallery") {
+    if (model.value?.kind !== "gallery" && model.value?.kind !== "acapela")
+      model.value = tiles.value.mine[0]?.value ?? { kind: "acapela" };
   }
   else if (value === "color") {
     model.value = {
@@ -72,6 +131,9 @@ async function onFile(e: Event) {
   }
 }
 
+const culto = useCultoStore();
+const inheritedThumb = useBackgroundThumb(() => culto.theme.background);
+
 const preview = ref<string | null>(null);
 watchEffect(async () => {
   preview.value = model.value?.kind === "image"
@@ -90,6 +152,54 @@ watchEffect(async () => {
       size="sm"
       @update:model-value="v => setKind(v as Kind)"
     />
+    <!-- The one every screen has unless it has its own. -->
+    <div v-if="kind === 'inherit'" class="flex items-center gap-3">
+      <span class="h-14 aspect-video shrink-0 rounded-lg ring-1 ring-default bg-muted" :style="inheritedThumb" aria-hidden="true" />
+      <p class="text-sm text-muted">
+        El mismo de todo el culto. Se cambia en ⋯ › Tema de la iglesia.
+      </p>
+    </div>
+    <!-- The gallery -->
+    <div v-if="kind === 'gallery'" class="flex flex-col gap-3">
+      <UTabs
+        v-model="tone"
+        :items="toneItems"
+        :content="false"
+        size="sm"
+        class="w-full sm:w-64"
+        aria-label="Fondos oscuros o claros"
+      />
+      <template v-for="group in [{ name: momentLabel ? `Para ${momentLabel}` : '', list: tiles.mine }, { name: tiles.mine.length ? 'Más fondos' : '', list: tiles.rest }]" :key="group.name">
+        <div v-if="group.list.length" class="flex flex-col gap-1.5">
+          <p v-if="group.name" class="text-xs font-bold uppercase tracking-wider text-muted">
+            {{ group.name }}
+          </p>
+          <div class="grid grid-cols-3 gap-2" role="radiogroup" :aria-label="group.name || 'Fondos de Acapela'">
+            <button
+              v-for="tile in group.list"
+              :key="tile.key"
+              type="button"
+              role="radio"
+              class="group relative aspect-video overflow-hidden rounded-lg ring-1 ring-default"
+              :class="{ 'ring-[3px] ring-primary': isChosen(tile) }"
+              :aria-checked="isChosen(tile)"
+              :aria-label="tile.label"
+              :title="tile.label"
+              @click="model = tile.value"
+            >
+              <img
+                :src="tile.thumb"
+                alt=""
+                loading="lazy"
+                class="size-full object-cover transition-transform group-hover:scale-105"
+              >
+              <UIcon v-if="isChosen(tile)" name="i-tabler-circle-check-filled" class="absolute top-1 right-1 size-5 text-white drop-shadow" />
+            </button>
+          </div>
+        </div>
+      </template>
+    </div>
+
     <div v-if="model?.kind === 'color'" class="flex flex-wrap items-center gap-2">
       <button
         v-for="c in SWATCHES"

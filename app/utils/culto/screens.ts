@@ -1,6 +1,6 @@
 import type { Slide } from "~/utils/slides";
 import type { VerseRow } from "~~/lib/bible";
-import type { Look, ScreenLayout } from "~~/lib/culto";
+import type { FieldStyle, Look, ScreenLayout, TextAlign, TextField } from "~~/lib/culto";
 
 import type { PageItem } from "./paginate";
 
@@ -16,6 +16,11 @@ export type Screen
     number: number;
     title: string;
     scale: number;
+    /**
+     * The lyric's size before `scale`, the same for all the hymn's screens
+     * with as many lines (see useCultoScreens); none: fitted on its own.
+     */
+    size?: number;
     look?: Look;
   }
   | {
@@ -33,6 +38,10 @@ export type Screen
     scale: number;
     /** The picture of the image and logo layouts. */
     mediaId?: string;
+    /** Chosen alignment of the text; none: the layout's own. */
+    align?: TextAlign;
+    /** A style of their own for some of the texts. */
+    styles?: Partial<Record<TextField, FieldStyle>>;
     look?: Look;
   }
   | {
@@ -56,19 +65,38 @@ export function escapeHtml(text: string): string {
  * The markup of a page on the stage. The same string is used to draw it and
  * to measure it while paginating, so what was measured is what is shown.
  */
+const SELF: Record<TextAlign, string> = { start: "flex-start", center: "center", end: "flex-end" };
+
+/** The inline style of a text with a style of its own (alignment, size). */
+function fieldStyle(style: FieldStyle | undefined): string {
+  if (!style)
+    return "";
+  const css: string[] = [];
+  if (style.align)
+    css.push(`text-align:${style.align}`, `align-self:${SELF[style.align]}`);
+  if (style.scale && style.scale !== 1)
+    css.push(`zoom:${style.scale}`);
+  return css.length
+    ? ` style="${css.join(";")}"`
+    : "";
+}
+
 export function renderPage(screen: Extract<Screen, { type: "page" }>, body = screen.html): string {
-  const parts = [`<div class="page page--${screen.layout}" style="--page-body:${Math.round(PAGE_BODY_PX * screen.scale)}px">`];
+  const align = screen.align
+    ? ` page--align-${screen.align}`
+    : "";
+  const parts = [`<div class="page page--${screen.layout}${align}" style="--page-body:${Math.round(PAGE_BODY_PX * screen.scale)}px">`];
   if (screen.eyebrow)
-    parts.push(`<p class="page-eyebrow">${escapeHtml(screen.eyebrow)}</p>`);
+    parts.push(`<p class="page-eyebrow"${fieldStyle(screen.styles?.eyebrow)}>${escapeHtml(screen.eyebrow)}</p>`);
   parts.push(`<div class="page-main">`);
   if (screen.layout === "logo" && screen.mediaId)
     parts.push(`<img class="page-logo" data-media="${escapeHtml(screen.mediaId)}" alt="">`);
   if (screen.title)
-    parts.push(`<h2 class="page-title">${escapeHtml(screen.title)}</h2>`);
+    parts.push(`<h2 class="page-title"${fieldStyle(screen.styles?.title)}>${escapeHtml(screen.title)}</h2>`);
   if (screen.reference)
-    parts.push(`<p class="page-reference">${escapeHtml(screen.reference)}</p>`);
+    parts.push(`<p class="page-reference"${fieldStyle(screen.styles?.reference)}>${escapeHtml(screen.reference)}</p>`);
   if (screen.layout === "text")
-    parts.push(`<div class="page-body">${body}</div>`);
+    parts.push(`<div class="page-body"${fieldStyle(screen.styles?.body)}>${body}</div>`);
   if (screen.layout === "image" && screen.mediaId)
     parts.push(`<img class="page-media" data-media="${escapeHtml(screen.mediaId)}" alt="">`);
   parts.push(`</div>`);
@@ -116,8 +144,14 @@ export function textPieces(text: string, idPrefix: string): PageItem[] {
   });
 }
 
-/** Pieces for Bible verses: one per verse, split by sentences, the number only on its first part. */
-export function versePieces(verses: VerseRow[], oneEach: boolean): PageItem[] {
+/**
+ * Pieces for Bible verses: one per verse, kept whole on a screen (a verse is
+ * not cut to fill the end of one). One too long for a whole screen is split
+ * by sentences, and its continuation keeps the number ("¹⁶ …"), so no screen
+ * starts with text whose verse cannot be told. `idPrefix` keeps them apart when one element has
+ * several passages (a moment's).
+ */
+export function versePieces(verses: VerseRow[], oneEach: boolean, idPrefix = ""): PageItem[] {
   return verses
     .filter(v => v.text.trim())
     .map((v, i) => {
@@ -127,13 +161,14 @@ export function versePieces(verses: VerseRow[], oneEach: boolean): PageItem[] {
         ? `${v.verse}-${v.verseRangeEnd}`
         : String(v.verse);
       const render = (inner: string, continued: boolean) => continued
-        ? `<p class="cont" data-v="${v.verse}">${inner}</p>`
+        ? `<p class="cont" data-v="${v.verse}"><sup>${number}</sup>…${inner}</p>`
         : `<p data-v="${v.verse}"><sup>${number}</sup>${inner}</p>`;
       return {
-        id: `v${v.chapter}:${v.verse}`,
-        key: `v${v.chapter}:${v.verse}`,
+        id: `${idPrefix}v${v.chapter}:${v.verse}`,
+        key: `${idPrefix}v${v.chapter}:${v.verse}`,
         html: render(split.join(" "), false),
         keepNext: false,
+        keepWhole: true,
         breakBefore: oneEach && i > 0,
         split: split.length > 1
           ? split

@@ -153,6 +153,22 @@ onMounted(async () => {
   align-items: center;
   text-align: center;
 }
+/* The alignment chosen for a screen, over its layout's own. */
+.page--align-start .page-main,
+.page--align-start .page-eyebrow {
+  align-items: flex-start;
+  text-align: start;
+}
+.page--align-center .page-main,
+.page--align-center .page-eyebrow {
+  align-items: center;
+  text-align: center;
+}
+.page--align-end .page-main,
+.page--align-end .page-eyebrow {
+  align-items: flex-end;
+  text-align: end;
+}
 .page--title .page-title {
   font-size: 140px;
 }

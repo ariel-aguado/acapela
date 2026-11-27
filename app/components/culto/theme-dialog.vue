@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import type { Screen } from "~/utils/culto/screens";
-import type { Background, ProjectionFont } from "~~/lib/culto";
+import type { Background, ProjectionFont, ScreenTransition, TitleCorner } from "~~/lib/culto";
 
 import { resolveLook } from "~/utils/culto/look";
 import { importImage, mediaUrl } from "~/utils/culto/media";
-import { PROJECTION_FONTS } from "~~/lib/culto";
+import { DEFAULT_TRANSITIONS, PROJECTION_FONTS, TITLE_CORNER_LABELS } from "~~/lib/culto";
 
 // The church's look on the projector: name, logo, background, accent and
 // letter, for every service on this device. The preview shows it on a
@@ -31,7 +31,22 @@ const background = computed({
   get: () => theme.value.background,
   set: (value: Background | undefined) => culto.setTheme({ background: value ?? { kind: "acapela" } }),
 });
+const transitions = computed(() => theme.value.transitions ?? DEFAULT_TRANSITIONS);
+function setTransition(which: "screen" | "element", value: ScreenTransition | undefined) {
+  if (value) {
+    culto.setTheme({
+      transitions: { ...transitions.value, [which]: value },
+    });
+  }
+}
+
 const fontItems = PROJECTION_FONTS.map(f => ({ label: f.label, value: f.id }));
+
+// A hymn's number and title: in any corner (each hymn can have its own).
+const titleCorner = computed({
+  get: () => theme.value.titleCorner ?? "bottom-start",
+  set: (value: TitleCorner) => culto.setTheme({ titleCorner: value }),
+});
 
 const logoInput = useTemplateRef<HTMLInputElement>("logo");
 const logoUrl = ref<string | null>(null);
@@ -60,6 +75,19 @@ const sample = computed<Screen>(() => ({
   scale: 1,
   look: look.value,
 }));
+const hymnSample = computed<Screen>(() => ({
+  type: "lyric",
+  slide: {
+    kind: "stanza",
+    label: "Estrofa 1",
+    html: "<p>Cristo ama a los niñitos,</p><p>por el mundo alrededor</p>",
+    preview: "Cristo ama a los niñitos,",
+  },
+  number: 56,
+  title: "Cristo ama a los niñitos",
+  scale: 1,
+  look: look.value,
+}));
 const logoSample = computed<Screen>(() => ({
   type: "page",
   layout: "logo",
@@ -83,7 +111,7 @@ const logoSample = computed<Screen>(() => ({
     :ui="{ content: 'sm:max-w-4xl' }"
   >
     <template #body>
-      <div class="grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
+      <div v-scroll-fade.parent class="grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
         <div class="flex flex-col gap-5">
           <UFormField label="Nombre de la iglesia" help="Abajo en las pantallas, y en la pantalla del logo.">
             <UInput v-model="churchName" size="lg" class="w-full" />
@@ -151,12 +179,34 @@ const logoSample = computed<Screen>(() => ({
               @update:model-value="v => culto.setTheme({ font: v as ProjectionFont })"
             />
           </UFormField>
+
+          <UFormField label="Título del himno" :help="`El número y el título, en cada pantalla de los himnos: ${TITLE_CORNER_LABELS[titleCorner].toLowerCase()}. Cada himno puede tener el suyo.`">
+            <CultoCornerPicker v-model="titleCorner" />
+          </UFormField>
+
+          <UFormField label="Transición entre pantallas" help="De una estrofa a la siguiente: mejor casi imperceptible.">
+            <CultoTransitionPicker
+              :model-value="transitions.screen"
+              label="Transición entre pantallas"
+              @update:model-value="v => setTransition('screen', v)"
+            />
+          </UFormField>
+          <UFormField label="Transición al cambiar de elemento" help="Del himno a la lectura, a la oración… Cada elemento puede tener la suya.">
+            <CultoTransitionPicker
+              :model-value="transitions.element"
+              label="Transición al cambiar de elemento"
+              @update:model-value="v => setTransition('element', v)"
+            />
+          </UFormField>
         </div>
 
         <div class="flex flex-col gap-3">
           <span class="text-xs font-bold uppercase tracking-wider opacity-70">Así se ve</span>
           <div class="rounded-xl overflow-hidden ring-1 ring-default">
             <CultoScreen :screen="sample" />
+          </div>
+          <div class="rounded-xl overflow-hidden ring-1 ring-default">
+            <CultoScreen :screen="hymnSample" />
           </div>
           <div class="rounded-xl overflow-hidden ring-1 ring-default">
             <CultoScreen :screen="logoSample" />

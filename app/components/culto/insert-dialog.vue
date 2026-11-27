@@ -19,27 +19,27 @@ const where = ref<InsertWhere>("now");
 const choice = ref(0);
 
 type Option = { kind: string; label: string; detail: string; make: () => CultoItem };
-const readingOption = ref<Option | null>(null);
+const readingOptions = ref<Option[]>([]);
 
-// The Bible reading of what is typed (async: the book index is in the worker).
+// The Bible readings of what is typed (async: the book index is in the
+// worker), as SúperBiblia's "Ir a": every valid passage it can be, the
+// likeliest first ("jn123" → Juan 1:23, Juan 12:3).
 watchDebounced(text, async (value) => {
-  readingOption.value = null;
+  readingOptions.value = [];
   const typed = value.trim();
   if (!typed || /^\d+$/.test(typed) || typed.includes("\n") || typed.length > 40)
     return;
   try {
-    const parsed = await bible.parse(typed);
-    const book = parsed.book ?? parsed.bookCandidates?.[parsed.activeCandidateIndex];
-    if (typed !== text.value.trim() || !book || !parsed.chapter || parsed.status === "invalid" || parsed.status === "idle")
+    const list = await bible.predict(typed);
+    if (typed !== text.value.trim())
       return;
-    const label = parsed.canonicalLabel ?? `${book.name} ${parsed.chapter}`;
     const version = bible.versions.find(v => v.id === bible.currentId)?.label ?? "";
-    readingOption.value = {
+    readingOptions.value = list.filter(s => !s.isBook).slice(0, 3).map(s => ({
       kind: "Lectura",
-      label,
+      label: s.label,
       detail: version,
-      make: () => culto.newReading(label, bible.currentId, { inserted: true }),
-    };
+      make: () => culto.newReading(s.label, bible.currentId, { inserted: true }),
+    }));
   }
   catch {
     // No Bibles on this site: only hymns and text.
@@ -63,8 +63,7 @@ const options = computed<Option[]>(() => {
       });
     }
   }
-  if (readingOption.value)
-    list.push(readingOption.value);
+  list.push(...readingOptions.value);
   const lines = typed.split("\n");
   list.push({
     kind: "Texto",
@@ -130,7 +129,7 @@ const whereItems: { label: string; description: string; value: InsertWhere }[] =
     :ui="{ content: 'sm:max-w-2xl' }"
   >
     <template #body>
-      <div class="flex flex-col gap-4">
+      <div v-scroll-fade.parent class="flex flex-col gap-4">
         <UTextarea
           v-model="text"
           :rows="1"
@@ -141,8 +140,13 @@ const whereItems: { label: string; description: string; value: InsertWhere }[] =
           placeholder="12, jn 3:16, Oremos por…"
           class="w-full"
           aria-label="Qué insertar"
+          :ui="{ base: 'pe-10', trailing: 'items-start pt-2' }"
           @keydown="onKeydown"
-        />
+        >
+          <template v-if="text" #trailing>
+            <AppClearButton label="Borrar" @clear="text = ''" />
+          </template>
+        </UTextarea>
 
         <ul
           v-if="options.length"

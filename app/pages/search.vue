@@ -8,11 +8,11 @@ import type { FilteredSong, FullSearchResult, Song } from "~~/lib/types";
 // One search for everything a person may remember: the number, the title or
 // a phrase of the lyric. Results are grouped by where they matched.
 //
-// Desktop (lg) uses the whole width: the field spans the page, the results
-// are a column on the left and the highlighted hymn is shown whole on the
-// right (click selects, double click or Enter opens it). Without a query,
-// recents are a row of cards and every hymn sits in a three-column grid with
-// a horizontal index. The phone keeps its single column.
+// Desktop (lg) sits in the app's container (max-w-7xl, as in Culto): the
+// field spans it, the results are a column on the left and the highlighted
+// hymn is shown whole on the right (click selects, double click or Enter
+// opens it). Without a query, recents are a row of cards and every hymn sits
+// in a three-column grid with a horizontal index. The phone keeps its single column.
 //
 // When the chosen songbook has nothing, the same query runs in the other
 // songbooks (a hymn of another one opens at /himno without changing the
@@ -393,10 +393,11 @@ function useSuggestion(word: string) {
   inputRef.value?.focus();
 }
 
+const { projectHymn } = useProjectHymn();
 function project(pick: Picked) {
   onOpen();
   songId.value = pick.songId;
-  navigateTo("/fullscreen");
+  projectHymn(pick.songId);
 }
 
 function addToCulto(pick: Picked) {
@@ -569,7 +570,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="flex flex-col h-dvh pad-bar-top w-full max-w-2xl lg:max-w-[calc(1440px+3rem)] lg:px-6 mx-auto min-w-0">
+  <div class="flex flex-col h-dvh pad-bar-top w-full max-w-2xl lg:max-w-7xl lg:px-4 mx-auto min-w-0">
     <!-- ===================== Search band ===================== -->
     <div class="flex flex-col gap-2 px-4 pt-1 pb-3 bg-default border-b border-muted z-10 lg:mt-1 lg:gap-3 lg:px-6 lg:py-5 lg:rounded-2xl lg:border-0 lg:shadow-card">
       <label for="query" class="text-sm font-medium lg:sr-only">Número, título o una frase de la letra</label>
@@ -666,7 +667,8 @@ onMounted(async () => {
     <div class="flex-1 min-h-0 flex lg:gap-4 lg:pt-4 lg:pb-6">
       <div
         ref="resultsRef"
-        class="context flex-1 min-w-0 overflow-y-auto pad-bar-bottom lg:pb-2"
+        v-scroll-fade
+        class="context soft-scrollbar flex-1 min-w-0 overflow-y-auto pad-bar-bottom lg:pb-2"
         :class="hasQuery && !nothingAnywhere ? 'lg:flex-none lg:w-[30rem] lg:rounded-2xl lg:bg-default lg:shadow-card lg:p-2' : ''"
       >
         <!-- ===================== Results ===================== -->
@@ -1093,7 +1095,7 @@ onMounted(async () => {
         </header>
 
         <!-- The lyric in the reading face, two columns when there is room. -->
-        <div ref="previewRef" class="context flex-1 overflow-y-auto px-7 py-6">
+        <div ref="previewRef" v-scroll-fade class="context soft-scrollbar flex-1 overflow-y-auto px-7 py-6">
           <div class="preview-lyric font-lyric text-lg/relaxed text-default">
             <section
               v-for="{ block, index } in previewBlocks"
@@ -1164,6 +1166,8 @@ onMounted(async () => {
 }
 .preview-block--chorus .hymn-block__text {
   font-style: italic;
+  /* Bold in the weight every lyric face ships (600; 700 would be faked). */
+  font-weight: 600;
 }
 .preview-block--hit {
   background: color-mix(in oklab, var(--ui-warning) 10%, transparent);

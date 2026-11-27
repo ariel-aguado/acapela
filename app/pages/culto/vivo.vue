@@ -3,38 +3,119 @@ import type { ShortcutGroup } from "~/components/app/shortcuts-help.vue";
 import type { InsertWhere } from "~/components/culto/insert-dialog.vue";
 import type { ProjectorState } from "~/composables/use-projector-channel";
 import type { Screen } from "~/utils/culto/screens";
-import type { CultoItem } from "~~/lib/culto";
+import type { CultoItem, ScreenTransition } from "~~/lib/culto";
 
+import { QUICK_POSITION_KEY } from "~/composables/use-project-hymn";
 import { PROJECTOR_WINDOW_NAME } from "~/composables/use-projector-channel";
+import { cultoWhen } from "~/stores/culto";
 import { SCALE_MAX, SCALE_MIN, SCALE_STEP } from "~/stores/presentation";
 import { resolveLook } from "~/utils/culto/look";
+import { momentTone } from "~/utils/culto/moment";
+import { blocksOf } from "~/utils/culto/sections";
+import { DEFAULT_TRANSITIONS } from "~~/lib/culto";
 
 // The live console of a service: every screen of every element in order,
 // so → goes from the last verse of a hymn to the next reading without
 // looking for anything. The projector window (or this screen in full
 // screen) shows only the live screen. Anything can be inserted while live.
+//
+// It is the only projection console. /culto/vivo projects the service being
+// prepared; /culto/vivo?libre the free projection ("Proyectar himno": hymns
+// one after the other, no service prepared), which says so on top and can
+// be saved as a service. N and P go to the next and previous hymn there.
 definePageMeta({ bare: true });
-useHead({ title: "Culto en vivo" });
 
+const route = useRoute();
+const router = useRouter();
 const culto = useCultoStore();
 const songStore = useSongStore();
+const songbookStore = useSongbookStore();
 const presentation = usePresentationStore();
 const bible = useBibleStore();
-const { current } = storeToRefs(culto);
+const { current, quickCulto } = storeToRefs(culto);
+const { songs } = storeToRefs(songStore);
 const { show: toast } = useUndoToast();
 
-const items = computed<CultoItem[]>(() => current.value?.items ?? []);
+/** The free projection instead of the prepared service. */
+const quick = computed(() => route.query.libre !== undefined);
+const liveCulto = computed(() => (quick.value
+  ? quickCulto.value
+  : current.value));
+useHead(() => ({
+  title: quick.value
+    ? "Proyección libre"
+    : "Culto en vivo",
+}));
+
+const items = computed<CultoItem[]>(() => liveCulto.value?.items ?? []);
 const { entries, flat } = useCultoScreens(items);
+
+/** The order on the right, with its sections as headings. */
+const orderBlocks = computed(() => blocksOf(
+  entries.value.map((entry, index) => ({
+    id: entry.item.id,
+    sectionId: entry.item.sectionId,
+    entry,
+    index,
+  })),
+  liveCulto.value?.sections,
+));
 
 // ------------------------------------------------------------ position
 // Kept as "element + screen", not as a number: inserting or re-flowing
-// before it must not move what is on screen.
-const position = useSessionStorage<{ itemId: string; key: string } | null>("cultoLivePosition2", null);
+// before it must not move what is on screen. One for the service and one
+// for the free projection, so going from one to the other keeps both.
+type Position = { itemId: string; key: string } | null;
+const servicePosition = useSessionStorage<Position>("cultoLivePosition2", null);
+const quickPosition = useSessionStorage<Position>(QUICK_POSITION_KEY, null);
+const position = computed<Position>({
+  get: () => (quick.value
+    ? quickPosition
+    : servicePosition).value,
+  set: (value) => {
+    (quick.value
+      ? quickPosition
+      : servicePosition).value = value;
+  },
+});
 const black = ref(false);
 /** The church's logo instead of the live screen (L). */
 const showLogo = ref(false);
+/**
+ * What the congregation sees: the content, black or the logo, one at a time
+ * (one selector instead of two toggles: they are states of the same thing).
+ */
+type ProjectorMode = "content" | "black" | "logo";
+const projectorMode = computed<ProjectorMode>({
+  get: () => (black.value
+    ? "black"
+    : showLogo.value
+      ? "logo"
+      : "content"),
+  set: (mode) => {
+    black.value = mode === "black";
+    showLogo.value = mode === "logo";
+  },
+});
+const projectorModes: { value: ProjectorMode; label: string; icon: string; key?: string }[] = [
+  { value: "content", label: "Contenido", icon: "i-tabler-device-tv" },
+  {
+    value: "black",
+    label: "Negro",
+    icon: "i-tabler-screen-share-off",
+    key: "B",
+  },
+  {
+    value: "logo",
+    label: "Logo",
+    icon: "i-tabler-building-church",
+    key: "L",
+  },
+];
 /** After something inserted "now", where to come back to. */
 const returnTo = ref<{ itemId: string; key: string; afterItemId: string } | null>(null);
+/** What stays on the projector after «Aplicar al pasar», until moving on. */
+const frozen = ref<{ itemId: string; screen: Screen | null; key: string } | null>(null);
 
 // While the element in position has no screens yet (inserted a moment ago,
 // still being measured), the previous screen stays.
@@ -64,6 +145,7 @@ const liveIndex = computed(() => {
 const live = computed(() => flat.value[liveIndex.value] ?? null);
 const liveEntry = computed(() => entries.value.find(e => e.item.id === live.value?.itemId) ?? null);
 function goTo(index: number) {
+  frozen.value = null;
   const target = flat.value[index];
   if (target)
     position.value = { itemId: target.itemId, key: target.screenKey };
@@ -84,10 +166,24 @@ function nextIndexOf(index: number): number {
   return index + 1;
 }
 
+/** The live element's screens, with their place in the service (for the strip). */
+const liveStrip = computed(() => {
+  const id = live.value?.itemId;
+  return flat.value.map((s, at) => ({ s, at })).filter(x => x.s.itemId === id);
+});
+
 /** The next screens in the order they will be shown. */
 const upcoming = computed(() => {
   const list: { s: (typeof flat.value)[number]; at: number }[] = [];
   let i = liveIndex.value;
+  const pending = frozen.value?.itemId;
+  if (pending) {
+    const first = flat.value.findIndex(s => s.itemId === pending);
+    if (first >= 0) {
+      list.push({ s: flat.value[first]!, at: first });
+      i = first;
+    }
+  }
   while (list.length < 4) {
     const n = nextIndexOf(i);
     const s = flat.value[n];
@@ -99,9 +195,20 @@ const upcoming = computed(() => {
   return list;
 });
 
+/** What → shows next: the first of `upcoming`. */
+const nextUp = computed(() => upcoming.value[0] ?? null);
+const nextAt = computed(() => nextUp.value?.at ?? -1);
+
 function next() {
   if (showLogo.value) {
     showLogo.value = false;
+    return;
+  }
+  // After «Aplicar al pasar»: the corrected element, from its start.
+  if (frozen.value) {
+    const itemId = frozen.value.itemId;
+    frozen.value = null;
+    position.value = { itemId, key: "" };
     return;
   }
   const target = nextIndexOf(liveIndex.value);
@@ -137,7 +244,11 @@ function insert(item: CultoItem, where: InsertWhere) {
       ? { itemId: after.itemId, key: after.screenKey, afterItemId: item.id }
       : null;
   }
-  culto.addItem(item, index);
+  // Inserted during a section (the Lord's supper), it belongs to it.
+  const liveSection = list[currentItemIndex]?.sectionId;
+  if (where !== "end" && liveSection)
+    item.sectionId = liveSection;
+  culto.addItem(item, index, liveCulto.value?.id);
   if (where === "now") {
     position.value = { itemId: item.id, key: "" };
   }
@@ -149,7 +260,27 @@ function insert(item: CultoItem, where: InsertWhere) {
 }
 
 function insertHymn(songId: number) {
-  insert(culto.newHymn(useSongbookStore().currentId, songId, { inserted: true }), "now");
+  if (quick.value) {
+    // The free projection is just the hymns in the order they were shown.
+    const item = culto.projectQuick(songbookStore.currentId, songId);
+    returnTo.value = null;
+    position.value = { itemId: item.id, key: "" };
+    return;
+  }
+  insert(culto.newHymn(songbookStore.currentId, songId, { inserted: true }), "now");
+}
+
+/** Free projection: the hymn after or before the one on screen (N, P). */
+const liveHymn = computed(() => {
+  const item = liveEntry.value?.item;
+  return item?.kind === "hymn" && item.songbookId === songbookStore.currentId
+    ? item
+    : null;
+});
+function stepHymn(step: number) {
+  const id = (liveHymn.value?.songId ?? 0) + step;
+  if (quick.value && liveHymn.value && id >= 1 && id <= songs.value.length)
+    insertHymn(id);
 }
 
 // ------------------------------------------------------------ text size
@@ -168,7 +299,7 @@ function changeScale(delta: number) {
   if (item.kind === "hymn" && item.scale === undefined)
     presentation.setScale(item.songId, value);
   else
-    culto.updateItem(item.id, { scale: value });
+    culto.updateItem(item.id, { scale: value }, liveCulto.value?.id);
 }
 
 // ------------------------------------------------------------ projector
@@ -189,11 +320,100 @@ const logoScreen = computed<Screen>(() => ({
 }));
 const onAir = computed(() => showLogo.value
   ? logoScreen.value
-  : live.value?.screen ?? null);
+  : frozen.value
+    ? frozen.value.screen
+    : live.value?.screen ?? null);
+
+// The transition of each change: the element's own, or the theme's between
+// its screens or when a new element begins; the logo, a short fade.
+const onAirKey = computed(() => (showLogo.value
+  ? "logo"
+  : frozen.value
+    ? frozen.value.key
+    : live.value
+      ? `${live.value.itemId}:${live.value.screenKey}`
+      : ""));
+const onAirTransition = ref<ScreenTransition>(DEFAULT_TRANSITIONS.screen);
+let lastItemId = "";
+let lastWasLogo = false;
+watch(onAirKey, (key) => {
+  const itemId = live.value?.itemId ?? "";
+  const own = liveEntry.value?.item.transition;
+  const theme = culto.theme.transitions ?? DEFAULT_TRANSITIONS;
+  onAirTransition.value = key === "logo" || lastWasLogo
+    ? { kind: "fade", speed: "fast" }
+    : own ?? (itemId !== lastItemId
+      ? theme.element
+      : theme.screen);
+  lastWasLogo = key === "logo";
+  if (key !== "logo")
+    lastItemId = itemId;
+}, { flush: "sync", immediate: true });
+/** The operator asked for less motion: the console cuts (the projector does not). */
+const reducedMotion = usePreferredReducedMotion();
+
+// ------------------------------------------------------------ correcting live
+// Any element (a passage, a hymn, a screen's texts and look) is corrected
+// right here (C, or the pencil in the order), over a copy until applied.
+// On air, «Aplicar y mostrar» shows its first corrected screen at once;
+// «Aplicar al pasar» keeps the screen the congregation sees until → (which
+// then shows the corrected element from its start).
+const fixingId = ref<string | null>(null);
+const showFix = computed({
+  get: () => !!fixingId.value,
+  set: (value: boolean) => {
+    if (!value)
+      fixingId.value = null;
+  },
+});
+const fixEntry = computed(() => entries.value.find(e => e.item.id === fixingId.value) ?? null);
+/** Every element can be edited live, all that the editor has for it. */
+function canFix(item: CultoItem | undefined) {
+  return !!item;
+}
+const FIX_LABELS: Record<CultoItem["kind"], string> = {
+  reading: "Corregir la cita",
+  hymn: "Editar el himno",
+  slides: "Editar las diapositivas",
+  screen: "Editar la pantalla",
+};
+/** What its pencil does: a passage is corrected, the rest edited. */
+function fixLabel(item: CultoItem | undefined) {
+  return FIX_LABELS[item?.kind ?? "screen"];
+}
+function fix(itemId: string | undefined) {
+  if (itemId && canFix(entries.value.find(e => e.item.id === itemId)?.item))
+    fixingId.value = itemId;
+}
+function applyFix(changes: Partial<CultoItem>, show: "now" | "later" | "none") {
+  const item = fixEntry.value?.item;
+  if (!item)
+    return;
+  const before = Object.fromEntries(Object.keys(changes).map(k => [k, (item as Record<string, unknown>)[k]])) as Partial<CultoItem>;
+  if (show === "later")
+    frozen.value = { itemId: item.id, screen: onAir.value, key: onAirKey.value };
+  culto.updateItem(item.id, changes, liveCulto.value?.id);
+  if (show === "now")
+    position.value = { itemId: item.id, key: "" };
+  const done = ({
+    reading: "Se corrigió la cita",
+    hymn: "Se cambió el himno",
+    slides: "Se cambiaron las diapositivas",
+    screen: "Se actualizó la pantalla",
+  } as const)[item.kind];
+  toast(show === "later"
+    ? `${done}: se verá al pasar.`
+    : `${done}.`, {
+    label: "Deshacer",
+    run: () => culto.updateItem(item.id, before, liveCulto.value?.id),
+  });
+}
 
 const liveState = computed<ProjectorState>(() => ({
   screen: onAir.value,
   black: black.value,
+  key: onAirKey.value,
+  transition: onAirTransition.value,
 }));
 const { connected } = useProjectorSender(liveState);
 
@@ -211,7 +431,18 @@ const { isFullscreen, toggle: toggleFullscreen } = useFullscreen(liveWrapRef);
 // ------------------------------------------------------------ clock
 
 const now = useNow({ interval: 1000 });
-const startedAt = useSessionStorage<number>("cultoLiveStartedAt", 0);
+const serviceStartedAt = useSessionStorage<number>("cultoLiveStartedAt", 0);
+const quickStartedAt = useSessionStorage<number>("cultoLiveStartedAtLibre", 0);
+const startedAt = computed<number>({
+  get: () => (quick.value
+    ? quickStartedAt
+    : serviceStartedAt).value,
+  set: (value) => {
+    (quick.value
+      ? quickStartedAt
+      : serviceStartedAt).value = value;
+  },
+});
 const clock = computed(() => now.value.toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" }));
 const elapsed = computed(() => {
   if (!startedAt.value)
@@ -227,7 +458,7 @@ const elapsed = computed(() => {
 function blocked(e: KeyboardEvent) {
   const t = e.target as HTMLElement | null;
   const typing = !!t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable);
-  return typing || showInsert.value || showGoTo.value || showHelp.value || e.ctrlKey || e.metaKey || e.altKey;
+  return typing || showInsert.value || showGoTo.value || showHelp.value || showFix.value || e.ctrlKey || e.metaKey || e.altKey;
 }
 function keys(list: string[], run: () => void) {
   onKeyStroke(list, (e) => {
@@ -247,16 +478,23 @@ keys([
 keys(["ArrowLeft", "ArrowUp", "PageUp"], prev);
 keys(["Home"], () => goTo(0));
 keys(["End"], () => goTo(flat.value.length - 1));
-keys(["b", "B", "."], () => (black.value = !black.value));
+keys(["b", "B", "."], () => (projectorMode.value = black.value
+  ? "content"
+  : "black"));
 keys(["i", "I"], () => (showInsert.value = true));
-keys(["l", "L"], () => (showLogo.value = !showLogo.value));
+keys(["l", "L"], () => (projectorMode.value = showLogo.value
+  ? "content"
+  : "logo"));
 keys(["g", "G"], () => (showGoTo.value = true));
+keys(["n", "N"], () => stepHymn(1));
+keys(["p", "P"], () => stepHymn(-1));
 keys(["+", "="], () => changeScale(SCALE_STEP));
 keys(["-", "_"], () => changeScale(-SCALE_STEP));
 keys(["f", "F"], () => toggleFullscreen());
 keys(["?"], () => (showHelp.value = true));
+keys(["c", "C"], () => fix(live.value?.itemId));
 
-const shortcutGroups: ShortcutGroup[] = [
+const serviceShortcuts: ShortcutGroup[] = [
   {
     title: "Avanzar",
     items: [
@@ -284,6 +522,10 @@ const shortcutGroups: ShortcutGroup[] = [
       {
         keys: ["G"],
         label: "Proyectar ahora un himno por número",
+      },
+      {
+        keys: ["C"],
+        label: "Editar lo que está en el proyector (la cita, el himno, la pantalla…)",
       },
     ],
   },
@@ -313,6 +555,29 @@ const shortcutGroups: ShortcutGroup[] = [
     ],
   },
 ];
+const shortcutGroups = computed<ShortcutGroup[]>(() => (quick.value
+  ? [
+      serviceShortcuts[0]!,
+      {
+        title: "Himnos",
+        items: [
+          {
+            keys: ["N", "P"],
+            label: "Himno siguiente / anterior",
+          },
+          {
+            keys: ["G"],
+            label: "Proyectar un himno por número",
+          },
+          {
+            keys: ["I"],
+            label: "Insertar un himno, una cita o un texto",
+          },
+        ],
+      },
+      serviceShortcuts[2]!,
+    ]
+  : serviceShortcuts));
 
 onMounted(() => {
   songStore.getSongs();
@@ -322,18 +587,57 @@ onMounted(() => {
     startedAt.value = Date.now();
 });
 
+function leave() {
+  if (window.history.state?.back)
+    router.back();
+  else
+    navigateTo("/cantar");
+}
+
 function endService() {
+  const wasQuick = quick.value;
   position.value = null;
   startedAt.value = 0;
   returnTo.value = null;
-  navigateTo("/culto");
+  if (wasQuick)
+    leave();
+  else
+    navigateTo("/culto");
+}
+
+/** The free projection becomes a service and the console stays on it. */
+function saveAsService() {
+  const at = quickPosition.value;
+  const since = quickStartedAt.value;
+  const saved = culto.saveQuick();
+  if (!saved)
+    return;
+  servicePosition.value = at;
+  serviceStartedAt.value = since || Date.now();
+  quickPosition.value = null;
+  quickStartedAt.value = 0;
+  router.replace({ path: "/culto/vivo" });
+  toast(`Guardado como el culto «${saved.title}». Puedes editarlo en Culto.`);
 }
 </script>
 
 <template>
-  <div class="min-h-dvh flex flex-col bg-muted text-default">
+  <div class="min-h-dvh lg:h-dvh lg:overflow-hidden flex flex-col bg-muted text-default">
+    <!-- On a computer everything fits the window, without scrolling (NN/g:
+      visibility of system status; what is below the fold is barely seen):
+      what is on air, what comes next, where the service is. -->
     <header class="flex flex-wrap items-center gap-2 px-3 py-2 bg-default border-b border-default">
       <UButton
+        v-if="quick"
+        color="neutral"
+        variant="ghost"
+        size="lg"
+        icon="i-tabler-arrow-left"
+        label="Volver"
+        @click="leave"
+      />
+      <UButton
+        v-else
         to="/culto"
         color="neutral"
         variant="ghost"
@@ -350,9 +654,24 @@ function endService() {
         <span class="size-2 rounded-full bg-error animate-pulse" aria-hidden="true" />
         EN VIVO
       </UBadge>
-      <h1 class="text-lg font-bold px-1 truncate">
-        {{ current?.title ?? 'Culto' }}
-      </h1>
+      <!-- What is being projected, in words: the service or the free projection. -->
+      <div class="min-w-0 px-1 flex flex-col leading-tight">
+        <h1 class="text-lg font-bold truncate">
+          {{ quick ? 'Proyección libre' : (liveCulto?.title ?? 'Culto') }}
+        </h1>
+        <span class="text-xs text-muted truncate">
+          {{ quick ? 'Himnos sueltos, sin culto preparado' : (liveCulto ? cultoWhen(liveCulto) : 'Culto preparado') }}
+        </span>
+      </div>
+      <UButton
+        v-if="quick && items.length"
+        color="neutral"
+        variant="soft"
+        size="lg"
+        icon="i-tabler-device-floppy"
+        label="Guardar como culto"
+        @click="saveAsService"
+      />
       <span class="flex-1" />
       <span
         class="inline-flex items-center gap-1.5 text-sm font-semibold"
@@ -379,7 +698,23 @@ function endService() {
       >
         Presentar aquí <UKbd value="F" />
       </UButton>
-      <UButton size="lg" icon="i-tabler-plus" @click="showInsert = true">
+      <!-- Free projection: going to a hymn is the usual step, as it was in
+        the old hymn console. -->
+      <UButton
+        v-if="quick"
+        size="lg"
+        icon="i-tabler-hash"
+        @click="showGoTo = true"
+      >
+        Ir al himno <UKbd value="G" />
+      </UButton>
+      <UButton
+        size="lg"
+        icon="i-tabler-plus"
+        :color="quick ? 'neutral' : 'primary'"
+        :variant="quick ? 'outline' : 'solid'"
+        @click="showInsert = true"
+      >
         Insertar <UKbd value="I" />
       </UButton>
       <UButton
@@ -401,6 +736,14 @@ function endService() {
           class="size-10 animate-spin text-primary"
           aria-label="Preparando"
         />
+        <template v-else-if="quick">
+          <p class="font-semibold">
+            Elige un himno para proyectar.
+          </p>
+          <UButton icon="i-tabler-hash" @click="showGoTo = true">
+            Ir al himno <UKbd value="G" />
+          </UButton>
+        </template>
         <template v-else>
           <p class="font-semibold">
             Este culto todavía no tiene pantallas.
@@ -410,178 +753,311 @@ function endService() {
       </div>
     </div>
 
-    <main v-else class="flex-1 grid gap-4 p-3 lg:grid-cols-[minmax(0,1fr)_20rem] min-h-0">
-      <section class="flex flex-col gap-3 min-w-0" aria-labelledby="v-live">
-        <h2 id="v-live" class="text-xs font-bold uppercase tracking-wider opacity-70">
-          En pantalla · {{ liveEntry?.label }}
-          <template v-if="(liveEntry?.screens.length ?? 0) > 1">
-            · {{ (live?.index ?? 0) + 1 }} de {{ liveEntry?.screens.length }}
-          </template>
-        </h2>
-        <div
-          ref="liveWrapRef"
-          class="live-wrap rounded-2xl overflow-hidden ring-2"
-          :class="black ? 'ring-inverted/40' : 'ring-error'"
-          @click="isFullscreen && next()"
+    <main v-else class="flex-1 grid gap-4 p-3 lg:grid-cols-[minmax(0,1fr)_20rem] min-h-0 lg:overflow-hidden">
+      <div class="flex flex-col gap-3 min-w-0 min-h-0">
+        <!-- On air (NN/g: one primary action, related controls together, the
+          occasional ones one level down): the screen with the element's
+          screens under it, and one bar with what the congregation sees and
+          «Siguiente», which shows what comes next large enough to read. -->
+        <CultoPanel
+          title="Al aire"
+          icon="i-tabler-broadcast"
+          head-id="v-live"
+          class="lg:flex-1 lg:min-h-0"
+          body-class="flex flex-col gap-3 p-3 lg:flex-1 lg:min-h-0"
         >
-          <CultoScreen :screen="onAir" :black="black" />
-          <div v-if="black && !isFullscreen" class="absolute inset-0 grid place-items-center text-white/80 text-sm font-semibold pointer-events-none">
-            Pantalla en negro · B para volver
+          <template #meta>
+            <span class="inline-flex items-center gap-1.5">
+              <CultoMomentTile v-if="liveEntry" :item="liveEntry.item" size="sm" />
+              <span class="font-semibold text-default">{{ liveEntry?.item.kind === 'hymn' ? liveEntry.label.replace(`${liveEntry.item.songId} · `, '') : liveEntry?.label }}</span>
+              <template v-if="(liveEntry?.screens.length ?? 0) > 1">
+                · Pantalla {{ (live?.index ?? 0) + 1 }} de {{ liveEntry?.screens.length }}
+              </template>
+            </span>
+          </template>
+          <template #actions>
+            <UBadge
+              v-if="frozen"
+              color="warning"
+              variant="soft"
+              icon="i-tabler-clock-pause"
+              label="Cambiado: se verá al pasar"
+            />
+            <!-- Text size: now and then, so behind «Aa». -->
+            <UPopover :content="{ align: 'end', sideOffset: 6 }">
+              <UButton
+                color="neutral"
+                variant="ghost"
+                size="sm"
+                class="tabular-nums"
+                :aria-label="`Tamaño del texto: ${Math.round(liveScale * 100)} %`"
+              >
+                <span class="font-bold">Aa</span> {{ Math.round(liveScale * 100) }} %
+              </UButton>
+              <template #content>
+                <div class="flex items-center gap-1.5 p-2" role="group" aria-label="Tamaño del texto de este elemento">
+                  <span class="px-1.5 text-sm text-muted">Tamaño del texto</span>
+                  <UButton
+                    color="neutral"
+                    variant="outline"
+                    size="lg"
+                    square
+                    icon="i-tabler-minus"
+                    aria-label="Achicar texto"
+                    @click="changeScale(-SCALE_STEP)"
+                  />
+                  <span class="w-14 text-center text-sm font-semibold tabular-nums">{{ Math.round(liveScale * 100) }} %</span>
+                  <UButton
+                    color="neutral"
+                    variant="outline"
+                    size="lg"
+                    square
+                    icon="i-tabler-plus"
+                    aria-label="Agrandar texto"
+                    @click="changeScale(SCALE_STEP)"
+                  />
+                </div>
+              </template>
+            </UPopover>
+            <UButton
+              v-if="canFix(liveEntry?.item)"
+              color="neutral"
+              variant="outline"
+              size="sm"
+              icon="i-tabler-pencil"
+              @click="fix(liveEntry?.item.id)"
+            >
+              {{ liveEntry?.item.kind === 'reading' ? 'Corregir cita' : 'Editar' }} <UKbd value="C" size="sm" />
+            </UButton>
+          </template>
+          <!-- As large as the room left allows, always 16:9. -->
+          <div class="live-fit-box lg:flex-1 lg:min-h-0 flex items-center justify-center">
+            <div
+              ref="liveWrapRef"
+              class="live-wrap live-fit rounded-2xl overflow-hidden ring-2"
+              :class="black ? 'ring-inverted/40' : 'ring-error'"
+              @click="isFullscreen && next()"
+            >
+              <CultoLiveScreen
+                :screen="onAir"
+                :black="black"
+                :screen-key="onAirKey"
+                :transition="onAirTransition"
+                :animate="reducedMotion !== 'reduce'"
+              />
+              <div v-if="black && !isFullscreen" class="absolute inset-0 grid place-items-center text-white/80 text-sm font-semibold pointer-events-none">
+                Pantalla en negro · B para volver
+              </div>
+            </div>
           </div>
-        </div>
 
-        <div class="flex flex-wrap items-center gap-2">
-          <UButton
-            color="neutral"
-            variant="outline"
-            size="xl"
-            class="h-11"
-            icon="i-tabler-chevron-left"
-            label="Anterior"
-            :disabled="liveIndex <= 0"
-            @click="prev"
-          />
-          <UButton
-            size="xl"
-            class="h-11 flex-1 min-w-40 justify-center"
-            trailing-icon="i-tabler-chevron-right"
-            label="Siguiente"
-            :disabled="!upcoming.length"
-            @click="next"
-          />
-          <UButton
-            color="neutral"
-            :variant="black ? 'solid' : 'outline'"
-            size="xl"
-            class="h-11"
-            icon="i-tabler-screen-share-off"
-            :aria-pressed="black"
-            @click="black = !black"
-          >
-            {{ black ? 'Mostrar' : 'Negro' }} <UKbd value="B" />
-          </UButton>
-          <UButton
-            color="neutral"
-            :variant="showLogo ? 'solid' : 'outline'"
-            size="xl"
-            class="h-11"
-            icon="i-tabler-building-church"
-            :aria-pressed="showLogo"
-            @click="showLogo = !showLogo"
-          >
-            Logo <UKbd value="L" />
-          </UButton>
-          <UFieldGroup role="group" aria-label="Tamaño del texto de este elemento">
-            <UButton
-              color="neutral"
-              variant="outline"
-              size="xl"
-              class="h-11"
-              label="−"
-              aria-label="Achicar texto"
-              @click="changeScale(-SCALE_STEP)"
-            />
-            <UButton
-              color="neutral"
-              variant="outline"
-              size="xl"
-              class="h-11 tabular-nums min-w-16 justify-center"
-              :label="`${Math.round(liveScale * 100)}%`"
-              disabled
-            />
-            <UButton
-              color="neutral"
-              variant="outline"
-              size="xl"
-              class="h-11"
-              label="+"
-              aria-label="Agrandar texto"
-              @click="changeScale(SCALE_STEP)"
-            />
-          </UFieldGroup>
-        </div>
+          <!-- The element's screens, right under the one on air (on air in
+            red, the next one dashed, the ones shown dimmed). -->
+          <div v-if="liveStrip.length > 1" class="flex items-center gap-3 min-w-0">
+            <ol
+              v-scroll-fade-x
+              class="flex-1 min-w-0 flex gap-2 overflow-x-auto px-1 py-1.5 [scrollbar-width:none]"
+              aria-label="Pantallas del elemento al aire"
+            >
+              <li v-for="{ s, at } in liveStrip" :key="s.key" class="shrink-0">
+                <button
+                  type="button"
+                  class="relative block w-28 rounded-lg overflow-hidden transition-opacity"
+                  :class="at === liveIndex ? 'ring-2 ring-error' : at === nextAt ? 'outline-2 outline-dashed outline-offset-1 outline-primary' : at < liveIndex ? 'opacity-45 hover:opacity-80' : 'opacity-80 hover:opacity-100'"
+                  :data-live-strip="at === liveIndex ? 'on' : undefined"
+                  :aria-current="at === liveIndex ? 'true' : undefined"
+                  :aria-label="`Proyectar la pantalla ${s.index + 1}`"
+                  @click="goTo(at)"
+                >
+                  <span class="pointer-events-none block"><CultoScreen :screen="s.screen" /></span>
+                  <span
+                    class="absolute bottom-1 left-1 grid h-5 min-w-5 place-items-center rounded-full px-1 text-[0.68rem] font-bold tabular-nums"
+                    :class="at === liveIndex ? 'bg-error text-white' : 'bg-black/70 text-white'"
+                    aria-hidden="true"
+                  >{{ s.index + 1 }}</span>
+                </button>
+              </li>
+            </ol>
+            <span class="sr-only" aria-live="polite">
+              {{ (live?.index ?? 0) + 1 }} / {{ liveEntry?.screens.length ?? 0 }}
+            </span>
+          </div>
 
-        <div class="flex flex-col gap-2">
-          <h2 class="text-xs font-bold uppercase tracking-wider opacity-70">
-            A continuación
-          </h2>
-          <ol class="grid grid-cols-2 xl:grid-cols-4 gap-2">
-            <li v-for="{ s, at } in upcoming" :key="s.key">
+          <template #footer>
+            <!-- Everything as tall as «Siguiente» (its preview sets the height):
+              tiles with an icon over the label, nothing floating in the middle. -->
+            <div class="flex flex-wrap items-stretch gap-3">
+              <!-- What the congregation sees: one of three. -->
+              <div class="flex flex-col gap-1.5 rounded-2xl bg-elevated p-1.5 ring-1 ring-default">
+                <span id="v-projector" class="px-1.5 pt-0.5 text-[0.7rem] font-bold uppercase tracking-wider text-muted">La congregación ve</span>
+                <div role="radiogroup" aria-labelledby="v-projector" class="flex flex-1 gap-1">
+                  <button
+                    v-for="m in projectorModes"
+                    :key="m.value"
+                    type="button"
+                    role="radio"
+                    :aria-checked="projectorMode === m.value"
+                    class="relative flex min-h-20 w-24 flex-col items-center justify-center gap-1.5 rounded-xl text-sm transition-colors"
+                    :class="projectorMode === m.value
+                      ? (m.value === 'content' ? 'bg-default font-semibold text-highlighted shadow-sm ring-1 ring-default' : 'bg-inverted font-semibold text-inverted shadow-sm')
+                      : 'text-toned hover:bg-default/70'"
+                    @click="projectorMode = m.value"
+                  >
+                    <UIcon :name="m.icon" class="size-6" />
+                    {{ m.label }}
+                    <UKbd
+                      v-if="m.key"
+                      :value="m.key"
+                      size="sm"
+                      class="absolute end-1.5 top-1.5"
+                    />
+                  </button>
+                </div>
+              </div>
+              <span class="flex-1" />
               <button
                 type="button"
-                class="w-full rounded-xl overflow-hidden ring-1 ring-default hover:ring-primary text-start"
-                :aria-label="`Ir a ${entries[s.itemIndex]?.label}, pantalla ${s.index + 1}`"
-                @click="goTo(at)"
+                class="flex min-h-20 w-28 flex-col items-center justify-center gap-1.5 rounded-2xl bg-default text-toned ring-1 ring-default transition-colors hover:bg-elevated hover:text-highlighted disabled:opacity-45 disabled:hover:bg-default focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                :disabled="liveIndex <= 0"
+                @click="prev"
               >
-                <CultoScreen :screen="s.screen" :badge="s.itemId !== live?.itemId ? entries[s.itemIndex]?.label : ''" />
+                <span class="text-sm font-semibold">Anterior</span>
+                <UKbd value="←" size="lg" class="order-first" />
               </button>
-            </li>
-          </ol>
-          <p v-if="!upcoming.length" class="text-sm opacity-70">
-            Es la última pantalla del culto.
-          </p>
-        </div>
-      </section>
+              <!-- The primary action, with what comes next large enough to
+                read from where the operator sits. -->
+              <button
+                type="button"
+                class="flex min-w-0 max-w-full items-center gap-4 rounded-2xl bg-primary py-2 ps-5 pe-2 text-start text-inverted shadow-sm transition-colors hover:bg-primary/90 disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                :disabled="!upcoming.length"
+                :aria-label="nextUp ? `Siguiente: ${nextUp.s.itemId !== live?.itemId ? entries[nextUp.s.itemIndex]?.label : `pantalla ${nextUp.s.index + 1}`}` : 'Siguiente'"
+                @click="next"
+              >
+                <span class="flex min-w-0 flex-col justify-between gap-2 self-stretch py-1.5">
+                  <span class="flex items-center gap-2 text-lg font-bold">
+                    <!-- One arrow: the key's, which also says how to do it. -->
+                    Siguiente <UKbd value="→" size="md" class="ms-1" />
+                  </span>
+                  <span v-if="nextUp" class="flex min-w-0 items-center gap-1.5 text-sm opacity-90">
+                    <template v-if="nextUp.s.itemId !== live?.itemId">
+                      <CultoMomentTile v-if="entries[nextUp.s.itemIndex]" :item="entries[nextUp.s.itemIndex]!.item" size="sm" />
+                      <span class="truncate max-w-48">{{ entries[nextUp.s.itemIndex]?.label }}</span>
+                    </template>
+                    <span v-else>Pantalla {{ nextUp.s.index + 1 }}</span>
+                  </span>
+                  <span v-else class="text-sm opacity-90">Es la última pantalla</span>
+                </span>
+                <span v-if="nextUp" class="w-56 shrink-0 overflow-hidden rounded-lg ring-2 ring-white/70 xl:w-64">
+                  <CultoScreen :screen="nextUp.s.screen" />
+                </span>
+              </button>
+            </div>
+          </template>
+        </CultoPanel>
+      </div>
 
-      <aside class="flex flex-col gap-4 min-w-0" aria-label="Culto">
-        <div class="flex flex-col gap-0.5">
-          <span class="text-5xl font-semibold tabular-nums leading-none">{{ clock }}</span>
-          <span class="text-sm opacity-70">{{ elapsed }}</span>
-        </div>
+      <aside v-scroll-fade class="flex flex-col gap-3 min-w-0 min-h-0 lg:overflow-y-auto soft-scrollbar" aria-label="Culto">
+        <CultoPanel title="Hora" icon="i-tabler-clock" body-class="flex items-baseline justify-between gap-3 px-4 py-3">
+          <span class="text-4xl font-semibold tabular-nums leading-none">{{ clock }}</span>
+          <span class="text-sm text-muted">{{ elapsed }}</span>
+        </CultoPanel>
 
-        <div v-if="liveEntry?.item.notes" class="flex flex-col gap-2">
-          <h2 class="text-xs font-bold uppercase tracking-wider opacity-70">
-            Notas
-          </h2>
+        <CultoPanel
+          v-if="liveEntry?.item.notes"
+          title="Notas para quien dirige"
+          icon="i-tabler-notes"
+          body-class="px-4 py-3"
+        >
           <p class="border-s-2 border-primary ps-3 text-lg leading-snug whitespace-pre-line">
             {{ liveEntry.item.notes }}
           </p>
-        </div>
+        </CultoPanel>
 
-        <nav aria-label="Orden del culto" class="flex flex-col gap-1">
-          <h2 class="text-xs font-bold uppercase tracking-wider opacity-70 mb-1">
-            Orden
-          </h2>
-          <button
-            v-for="(entry, i) in entries"
-            :key="entry.item.id"
-            type="button"
-            class="flex items-center gap-2 rounded-xl px-3 py-2 text-start text-sm"
-            :class="[
-              entry.item.id === live?.itemId ? 'bg-primary/15 font-semibold' : 'hover:bg-default',
-              i < (live?.itemIndex ?? 0) ? 'opacity-55' : '',
-            ]"
-            :aria-current="entry.item.id === live?.itemId ? 'step' : undefined"
-            :disabled="!entry.screens.length"
-            @click="goToItem(entry.item.id)"
-          >
-            <span class="w-5 text-xs tabular-nums opacity-60">{{ i + 1 }}</span>
-            <span class="flex-1 min-w-0 truncate">{{ entry.label }}</span>
-            <UIcon
-              v-if="entry.status === 'error'"
-              name="i-tabler-alert-triangle"
-              class="size-4 text-warning"
-              :aria-label="entry.error"
+        <CultoPanel
+          :title="quick ? 'Proyectados' : 'Orden del culto'"
+          icon="i-tabler-list-numbers"
+          class="lg:flex-1 lg:min-h-0"
+          body-class="p-2 lg:flex-1 lg:min-h-0 lg:overflow-y-auto soft-scrollbar"
+        >
+          <template #meta>
+            {{ (live?.itemIndex ?? 0) + 1 }} de {{ entries.length }}
+          </template>
+          <nav v-scroll-fade.parent aria-label="Orden del culto" class="flex flex-col gap-1">
+            <template v-for="block in orderBlocks" :key="block.kind === 'item' ? block.item.id : `s:${block.section.id}`">
+              <!-- A section: a band in its colour, as in the editor, with its
+                   name inside. It adds no indent, so numbers, tiles and titles
+                   stay aligned with the rest of the order. -->
+              <div :class="block.kind === 'section' ? ['order-band my-0.5 flex flex-col gap-1 rounded-2xl py-1', `moment--${momentTone(block.section.moment)}`] : 'contents'">
+                <p v-if="block.kind === 'section'" class="px-3 pt-0.5 text-[0.7rem] font-bold uppercase tracking-wider text-(--m-label)">
+                  {{ block.section.title }}
+                </p>
+                <div
+                  v-for="{ entry, index: i } in (block.kind === 'item' ? [block.item] : block.items)"
+                  :key="entry.item.id"
+                  class="order-fix-row group relative"
+                >
+                  <button
+                    type="button"
+                    class="w-full flex items-center gap-2 rounded-xl px-3 py-2 text-start text-sm"
+                    :class="[
+                      entry.item.id === live?.itemId ? 'bg-primary/15 font-semibold' : 'hover:bg-elevated',
+                      i < (live?.itemIndex ?? 0) ? 'opacity-55' : '',
+                    ]"
+                    :aria-current="entry.item.id === live?.itemId ? 'step' : undefined"
+                    :disabled="!entry.screens.length"
+                    @click="goToItem(entry.item.id)"
+                  >
+                    <span class="w-5 text-xs tabular-nums opacity-60">{{ i + 1 }}</span>
+                    <CultoMomentTile :item="entry.item" size="sm" />
+                    <span class="flex-1 min-w-0 truncate">{{ entry.item.kind === 'hymn' ? entry.label.replace(`${entry.item.songId} · `, '') : entry.label }}</span>
+                    <UIcon
+                      v-if="entry.status === 'error'"
+                      name="i-tabler-alert-triangle"
+                      class="size-4 text-warning"
+                      :aria-label="entry.error"
+                    />
+                    <span v-else class="text-xs opacity-60">{{ entry.item.inserted && !quick ? 'insertado' : entry.screens.length }}</span>
+                  </button>
+                  <UButton
+                    v-if="canFix(entry.item)"
+                    color="neutral"
+                    variant="soft"
+                    size="xs"
+                    square
+                    icon="i-tabler-pencil"
+                    class="order-fix absolute end-1.5 top-1/2 -translate-y-1/2"
+                    :aria-label="`${fixLabel(entry.item)}: ${entry.label}`"
+                    :title="fixLabel(entry.item)"
+                    @click="fix(entry.item.id)"
+                  />
+                </div>
+              </div>
+            </template>
+          </nav>
+          <template #footer>
+            <UButton
+              color="neutral"
+              variant="ghost"
+              icon="i-tabler-player-stop"
+              :label="quick ? 'Terminar la proyección' : 'Terminar el culto'"
+              class="-mx-2"
+              @click="endService"
             />
-            <span v-else class="text-xs opacity-60">{{ entry.item.inserted ? 'insertado' : entry.screens.length }}</span>
-          </button>
-        </nav>
-
-        <UButton
-          color="neutral"
-          variant="ghost"
-          icon="i-tabler-player-stop"
-          label="Terminar el culto"
-          class="self-start"
-          @click="endService"
-        />
+          </template>
+        </CultoPanel>
       </aside>
     </main>
 
     <CultoInsertDialog v-model:open="showInsert" @insert="insert" />
+    <CultoFixReference
+      v-model:open="showFix"
+      :entry="fixEntry"
+      :on-air="!!fixEntry && fixEntry.item.id === live?.itemId && !showLogo"
+      @apply="applyFix"
+    />
     <AppGoToHymn
       v-model:open="showGoTo"
-      heading="Proyectar un himno ahora"
+      :heading="quick ? 'Proyectar un himno' : 'Proyectar un himno ahora'"
       action-label="Proyectar"
       @go="insertHymn"
     />
@@ -590,8 +1066,35 @@ function endService() {
 </template>
 
 <style>
+/* A section in the order: the editor's tint (.section-box), full width. */
+.order-band {
+  background: color-mix(in oklab, var(--m-seg) 12%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--m-seg) 30%, transparent);
+}
+/* The pencil of a row in the order: shown on hover or focus, always on touch. */
+@media (hover: hover) {
+  .order-fix-row .order-fix {
+    opacity: 0;
+  }
+  .order-fix-row:hover .order-fix,
+  .order-fix-row:focus-within .order-fix {
+    opacity: 1;
+  }
+}
 .live-wrap {
   position: relative;
+}
+/* The live screen as large as the room left allows, always 16:9. */
+.live-fit {
+  width: 100%;
+}
+@media (min-width: 1024px) {
+  .live-fit-box {
+    container-type: size;
+  }
+  .live-fit {
+    width: min(100cqw, 100cqh * 16 / 9);
+  }
 }
 .live-wrap:fullscreen {
   display: flex;

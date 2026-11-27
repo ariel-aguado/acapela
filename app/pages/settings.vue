@@ -47,7 +47,8 @@ const songbookItems = computed(() => manifest.value.map((sb) => {
 
 <template>
   <div class="page-scroll">
-    <div class="w-full max-w-2xl mx-auto px-4 py-4 flex flex-col gap-8">
+    <!-- Desktop: the app's container, the sections in two columns. -->
+    <div class="w-full max-w-2xl lg:max-w-7xl mx-auto px-4 py-4 flex flex-col gap-8 lg:grid lg:grid-cols-2 lg:gap-x-12 lg:items-start">
       <!-- Himnario -->
       <fieldset class="flex flex-col gap-2">
         <legend class="font-medium mb-2">

@@ -1,4 +1,6 @@
 <script lang="ts" setup>
+import { es } from "@nuxt/ui/locale";
+
 setupPageHeader();
 
 // Reading settings on <html> (as in Superbiblia): dialogs and sheets are
@@ -29,7 +31,8 @@ const showFirstRunOverlay = computed(
 </script>
 
 <template>
-  <UApp>
+  <!-- Nuxt UI in Spanish: its calendar, labels and announcements. -->
+  <UApp :locale="es">
     <NuxtPwaManifest />
     <AppBootLoader v-if="!isProjector" :status="status" :error="error" />
     <NuxtLayout>

@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import type { Slide } from "~/utils/slides";
+import type { TitleCorner } from "~~/lib/culto";
 
 // A projected slide drawn on a fixed 1920×1080 stage and scaled to its box,
 // so the operator's preview and the projector window show exactly the same
-// layout. The lyric size is fitted to the stage (largest size that fits) and
+// layout. The lyric size is fitted to the stage (largest size that fits),
+// or given (`size`: the same for a hymn's screens with as many lines), and
 // then multiplied by the per-hymn scale the operator chose.
 const props = withDefaults(defineProps<{
   slide: Slide | null;
@@ -11,17 +13,23 @@ const props = withDefaults(defineProps<{
   title?: string;
   black?: boolean;
   scale?: number;
+  /** The lyric's size before `scale`, decided for the whole hymn; none: fitted here. */
+  size?: number;
   /** Small text in the corner for the operator's previews ("Siguiente"…). */
   badge?: string;
+  /** Where the number and title go (the church's theme). */
+  titleCorner?: TitleCorner;
 }>(), {
   number: null,
   title: "",
   black: false,
   scale: 1,
   badge: "",
+  titleCorner: "bottom-start",
 });
-
 const emit = defineEmits<{ (e: "overflow", value: boolean): void }>();
+const titleOnTop = computed(() => props.titleCorner.startsWith("top"));
+const titleAtEnd = computed(() => props.titleCorner.endsWith("end"));
 
 const STAGE_W = 1920;
 const STAGE_H = 1080;
@@ -47,18 +55,21 @@ async function fit() {
   await nextTick();
   if (!lyricRef.value || !areaRef.value)
     return;
-  let lo = MIN_PX;
-  let hi = MAX_PX;
-  while (hi - lo > 1) {
-    const mid = Math.floor((lo + hi) / 2);
-    if (fits(mid))
-      lo = mid;
-    else
-      hi = mid;
+  let fitted = props.size ?? 0;
+  if (!fitted) {
+    let lo = MIN_PX;
+    let hi = MAX_PX;
+    while (hi - lo > 1) {
+      const mid = Math.floor((lo + hi) / 2);
+      if (fits(mid))
+        lo = mid;
+      else
+        hi = mid;
+    }
+    fitted = fits(hi)
+      ? hi
+      : lo;
   }
-  const fitted = fits(hi)
-    ? hi
-    : lo;
   const final = Math.round(fitted * props.scale);
   fontPx.value = final;
   lyricRef.value.style.fontSize = `${final}px`;
@@ -74,7 +85,12 @@ function measureFrame() {
 
 useResizeObserver(frameRef, measureFrame);
 
-watch(() => [props.slide?.html, props.scale, props.black], () => fit());
+watch(() => [
+  props.slide?.html,
+  props.scale,
+  props.size,
+  props.black,
+], () => fit());
 
 onMounted(async () => {
   measureFrame();
@@ -95,7 +111,12 @@ onMounted(async () => {
     >
       <template v-if="!black">
         <div class="projection-bg" aria-hidden="true" />
-        <div v-if="slide" ref="areaRef" class="projection-area">
+        <div
+          v-if="slide"
+          ref="areaRef"
+          class="projection-area"
+          :class="{ 'projection-area--title-top': titleOnTop }"
+        >
           <span v-if="slide.kind === 'chorus'" class="projection-tag">Coro</span>
           <div
             ref="lyricRef"
@@ -105,7 +126,11 @@ onMounted(async () => {
             v-html="slide.html"
           />
         </div>
-        <p v-if="number && title" class="projection-footer">
+        <p
+          v-if="number && title"
+          class="projection-footer"
+          :class="{ 'projection-footer--top': titleOnTop, 'projection-footer--end': titleAtEnd }"
+        >
           {{ number }}. {{ title }}
         </p>
       </template>
@@ -204,6 +229,18 @@ onMounted(async () => {
   text-overflow: ellipsis;
   text-shadow: var(--proj-shadow, 0 2px 8px rgba(0, 0, 0, 0.8));
   opacity: 0.92;
+}
+/* The title at the top: the lyric's room keeps its size (the sizes are
+   measured with it), only its margins swap. */
+.projection-area--title-top {
+  inset: 170px 120px 90px;
+}
+.projection-footer--top {
+  top: 56px;
+  bottom: auto;
+}
+.projection-footer--end {
+  text-align: right;
 }
 .projection-badge {
   position: absolute;

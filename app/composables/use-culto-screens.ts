@@ -1,6 +1,6 @@
 import type { PageItem } from "~/utils/culto/paginate";
 import type { Screen } from "~/utils/culto/screens";
-import type { CultoItem, ProjectionTheme, ReadingItem, ScreenItem } from "~~/lib/culto";
+import type { CultoItem, MomentPart, ProjectionTheme, ReadingItem, ScreenItem } from "~~/lib/culto";
 import type { Song } from "~~/lib/types";
 
 import { resolveLook } from "~/utils/culto/look";
@@ -34,6 +34,8 @@ export type ItemScreens = {
   screens: Screen[];
   /** Their keys, in the same order. */
   keys: string[];
+  /** A moment's passages that could not be read, by part id: the rest is still projected. */
+  partErrors?: Record<string, string>;
 };
 
 /** One screen in the order of the whole service. */
@@ -49,7 +51,7 @@ export type FlatScreen = {
 };
 
 type PageScreen = Extract<Screen, { type: "page" }>;
-type Natural = { label: string; screens: Omit<ManagedScreen, "hidden">[] };
+type Natural = { label: string; screens: Omit<ManagedScreen, "hidden">[]; partErrors?: Record<string, string> };
 
 // ------------------------------------------------------------ measuring
 // One invisible stage, the size of the projected one, for every page.
@@ -140,9 +142,82 @@ function pageMeta(page: PageItem[], i: number) {
   };
 }
 
+// ------------------------------------------------------------ hymn sizes
+// A hymn's screens with as many lines get the same size: the smallest that
+// fits all of them (the longest line decides it), so the letters do not
+// change size from one stanza to the next. Measured on the same stage as
+// ProjectionSlide (its .projection-area and .projection-lyric).
+
+// Its own stage: the pages' one is used across awaits (paginatePage), and
+// measuring a hymn there in between would wipe what it is measuring.
+let lyricStageEl: HTMLElement | null = null;
+function lyricStage(): HTMLElement {
+  if (lyricStageEl?.isConnected)
+    return lyricStageEl;
+  const wrap = document.createElement("div");
+  wrap.setAttribute("aria-hidden", "true");
+  wrap.style.cssText = "position:fixed;left:-30000px;top:0;width:1920px;height:1080px;visibility:hidden;pointer-events:none;overflow:hidden";
+  lyricStageEl = document.createElement("div");
+  lyricStageEl.className = "projection-stage";
+  lyricStageEl.style.cssText = "position:relative;width:1920px;height:1080px";
+  wrap.appendChild(lyricStageEl);
+  document.body.appendChild(wrap);
+  return lyricStageEl;
+}
+
+const LYRIC_MIN_PX = 28;
+const LYRIC_MAX_PX = 112;
+const fittedCache = new Map<string, { px: number; lines: number }>();
+
+function fittedLyric(html: string, font: string): { px: number; lines: number } {
+  const key = `${font}|${html}`;
+  const cached = fittedCache.get(key);
+  if (cached)
+    return cached;
+  const el = lyricStage();
+  el.style.setProperty("--proj-font", font);
+  el.innerHTML = `<div class="projection-area"><div class="projection-lyric">${html}</div></div>`;
+  const area = el.firstElementChild as HTMLElement;
+  const lyric = area.firstElementChild as HTMLElement;
+  const fits = (px: number) => {
+    lyric.style.fontSize = `${px}px`;
+    return lyric.offsetWidth <= area.clientWidth && lyric.offsetHeight <= area.clientHeight;
+  };
+  let lo = LYRIC_MIN_PX;
+  let hi = LYRIC_MAX_PX;
+  while (hi - lo > 1) {
+    const mid = Math.floor((lo + hi) / 2);
+    if (fits(mid))
+      lo = mid;
+    else
+      hi = mid;
+  }
+  const px = fits(hi)
+    ? hi
+    : lo;
+  // Lines: each paragraph, each line break inside one, each table row.
+  const lines = (html.match(/<p[\s>]/gi)?.length ?? 0) + (html.match(/<br\s*\/?>/gi)?.length ?? 0) + (html.match(/<tr[\s>]/gi)?.length ?? 0);
+  el.innerHTML = "";
+  const result = { px, lines };
+  // Kept only once the web fonts are in: their metrics decide the size.
+  if (document.fonts?.status === "loaded")
+    fittedCache.set(key, result);
+  return result;
+}
+
+/** Per slide, the smallest size among the hymn's slides with as many lines. */
+function uniformSizes(htmls: string[], font: string): number[] {
+  const measured = htmls.map(h => fittedLyric(h, font));
+  const smallest = new Map<number, number>();
+  for (const m of measured)
+    smallest.set(m.lines, Math.min(smallest.get(m.lines) ?? Infinity, m.px));
+  return measured.map(m => smallest.get(m.lines)!);
+}
+
 // ------------------------------------------------------------ per kind
 
-async function screenPages(item: ScreenItem, theme: ProjectionTheme): Promise<Natural["screens"]> {
+/** `prefix` keeps a moment's extra pages apart from its own (keys and break ids). */
+async function screenPages(item: ScreenItem, theme: ProjectionTheme, prefix = ""): Promise<Natural["screens"]> {
   const logo = item.layout === "logo";
   const base: PageScreen = {
     type: "page",
@@ -162,14 +237,16 @@ async function screenPages(item: ScreenItem, theme: ProjectionTheme): Promise<Na
     mediaId: logo
       ? theme.logoId
       : item.mediaId,
+    align: item.align,
+    styles: item.styles,
   };
   if (item.layout !== "text" || !item.body.trim()) {
     return [
-      { key: "p0", screen: base, natural: 0 },
+      { key: `${prefix}p0`, screen: base, natural: 0 },
     ];
   }
   const font = resolveLook(theme, item).font;
-  const pages = await paginatePage(base, withBreaks(textPieces(item.body, `${item.id}:`), item.breaks), font);
+  const pages = await paginatePage(base, withBreaks(textPieces(item.body, `${item.id}:${prefix}`), item.breaks), font);
   return pages.map((page, i) => ({
     ...pageMeta(page, i),
     natural: i,
@@ -186,11 +263,14 @@ async function screenPages(item: ScreenItem, theme: ProjectionTheme): Promise<Na
   }));
 }
 
-async function readingPages(item: ReadingItem, theme: ProjectionTheme): Promise<Natural> {
+async function readingPages(item: ReadingItem, theme: ProjectionTheme, prefix = ""): Promise<Natural> {
   const bible = useBibleStore();
   const passage = await bible.passage(item.reference, item.versionId || undefined);
-  if (!passage || !passage.verses.length)
-    throw new Error(`No reconozco la cita «${item.reference}».`);
+  if (!passage || !passage.verses.length) {
+    throw new Error(item.reference.trim()
+      ? `No reconozco la cita «${item.reference}».`
+      : "Elige la cita.");
+  }
   const version = bible.versions.find(v => v.id === passage.versionId)?.label ?? "";
   const base: PageScreen = {
     type: "page",
@@ -203,7 +283,7 @@ async function readingPages(item: ReadingItem, theme: ProjectionTheme): Promise<
     counter: "",
     scale: item.scale ?? 1,
   };
-  const pages = await paginatePage(base, withBreaks(versePieces(passage.verses, item.mode === "verse"), item.breaks), resolveLook(theme, item).font);
+  const pages = await paginatePage(base, withBreaks(versePieces(passage.verses, item.mode === "verse", prefix), item.breaks), resolveLook(theme, item).font);
   const first = passage.verses[0]!;
   return {
     label: passage.label,
@@ -228,6 +308,67 @@ async function readingPages(item: ReadingItem, theme: ProjectionTheme): Promise<
         },
       };
     }),
+  };
+}
+
+/**
+ * A moment's screens: its own, then each of its parts, in order. A passage
+ * that cannot be read is left out and reported, so one wrong reference does
+ * not take the Lord's supper off the screen.
+ */
+async function momentPages(item: ScreenItem, theme: ProjectionTheme): Promise<Omit<Natural, "label">> {
+  const screens: Natural["screens"] = [
+    ...await screenPages(item, theme),
+  ];
+  const partErrors: Record<string, string> = {};
+  for (const part of item.parts ?? []) {
+    const prefix = `${part.id}:`;
+    try {
+      const pages = part.kind === "reading"
+        ? (await readingPages(partAsReading(item, part), theme, prefix)).screens
+        : await screenPages(partAsScreen(item, part), theme, prefix);
+      screens.push(...pages);
+    }
+    catch (err) {
+      partErrors[part.id] = err instanceof Error
+        ? err.message
+        : String(err);
+    }
+  }
+  return {
+    screens: screens.map((s, i) => ({ ...s, natural: i })),
+    partErrors: Object.keys(partErrors).length
+      ? partErrors
+      : undefined,
+  };
+}
+
+/** A moment's passage as a reading of the moment (its size, look and breaks). */
+function partAsReading(item: ScreenItem, part: Extract<MomentPart, { kind: "reading" }>): ReadingItem {
+  return {
+    id: item.id,
+    kind: "reading",
+    reference: part.reference,
+    versionId: part.versionId,
+    mode: part.mode,
+    scale: item.scale,
+    background: item.background,
+    breaks: item.breaks,
+  };
+}
+
+function partAsScreen(item: ScreenItem, part: Extract<MomentPart, { kind: "text" }>): ScreenItem {
+  return {
+    id: item.id,
+    kind: "screen",
+    layout: part.layout,
+    eyebrow: part.eyebrow,
+    title: part.title,
+    body: part.body,
+    reference: part.reference,
+    scale: item.scale,
+    background: item.background,
+    breaks: item.breaks,
   };
 }
 
@@ -312,6 +453,12 @@ export function useCultoScreens(items: MaybeRefOrGetter<CultoItem[]>) {
   const { songs } = storeToRefs(songStore);
   const { currentId: songbookId, manifest } = storeToRefs(songbookStore);
   const { theme } = storeToRefs(useCultoStore());
+  // The hymn sizes are measured again once the web fonts are in.
+  const fontsTick = ref(0);
+  if (import.meta.client) {
+    document.fonts?.ready.then(() => fontsTick.value++);
+    document.fonts?.addEventListener?.("loadingdone", () => fontsTick.value++);
+  }
 
   // Measured results by item id, valid while the signature matches.
   const done = shallowRef(new Map<string, { sig: string; result: Natural | { error: string } }>());
@@ -382,7 +529,12 @@ export function useCultoScreens(items: MaybeRefOrGetter<CultoItem[]>) {
           };
     }
     const scale = item.scale ?? presentation.scaleFor(song.songId);
-    const natural = buildSlides(song).map((slide, i) => ({
+    const slides = buildSlides(song);
+    void fontsTick.value;
+    const sizes = import.meta.client
+      ? uniformSizes(slides.map(sl => sl.html), resolveLook(theme.value, item).font)
+      : [];
+    const natural = slides.map((slide, i) => ({
       key: `s${i}`,
       natural: i,
       screen: {
@@ -391,6 +543,7 @@ export function useCultoScreens(items: MaybeRefOrGetter<CultoItem[]>) {
         number: song.songId,
         title: song.title,
         scale,
+        size: sizes[i],
       },
     }));
     return {
@@ -423,9 +576,9 @@ export function useCultoScreens(items: MaybeRefOrGetter<CultoItem[]>) {
     pending.add(sig);
     const run: Promise<Natural> = item.kind === "reading"
       ? readingPages(item, theme.value)
-      : screenPages(item, theme.value).then(screens => ({
+      : momentPages(item, theme.value).then(result => ({
           label: labelOf(item),
-          screens,
+          ...result,
         }));
     run
       .then(result => setResult(item.id, sig, result))
@@ -454,6 +607,7 @@ export function useCultoScreens(items: MaybeRefOrGetter<CultoItem[]>) {
       item,
       label: result.label,
       status,
+      partErrors: result.partErrors,
       ...arrange(item, result.screens, theme.value),
     };
   }

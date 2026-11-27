@@ -74,6 +74,7 @@ function createFollowerApi(): BibleWorkerApi {
   const r = relayWithLeaderRetry;
   return {
     parseReference: (versionId, input) => r(() => relayed.parseReference(versionId, input)),
+    predictReference: (versionId, input) => r(() => relayed.predictReference(versionId, input)),
     getPoolStatus: () => r(() => relayed.getPoolStatus()),
     listAvailableVersions: () => r(() => relayed.listAvailableVersions()),
     loadVersion: versionId => r(() => relayed.loadVersion(versionId)),

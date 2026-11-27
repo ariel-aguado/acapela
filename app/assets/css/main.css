@@ -295,6 +295,13 @@ html[data-reading-margin="4"] {
   padding-top: var(--bar-top);
   padding-bottom: var(--bar-bottom);
 }
+/* On a computer the scrollbar would push the centred content off the fixed
+   top bar's axis: reserve its width on both sides. */
+@media (min-width: 1024px) {
+  .page-scroll {
+    scrollbar-gutter: stable both-edges;
+  }
+}
 .pad-bar-top {
   padding-top: var(--bar-top);
 }
@@ -386,6 +393,26 @@ html[data-reading-margin="4"] {
   border-end-end-radius: 0;
 }
 
+/* A container with its own vertical scroll (v-scroll-fade,
+   plugins/scroll-fade.ts): the edge that still has content fades out, as in
+   Superbiblia. */
+.scroll-fade-y {
+  --fade-top: 1.5rem;
+  --fade-bottom: 2.5rem;
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 var(--fade-top),
+    #000 calc(100% - var(--fade-bottom)),
+    transparent 100%
+  );
+}
+.scroll-fade-y.at-top {
+  --fade-top: 0px;
+}
+.scroll-fade-y.at-bottom {
+  --fade-bottom: 0px;
+}
 /* A row that scrolls sideways (v-scroll-fade-x, plugins/scroll-fade.ts):
    the edge that still has content fades out, as in Superbiblia. */
 .scroll-fade-x {
@@ -442,6 +469,8 @@ html[data-reading-margin="4"] {
 }
 .hymn-block--chorus .hymn-block__text {
   font-style: italic;
+  /* Bold in the weight every lyric face ships (600; 700 would be faked). */
+  font-weight: 600;
 }
 .hymn-block__text p {
   margin: 0;
@@ -463,4 +492,145 @@ html[data-reading-margin="4"] {
   .hymn-block {
     transition: none;
   }
+}
+
+/* The hymn's heading on the stanzas' grid (.hymn-block: a 2.4em number
+   column and a 0.5em gap, in the lyric's size): the number starts where the
+   stanza numbers do and the title where the lyric does. A three-digit number
+   runs into the gap (about 2.7em of the 2.9em), never into the title. */
+.hymn-title {
+  display: grid;
+  grid-template-columns: calc(var(--lyric-size) * 2.4) minmax(0, 1fr);
+  column-gap: calc(var(--lyric-size) * 0.5);
+  align-items: baseline;
+}
+.hymn-title__no {
+  justify-self: start;
+  white-space: nowrap;
+}
+.hymn-head__sub {
+  padding-inline-start: calc(var(--lyric-size) * 2.9);
+}
+
+/* Thin scrollbars with round ends (no square system bar) everywhere: the
+   window, panels, lists and menus, as in Superbiblia. `.soft-scrollbar`
+   adds a margin at both ends that keeps the bar off its card's rounded
+   corners. Rows that hide their bar (.no-scrollbar, scrollbar-width: none)
+   still do: their rule is more specific. */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+.soft-scrollbar::-webkit-scrollbar-track {
+  margin-block: 0.875rem;
+}
+*::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--ui-text-muted) 45%, transparent) padding-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background-color: color-mix(in oklab, var(--ui-text-muted) 70%, transparent);
+}
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+@supports not selector(::-webkit-scrollbar) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklab, var(--ui-text-muted) 45%, transparent) transparent;
+  }
+}
+
+/* Families of the elements of a service (app/utils/culto/moment.ts): the
+   tile (--m-bg, --m-fg), the element's kind in its row (--m-label) and its
+   segment on the service's map (--m-seg). Light tones for what recurs,
+   solid ones for the central moments, grey for the ones in between. */
+.moment--hymn {
+  --m-seg-fg: #ffffff;
+  --m-bg: var(--color-iris-100);
+  --m-fg: var(--color-iris-700);
+  --m-label: var(--color-iris-600);
+  --m-seg: var(--color-iris-500);
+}
+.moment--word {
+  --m-seg-fg: var(--color-aqua-900);
+  --m-bg: var(--color-aqua-100);
+  --m-fg: var(--color-aqua-700);
+  --m-label: var(--color-aqua-700);
+  --m-seg: var(--color-aqua-300);
+}
+.moment--word-solid {
+  --m-seg-fg: #ffffff;
+  --m-bg: var(--color-aqua-600);
+  --m-fg: #ffffff;
+  --m-label: var(--color-aqua-700);
+  --m-seg: var(--color-aqua-600);
+}
+.moment--supper {
+  --m-seg-fg: var(--color-tangerine-950);
+  --m-bg: var(--color-tangerine-500);
+  --m-fg: var(--color-tangerine-950);
+  --m-label: var(--color-tangerine-700);
+  --m-seg: var(--color-tangerine-500);
+}
+.moment--offering {
+  --m-seg-fg: var(--color-lime-900);
+  --m-bg: var(--color-lime-300);
+  --m-fg: var(--color-lime-900);
+  --m-label: var(--color-lime-700);
+  --m-seg: var(--color-lime-400);
+}
+.moment--plain {
+  --m-seg-fg: var(--ui-color-neutral-700);
+  --m-bg: var(--ui-bg-elevated);
+  --m-fg: var(--ui-text-toned);
+  --m-label: var(--ui-text-muted);
+  --m-seg: var(--ui-color-neutral-300);
+}
+html.dark .moment--hymn {
+  --m-seg-fg: #ffffff;
+  --m-bg: color-mix(in oklab, var(--color-iris-400) 22%, transparent);
+  --m-fg: var(--color-iris-200);
+  --m-label: var(--color-iris-300);
+  --m-seg: var(--color-iris-400);
+}
+html.dark .moment--word {
+  --m-seg-fg: var(--color-aqua-950);
+  --m-bg: color-mix(in oklab, var(--color-aqua-400) 20%, transparent);
+  --m-fg: var(--color-aqua-200);
+  --m-label: var(--color-aqua-300);
+  --m-seg: var(--color-aqua-300);
+}
+html.dark .moment--word-solid {
+  --m-seg-fg: var(--color-aqua-950);
+  --m-bg: var(--color-aqua-400);
+  --m-fg: var(--color-aqua-950);
+  --m-label: var(--color-aqua-300);
+  --m-seg: var(--color-aqua-400);
+}
+html.dark .moment--supper {
+  --m-seg-fg: var(--color-tangerine-950);
+  --m-bg: var(--color-tangerine-400);
+  --m-fg: var(--color-tangerine-950);
+  --m-label: var(--color-tangerine-300);
+  --m-seg: var(--color-tangerine-400);
+}
+html.dark .moment--offering {
+  --m-seg-fg: var(--color-lime-950);
+  --m-fg: var(--color-lime-950);
+  --m-label: var(--color-lime-300);
+  --m-seg: var(--color-lime-300);
+}
+html.dark .moment--plain {
+  --m-seg-fg: var(--ui-color-neutral-200);
+  --m-bg: color-mix(in oklab, #ffffff 9%, transparent);
+  --m-seg: var(--ui-color-neutral-600);
+}
+.moment-tile {
+  background: var(--m-bg);
+  color: var(--m-fg);
 }

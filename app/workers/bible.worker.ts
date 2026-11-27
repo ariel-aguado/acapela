@@ -27,10 +27,12 @@ import type {
 import { BIBLE_DB_CACHE_NAME, BIBLE_MANIFEST_CACHE_NAME } from "~~/lib/bible";
 
 import type { ParsedBibleReference } from "../utils/bible/parse-bible-reference";
+import type { ReferenceSuggestion } from "../utils/bible/predict-reference";
 
 import { bookMatcher } from "../utils/bible/books";
 import { buildFtsMatchQuery } from "../utils/bible/build-fts-match-query";
 import { parseBibleReference } from "../utils/bible/parse-bible-reference";
+import { predictReferences } from "../utils/bible/predict-reference";
 
 const BIBLES_DIR = "/bibles";
 const VFS_NAME = "acapela-bible-sahpool";
@@ -497,8 +499,15 @@ async function parseReference(versionId: string, input: string): Promise<ParsedB
   return parseBibleReference(input, matcher.match, matcher.structure);
 }
 
+/** Every valid passage a typed reference could be ("jn123": Juan 1:23, Juan 12:3…). */
+async function predictReference(versionId: string, input: string): Promise<ReferenceSuggestion[]> {
+  const matcher = await bookMatcher(versionId);
+  return predictReferences(input, matcher.match, matcher.structure);
+}
+
 const api = {
   parseReference,
+  predictReference,
   getPoolStatus,
   listAvailableVersions,
   loadVersion: (versionId: string, onProgress?: (progress: DownloadProgress) => void) =>
