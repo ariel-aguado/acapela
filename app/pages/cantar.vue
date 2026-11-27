@@ -278,31 +278,37 @@ onMounted(async () => {
   display: none;
 }
 
-/* Stanza number in the margin; the chorus as a tinted block with its label. */
+/* Stanza number or "Coro" in the margin, the text in one column: the chorus
+   uses the same grid as the stanzas, so its lines start exactly where theirs
+   do. Its tint is a band across the whole screen width (box-shadow +
+   clip-path paint outside the box without moving the layout). */
 .hymn-block {
   display: grid;
-  grid-template-columns: 1.75em minmax(0, 1fr);
+  grid-template-columns: 2.4em minmax(0, 1fr);
   column-gap: 0.5em;
-  border-radius: var(--radius-box);
-  transition: background-color 0.6s ease;
+  transition:
+    background-color 0.6s ease,
+    box-shadow 0.6s ease;
 }
 .hymn-block__label {
   font-family: var(--font-display);
   font-size: 0.7em;
   font-weight: 700;
-  line-height: 2.2;
+  line-height: calc(var(--reading-line-height) / 0.7);
   color: color-mix(in oklab, var(--ui-text) 55%, transparent);
   font-variant-numeric: tabular-nums;
 }
 .hymn-block--chorus {
-  grid-template-columns: minmax(0, 1fr);
-  background: color-mix(in oklab, var(--ui-primary) 9%, transparent);
-  padding: 0.6em 0.9em 0.7em;
+  --band: color-mix(in oklab, var(--ui-primary) 9%, transparent);
+  padding-block: 0.6em 0.7em;
+}
+.hymn-block--chorus,
+.hymn-block--found {
+  background: var(--band);
+  box-shadow: 0 0 0 100vmax var(--band);
+  clip-path: inset(0 -100vmax);
 }
 .hymn-block--chorus .hymn-block__label {
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  line-height: 1.6;
   color: var(--ui-primary);
 }
 .hymn-block--chorus .hymn-block__text {
@@ -322,7 +328,7 @@ onMounted(async () => {
   padding: 0 0.5rem 0 0;
 }
 .hymn-block--found {
-  background: color-mix(in oklab, var(--ui-warning) 30%, transparent);
+  --band: color-mix(in oklab, var(--ui-warning) 30%, transparent);
 }
 @media (prefers-reduced-motion: reduce) {
   .hymn-block {
