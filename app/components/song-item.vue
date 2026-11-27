@@ -12,14 +12,22 @@ const props = withDefaults(defineProps<{
   /** Block to open the hymn at (lyric search hits). */
   blockIndex?: number;
   showFavorite?: boolean;
+  /** Desktop search: a click selects the row (preview), a double click opens it. */
+  selectable?: boolean;
+  selected?: boolean;
 }>(), {
   detail: undefined,
   tag: "",
   blockIndex: -1,
   showFavorite: true,
+  selectable: false,
+  selected: false,
 });
 
-const emit = defineEmits<{ (e: "open", songId: number): void }>();
+const emit = defineEmits<{
+  (e: "open", songId: number): void;
+  (e: "select", songId: number): void;
+}>();
 
 const songStore = useSongStore();
 const { toggle, isFavorite } = useFavoriteToggle();
@@ -30,14 +38,26 @@ function open() {
   emit("open", props.song.songId);
   songStore.navigateToSong(props.song.songId, props.blockIndex);
 }
+
+function onClick() {
+  if (props.selectable)
+    emit("select", props.song.songId);
+  else
+    open();
+}
 </script>
 
 <template>
-  <div class="song-row flex items-center gap-1 pl-4 pr-1">
+  <div
+    class="song-row flex items-center gap-1 pl-4 pr-1"
+    :class="selectable ? ['rounded-2xl', selected ? 'bg-primary/8 ring-[1.5px] ring-inset ring-primary/35' : 'hover:bg-muted'] : ''"
+  >
     <button
       type="button"
       class="flex-1 min-w-0 flex items-center gap-3 py-2.5 text-start cursor-pointer"
-      @click="open"
+      :aria-current="selectable && selected ? 'true' : undefined"
+      @click="onClick"
+      @dblclick="selectable && open()"
     >
       <span class="w-10 shrink-0 text-lg font-semibold text-primary tabular-nums text-end">
         {{ song.songId }}

@@ -1,11 +1,17 @@
 <script lang="ts" setup>
-import { useDebounceFn } from "@vueuse/core";
+import { onKeyStroke, useDebounceFn, useMediaQuery } from "@vueuse/core";
 import Mark from "mark.js";
 
 import type { FilteredSong, FullSearchResult, Song } from "~~/lib/types";
 
 // One search for everything a person may remember: the number, the title or
 // a phrase of the lyric. Results are grouped by where they matched.
+//
+// Desktop (lg) uses the whole width: the field spans the page, the results
+// are a column on the left and the highlighted hymn is shown whole on the
+// right (click selects, double click or Enter opens it). Without a query,
+// recents are a row of cards and every hymn sits in a three-column grid with
+// a horizontal index. The phone keeps its single column.
 
 type Scope = "all" | "titles" | "lyrics";
 type LyricHit = {
@@ -22,12 +28,16 @@ const route = useRoute();
 const router = useRouter();
 const songStore = useSongStore();
 const songbookStore = useSongbookStore();
+const cultoStore = useCultoStore();
+const { toggle: toggleFavorite, isFavorite } = useFavoriteToggle();
+const isLarge = useMediaQuery("(min-width: 1024px)");
 const {
   songs,
   favoriteSongs,
   searchHistory,
   recentSongIds,
   currentTab,
+  songId,
   filteredSongsByNumber,
   filteredSongsByTitle,
   filteredSongIdsByNumber,
@@ -43,6 +53,7 @@ const scope = ref<Scope>("all");
 const queryInput = useTemplateRef<{ inputRef: HTMLInputElement | null }>("queryInput");
 const inputRef = computed(() => queryInput.value?.inputRef ?? null);
 const resultsRef = shallowRef<HTMLElement | null>(null);
+const previewRef = shallowRef<HTMLElement | null>(null);
 
 const trimmed = computed(() => query.value.trim());
 const hasQuery = computed(() => trimmed.value.length > 0);
@@ -150,6 +161,134 @@ const nothingFound = computed(() =>
   && visibleLyrics.value.length === 0,
 );
 
+// ------------------------------------------------- desktop: selection/preview
+type Picked = { songId: number; blockIndex: number };
+
+/** Every visible result, in the order shown, for ↑ ↓ and the preview. */
+const ordered = computed<Picked[]>(() => [
+  ...(numberMatch.value
+    ? [
+        { songId: numberMatch.value.songId, blockIndex: -1 },
+      ]
+    : []),
+  ...visibleTitles.value.slice(0, titleLimit.value).map(s => ({ songId: s.songId, blockIndex: -1 })),
+  ...visibleLyrics.value.slice(0, lyricLimit.value).map(h => ({ songId: h.song.songId, blockIndex: h.blockIndex })),
+]);
+const selectedId = ref<number | null>(null);
+// Keep the selection while it is still among the results; else the first.
+watch(ordered, (list) => {
+  if (!list.some(p => p.songId === selectedId.value))
+    selectedId.value = list[0]?.songId ?? null;
+}, { immediate: true });
+const selected = computed(() => ordered.value.find(p => p.songId === selectedId.value) ?? null);
+const previewSong = computed<Song | null>(() => (selected.value
+  ? songs.value[selected.value.songId - 1] ?? null
+  : null));
+const previewBlocks = computed(() => (previewSong.value?.blocks ?? [])
+  .map((block, index) => ({ block, index }))
+  .filter(({ block }) => block.kind !== "citation"));
+const previewCitation = computed(() => (previewSong.value?.blocks ?? [])
+  .filter(b => b.kind === "citation")
+  .map(b => b.text.join(" "))
+  .join(" · "));
+const previewSummary = computed(() => {
+  const blocks = previewBlocks.value.map(b => b.block);
+  const stanzas = blocks.filter(b => b.kind === "stanza").length;
+  const parts = [
+    stanzas === 1
+      ? "1 estrofa"
+      : `${stanzas} estrofas`,
+  ];
+  if (blocks.some(b => b.kind === "chorus"))
+    parts.push("con coro");
+  return parts.join(" · ");
+});
+
+function moveSelection(step: number) {
+  const list = ordered.value;
+  if (!list.length)
+    return;
+  const at = list.findIndex(p => p.songId === selectedId.value);
+  const next = Math.max(0, Math.min(list.length - 1, at + step));
+  selectedId.value = list[next]!.songId;
+  nextTick(() => {
+    resultsRef.value
+      ?.querySelector("[aria-current=\"true\"]")
+      ?.scrollIntoView({ block: "nearest" });
+  });
+}
+
+function onInputKeydown(e: KeyboardEvent) {
+  if (e.key === "Escape" && query.value) {
+    e.preventDefault();
+    clearQuery();
+    return;
+  }
+  if (!isLarge.value || !hasQuery.value)
+    return;
+  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+    e.preventDefault();
+    moveSelection(e.key === "ArrowDown"
+      ? 1
+      : -1);
+  }
+  else if (e.key === "Enter" && selected.value) {
+    e.preventDefault();
+    sing(selected.value);
+  }
+}
+
+function sing(pick: Picked) {
+  onOpen();
+  songStore.navigateToSong(pick.songId, pick.blockIndex);
+}
+
+function project(pick: Picked) {
+  onOpen();
+  songId.value = pick.songId;
+  navigateTo("/fullscreen");
+}
+
+function addToCulto(pick: Picked) {
+  const item = cultoStore.addItem(cultoStore.newHymn(songbookStore.currentId, pick.songId));
+  useUndoToast().show("Agregado al culto", {
+    label: "Deshacer",
+    run: () => cultoStore.removeItem(item.id),
+  });
+}
+
+// The preview opens at the stanza that matched.
+watch(selected, (pick) => {
+  nextTick(() => {
+    const el = previewRef.value;
+    if (!el)
+      return;
+    const block = pick && pick.blockIndex >= 0
+      ? el.querySelector<HTMLElement>(`[data-block="${pick.blockIndex}"]`)
+      : null;
+    if (block)
+      block.scrollIntoView({ block: "center" });
+    else
+      el.scrollTop = 0;
+  });
+});
+
+// Results and browsing share the scroller: each starts at the top.
+watch(hasQuery, () => {
+  if (resultsRef.value)
+    resultsRef.value.scrollTop = 0;
+});
+
+// "/" goes back to the field from anywhere on the page.
+onKeyStroke("/", (e: KeyboardEvent) => {
+  const target = e.target as HTMLElement | null;
+  if (target?.closest("input, textarea, [contenteditable]"))
+    return;
+  e.preventDefault();
+  inputRef.value?.focus();
+  inputRef.value?.select();
+});
+
 // --------------------------------------------------------- browsing (empty)
 const recentSongs = computed(() =>
   recentSongIds.value
@@ -194,12 +333,26 @@ function clearQuery() {
   inputRef.value?.focus();
 }
 
+// Desktop index of "Todos los himnos": the same anchors as the phone's side
+// rail, as a horizontal strip.
+const browseList = computed(() => (currentTab.value === "byTitle"
+  ? filteredSongsByTitle.value
+  : filteredSongsByNumber.value));
+const browseAnchors = computed<Array<number | string>>(() => (currentTab.value === "byTitle"
+  ? filteredSongIdsByTitle.value
+  : filteredSongIdsByNumber.value));
+function browseKey(song: FilteredSong) {
+  return currentTab.value === "byTitle"
+    ? titleInitial(song.title)
+    : song.songId;
+}
+
 // --------------------------------------------------------------- highlight
 function performMark() {
-  const el = resultsRef.value;
-  if (!el)
+  const els = [resultsRef.value, previewRef.value].filter((el): el is HTMLElement => !!el);
+  if (!els.length)
     return;
-  const marker = new Mark(el);
+  const marker = new Mark(els);
   marker.unmark({
     done() {
       if (hasQuery.value && !isNumberQuery.value) {
@@ -235,6 +388,7 @@ watch([
   titleLimit,
   lyricLimit,
   hasQuery,
+  selectedId,
 ], () => {
   nextTick().then(performMark);
 });
@@ -264,232 +418,422 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="flex flex-col h-dvh pad-bar-top w-full max-w-2xl mx-auto min-w-0">
-    <div class="flex flex-col gap-2 px-4 pt-1 pb-3 bg-default border-b border-muted z-10">
-      <label for="query" class="text-sm font-medium">Número, título o una frase de la letra</label>
-      <UInput
-        id="query"
-        ref="queryInput"
-        v-model="query"
-        type="search"
-        autocomplete="off"
-        enterkeyhint="search"
-        placeholder="Por ejemplo: 214 o cuán grande"
-        size="xl"
-        icon="i-tabler-search"
-        class="w-full"
-        :ui="{ base: 'h-12 text-base', trailing: 'pe-1.5' }"
-      >
-        <template v-if="query" #trailing>
-          <UButton
-            color="neutral"
-            variant="ghost"
-            icon="i-tabler-x"
-            aria-label="Borrar búsqueda"
-            @click="clearQuery"
-          />
-        </template>
-      </UInput>
-
-      <div
-        v-if="hasQuery && !isNumberQuery"
-        class="flex flex-wrap gap-2"
-        role="radiogroup"
-        aria-label="Buscar en"
-      >
-        <label
-          v-for="opt in [
-            { value: 'all', label: 'Todos', count: titleHits.length + lyricHits.length },
-            { value: 'titles', label: 'Títulos', count: titleHits.length },
-            { value: 'lyrics', label: 'Letra', count: lyricHits.length },
-          ]"
-          :key="opt.value"
-          class="chip"
-          :class="{ 'chip--on': scope === opt.value }"
+  <div class="flex flex-col h-dvh pad-bar-top w-full max-w-2xl lg:max-w-[calc(1440px+3rem)] lg:px-6 mx-auto min-w-0">
+    <!-- ===================== Search band ===================== -->
+    <div class="flex flex-col gap-2 px-4 pt-1 pb-3 bg-default border-b border-muted z-10 lg:mt-1 lg:gap-3 lg:px-6 lg:py-5 lg:rounded-2xl lg:border-0 lg:shadow-card">
+      <label for="query" class="text-sm font-medium lg:sr-only">Número, título o una frase de la letra</label>
+      <div class="flex flex-col gap-2 lg:flex-row lg:items-center lg:gap-4">
+        <UInput
+          id="query"
+          ref="queryInput"
+          v-model="query"
+          type="search"
+          autocomplete="off"
+          enterkeyhint="search"
+          :placeholder="isLarge ? 'Número, título o una frase de la letra: 214, cuán grande…' : 'Por ejemplo: 214 o cuán grande'"
+          size="xl"
+          icon="i-tabler-search"
+          class="w-full lg:flex-1 lg:min-w-0"
+          :ui="{ base: 'h-12 text-base lg:h-14 lg:text-lg lg:ps-12', leadingIcon: 'lg:size-6', leading: 'lg:ps-4', trailing: 'pe-1.5' }"
+          @keydown="onInputKeydown"
         >
-          <input
-            v-model="scope"
-            type="radio"
-            name="scope"
-            :value="opt.value"
-            class="sr-only"
+          <template v-if="query" #trailing>
+            <UButton
+              color="neutral"
+              variant="ghost"
+              icon="i-tabler-x"
+              aria-label="Borrar búsqueda"
+              @click="clearQuery"
+            />
+          </template>
+          <template v-else-if="isLarge" #trailing>
+            <UKbd value="/" class="me-2.5" />
+          </template>
+        </UInput>
+
+        <div
+          v-if="hasQuery && !isNumberQuery"
+          class="flex flex-wrap gap-2 lg:flex-nowrap lg:gap-1 lg:rounded-full lg:bg-(--well-bg) lg:p-1"
+          role="radiogroup"
+          aria-label="Buscar en"
+        >
+          <label
+            v-for="opt in [
+              { value: 'all', label: 'Todos', count: titleHits.length + lyricHits.length },
+              { value: 'titles', label: 'Títulos', count: titleHits.length },
+              { value: 'lyrics', label: 'Letra', count: lyricHits.length },
+            ]"
+            :key="opt.value"
+            class="chip lg:h-11 lg:px-4 lg:border-0"
+            :class="{ 'chip--on': scope === opt.value }"
           >
-          {{ opt.label }}
-          <span v-if="!searching" class="tabular-nums opacity-70">{{ opt.count }}</span>
-        </label>
+            <input
+              v-model="scope"
+              type="radio"
+              name="scope"
+              :value="opt.value"
+              class="sr-only"
+            >
+            {{ opt.label }}
+            <span v-if="!searching" class="tabular-nums opacity-70">{{ opt.count }}</span>
+          </label>
+        </div>
+
+        <span
+          v-if="isLarge && currentSongbook"
+          class="hidden lg:inline-flex shrink-0 h-11 items-center gap-2 rounded-full bg-primary/10 text-primary px-4 text-sm font-semibold dark:bg-lime-300/15 dark:text-lime-300"
+        >
+          <UIcon name="i-tabler-book" class="size-5" />
+          {{ currentSongbook.name }} · {{ songs.length }} himnos
+        </span>
+      </div>
+
+      <!-- Desktop: recent searches right under the field. -->
+      <div v-if="isLarge && !hasQuery && searchHistory.length" class="flex flex-wrap items-center gap-2">
+        <span class="text-xs font-bold uppercase tracking-wider opacity-70 me-1">Búsquedas recientes</span>
+        <UButton
+          v-for="entry in searchHistory"
+          :key="entry"
+          color="neutral"
+          variant="soft"
+          icon="i-tabler-clock"
+          class="h-9 font-normal"
+          :label="entry"
+          data-history-entry
+          @click="useHistory(entry)"
+        />
+        <UButton
+          color="neutral"
+          variant="link"
+          size="sm"
+          label="Borrar historial"
+          @click="clearHistory"
+        />
       </div>
     </div>
 
-    <div ref="resultsRef" class="context flex-1 overflow-y-auto pad-bar-bottom">
-      <!-- ===================== Results ===================== -->
-      <template v-if="hasQuery">
-        <section v-if="isNumberQuery" aria-labelledby="g-number">
-          <h3 id="g-number" class="group-title no-mark">
-            Número
-          </h3>
-          <SongItem v-if="numberMatch" :song="numberMatch" @open="onOpen" />
-          <p v-else class="px-4 py-3 text-sm opacity-80 no-mark">
-            {{ songbookName }} tiene {{ songs.length }} himnos.
-          </p>
-        </section>
-
-        <section v-if="visibleTitles.length" aria-labelledby="g-titles">
-          <h3 id="g-titles" class="group-title no-mark">
-            Títulos · {{ visibleTitles.length }} {{ visibleTitles.length === 1 ? 'himno' : 'himnos' }}
-          </h3>
-          <ul>
-            <li v-for="song in visibleTitles.slice(0, titleLimit)" :key="`t-${song.songId}`" class="border-t border-muted first:border-t-0">
-              <SongItem :song @open="onOpen" />
-            </li>
-          </ul>
-          <UButton
-            v-if="visibleTitles.length > titleLimit"
-            color="neutral"
-            variant="ghost"
-            class="mx-4 my-2 no-mark"
-            :label="`Mostrar ${Math.min(PAGE, visibleTitles.length - titleLimit)} más`"
-            @click="titleLimit += PAGE"
-          />
-        </section>
-
-        <section v-if="visibleLyrics.length" aria-labelledby="g-lyrics">
-          <h3 id="g-lyrics" class="group-title no-mark">
-            En la letra · {{ visibleLyrics.length }} {{ visibleLyrics.length === 1 ? 'himno' : 'himnos' }}
-          </h3>
-          <ul>
-            <li v-for="hit in visibleLyrics.slice(0, lyricLimit)" :key="`l-${hit.song.songId}`" class="border-t border-muted first:border-t-0">
-              <SongItem
-                :song="hit.song"
-                :detail="hit.line"
-                :tag="[hit.tag, hit.more > 0 ? `${hit.more} ${hit.more === 1 ? 'coincidencia' : 'coincidencias'} más` : ''].filter(Boolean).join(' · ')"
-                :block-index="hit.blockIndex"
-                @open="onOpen"
-              />
-            </li>
-          </ul>
-          <UButton
-            v-if="visibleLyrics.length > lyricLimit"
-            color="neutral"
-            variant="ghost"
-            class="mx-4 my-2 no-mark"
-            :label="`Mostrar ${Math.min(PAGE, visibleLyrics.length - lyricLimit)} más`"
-            @click="lyricLimit += PAGE"
-          />
-        </section>
-
-        <div v-if="searching && !titleHits.length && !lyricHits.length && !numberMatch" class="flex justify-center py-10">
-          <UIcon name="i-tabler-loader-2" class="size-8 animate-spin text-primary" aria-label="Buscando" />
-        </div>
-
-        <div v-if="nothingFound && !isNumberQuery" class="flex flex-col items-center text-center gap-2 px-6 py-10 no-mark">
-          <img src="/img/empty-state.webp" alt="Empty state" class="w-20 h-auto opacity-80">
-          <p class="text-lg font-bold">
-            Ningún himno de {{ songbookName }} coincide con «{{ trimmed }}»
-          </p>
-          <p class="opacity-80">
-            Revisa la ortografía o prueba con menos palabras.
-          </p>
-          <UButton
-            color="neutral"
-            variant="ghost"
-            class="mt-2"
-            label="Ver todos los himnos"
-            @click="clearQuery"
-          />
-        </div>
-      </template>
-
-      <!-- ===================== Browse ===================== -->
-      <template v-else>
-        <section v-if="recentSongs.length" aria-labelledby="g-recent">
-          <h3 id="g-recent" class="group-title">
-            Recientes
-          </h3>
-          <!-- Phone: one sideways row (as on the home page), so the full
-               list below shows up without scrolling past five rows. -->
-          <ul v-scroll-fade-x class="sm:hidden flex gap-2 overflow-x-auto px-4 pb-1 no-scrollbar">
-            <li v-for="song in recentSongs" :key="`rm-${song.songId}`" class="shrink-0">
-              <button
-                type="button"
-                class="w-40 text-start rounded-2xl bg-default shadow-card px-3 py-2.5 hover:bg-elevated"
-                @click="songStore.navigateToSong(song.songId)"
-              >
-                <span class="block text-lg font-bold text-primary tabular-nums leading-tight">{{ song.songId }}</span>
-                <span class="block text-sm truncate">{{ song.title }}</span>
-              </button>
-            </li>
-          </ul>
-          <ul class="hidden sm:block">
-            <li v-for="song in recentSongs" :key="`r-${song.songId}`" class="border-t border-muted first:border-t-0">
-              <SongItem :song />
-            </li>
-          </ul>
-        </section>
-
-        <section v-if="searchHistory.length" aria-labelledby="g-history" class="pb-2">
-          <div class="flex items-center justify-between px-4">
-            <h3 id="g-history" class="group-title px-0!">
-              Búsquedas recientes
+    <div class="flex-1 min-h-0 flex lg:gap-4 lg:pt-4 lg:pb-6">
+      <div
+        ref="resultsRef"
+        class="context flex-1 min-w-0 overflow-y-auto pad-bar-bottom lg:pb-2"
+        :class="hasQuery ? 'lg:flex-none lg:w-[30rem] lg:rounded-2xl lg:bg-default lg:shadow-card lg:p-2' : ''"
+      >
+        <!-- ===================== Results ===================== -->
+        <template v-if="hasQuery">
+          <section v-if="isNumberQuery" aria-labelledby="g-number">
+            <h3 id="g-number" class="group-title no-mark">
+              Número
             </h3>
+            <SongItem
+              v-if="numberMatch"
+              :song="numberMatch"
+              :selectable="isLarge"
+              :selected="selectedId === numberMatch.songId"
+              @open="onOpen"
+              @select="selectedId = $event"
+            />
+            <p v-else class="px-4 py-3 text-sm opacity-80 no-mark">
+              {{ songbookName }} tiene {{ songs.length }} himnos.
+            </p>
+          </section>
+
+          <section v-if="visibleTitles.length" aria-labelledby="g-titles">
+            <h3 id="g-titles" class="group-title no-mark">
+              Títulos · {{ visibleTitles.length }} {{ visibleTitles.length === 1 ? 'himno' : 'himnos' }}
+            </h3>
+            <ul>
+              <li v-for="song in visibleTitles.slice(0, titleLimit)" :key="`t-${song.songId}`" class="border-t border-muted first:border-t-0 lg:border-0">
+                <SongItem
+                  :song
+                  :selectable="isLarge"
+                  :selected="selectedId === song.songId"
+                  @open="onOpen"
+                  @select="selectedId = $event"
+                />
+              </li>
+            </ul>
+            <UButton
+              v-if="visibleTitles.length > titleLimit"
+              color="neutral"
+              variant="ghost"
+              class="mx-4 my-2 no-mark"
+              :label="`Mostrar ${Math.min(PAGE, visibleTitles.length - titleLimit)} más`"
+              @click="titleLimit += PAGE"
+            />
+          </section>
+
+          <section v-if="visibleLyrics.length" aria-labelledby="g-lyrics">
+            <h3 id="g-lyrics" class="group-title no-mark">
+              En la letra · {{ visibleLyrics.length }} {{ visibleLyrics.length === 1 ? 'himno' : 'himnos' }}
+            </h3>
+            <ul>
+              <li v-for="hit in visibleLyrics.slice(0, lyricLimit)" :key="`l-${hit.song.songId}`" class="border-t border-muted first:border-t-0 lg:border-0">
+                <SongItem
+                  :song="hit.song"
+                  :detail="hit.line"
+                  :tag="[hit.tag, hit.more > 0 ? `${hit.more} ${hit.more === 1 ? 'coincidencia' : 'coincidencias'} más` : ''].filter(Boolean).join(' · ')"
+                  :block-index="hit.blockIndex"
+                  :selectable="isLarge"
+                  :selected="selectedId === hit.song.songId"
+                  @open="onOpen"
+                  @select="selectedId = $event"
+                />
+              </li>
+            </ul>
+            <UButton
+              v-if="visibleLyrics.length > lyricLimit"
+              color="neutral"
+              variant="ghost"
+              class="mx-4 my-2 no-mark"
+              :label="`Mostrar ${Math.min(PAGE, visibleLyrics.length - lyricLimit)} más`"
+              @click="lyricLimit += PAGE"
+            />
+          </section>
+
+          <div v-if="searching && !titleHits.length && !lyricHits.length && !numberMatch" class="flex justify-center py-10">
+            <UIcon name="i-tabler-loader-2" class="size-8 animate-spin text-primary" aria-label="Buscando" />
+          </div>
+
+          <div v-if="nothingFound && !isNumberQuery" class="flex flex-col items-center text-center gap-2 px-6 py-10 no-mark">
+            <img src="/img/empty-state.webp" alt="Empty state" class="w-20 h-auto opacity-80">
+            <p class="text-lg font-bold">
+              Ningún himno de {{ songbookName }} coincide con «{{ trimmed }}»
+            </p>
+            <p class="opacity-80">
+              Revisa la ortografía o prueba con menos palabras.
+            </p>
             <UButton
               color="neutral"
-              variant="link"
-              size="sm"
-              class="px-0"
-              label="Borrar historial"
-              @click="clearHistory"
+              variant="ghost"
+              class="mt-2"
+              label="Ver todos los himnos"
+              @click="clearQuery"
             />
           </div>
-          <!-- Phone: one sideways row instead of wrapped lines. -->
-          <div v-scroll-fade-x class="flex gap-2 overflow-x-auto px-4 no-scrollbar sm:flex-wrap sm:overflow-visible">
-            <UButton
-              v-for="entry in searchHistory"
-              :key="entry"
-              color="neutral"
-              variant="outline"
-              icon="i-tabler-clock"
-              class="h-9 shrink-0 font-normal"
-              :label="entry"
-              data-history-entry
-              @click="useHistory(entry)"
-            />
-          </div>
-        </section>
+        </template>
 
-        <section aria-labelledby="g-all">
-          <div class="flex items-center justify-between gap-2 px-4 pt-4 pb-2">
-            <h3 id="g-all" class="text-xs font-bold uppercase tracking-wider opacity-70">
-              Todos los himnos
-              <span class="block font-normal normal-case tracking-normal tabular-nums">{{ songs.length }} himnos</span>
+        <!-- ===================== Browse ===================== -->
+        <template v-else>
+          <section v-if="recentSongs.length" aria-labelledby="g-recent">
+            <h3 id="g-recent" class="group-title lg:px-1! lg:pt-0!">
+              Recientes
             </h3>
-            <div class="segmented" role="radiogroup" aria-label="Ordenar">
-              <label
-                v-for="opt in [
-                  { id: 'by_number', value: 'byNumber', label: 'Por número' },
-                  { id: 'by_title', value: 'byTitle', label: 'Por título' },
-                ]"
-                :key="opt.id"
-                class="chip"
-                :class="{ 'chip--on': currentTab === opt.value }"
-              >
-                <input
-                  :id="opt.id"
-                  v-model="currentTab"
-                  type="radio"
-                  name="sort"
-                  :value="opt.value"
-                  class="sr-only"
+            <!-- Phone: one sideways row (as on the home page), so the full
+                 list below shows up without scrolling past five rows. -->
+            <ul v-scroll-fade-x class="sm:hidden flex gap-2 overflow-x-auto px-4 pb-1 no-scrollbar">
+              <li v-for="song in recentSongs" :key="`rm-${song.songId}`" class="shrink-0">
+                <button
+                  type="button"
+                  class="w-40 text-start rounded-2xl bg-default shadow-card px-3 py-2.5 hover:bg-elevated"
+                  @click="songStore.navigateToSong(song.songId)"
                 >
-                {{ opt.label }}
-              </label>
+                  <span class="block text-lg font-bold text-primary tabular-nums leading-tight">{{ song.songId }}</span>
+                  <span class="block text-sm truncate">{{ song.title }}</span>
+                </button>
+              </li>
+            </ul>
+            <ul class="hidden sm:block lg:hidden">
+              <li v-for="song in recentSongs" :key="`r-${song.songId}`" class="border-t border-muted first:border-t-0">
+                <SongItem :song />
+              </li>
+            </ul>
+            <!-- Desktop: a row of cards across the width. -->
+            <ul class="hidden lg:grid grid-cols-5 gap-3">
+              <li v-for="song in recentSongs" :key="`rl-${song.songId}`" class="min-w-0">
+                <button
+                  type="button"
+                  class="w-full text-start rounded-2xl bg-default shadow-card px-4 py-3.5 hover:bg-elevated flex flex-col gap-0.5"
+                  @click="songStore.navigateToSong(song.songId)"
+                >
+                  <span class="text-2xl font-extrabold text-primary tabular-nums leading-tight">{{ song.songId }}</span>
+                  <span class="text-sm font-semibold text-highlighted truncate">{{ song.title }}</span>
+                  <span class="font-lyric italic text-sm text-muted truncate">{{ song.firstLine }}</span>
+                </button>
+              </li>
+            </ul>
+          </section>
+
+          <section v-if="!isLarge && searchHistory.length" aria-labelledby="g-history" class="pb-2">
+            <div class="flex items-center justify-between px-4">
+              <h3 id="g-history" class="group-title px-0!">
+                Búsquedas recientes
+              </h3>
+              <UButton
+                color="neutral"
+                variant="link"
+                size="sm"
+                class="px-0"
+                label="Borrar historial"
+                @click="clearHistory"
+              />
             </div>
+            <!-- Phone: one sideways row instead of wrapped lines. -->
+            <div v-scroll-fade-x class="flex gap-2 overflow-x-auto px-4 no-scrollbar sm:flex-wrap sm:overflow-visible">
+              <UButton
+                v-for="entry in searchHistory"
+                :key="entry"
+                color="neutral"
+                variant="outline"
+                icon="i-tabler-clock"
+                class="h-9 shrink-0 font-normal"
+                :label="entry"
+                data-history-entry
+                @click="useHistory(entry)"
+              />
+            </div>
+          </section>
+
+          <section aria-labelledby="g-all" class="lg:mt-5 lg:rounded-2xl lg:bg-default lg:shadow-card lg:px-2 lg:pb-3">
+            <div class="flex items-center justify-between gap-2 px-4 pt-4 pb-2 lg:sticky lg:top-0 lg:z-10 lg:bg-default lg:rounded-t-2xl lg:gap-4 lg:px-3 lg:pb-3">
+              <h3 id="g-all" class="text-xs font-bold uppercase tracking-wider opacity-70 lg:shrink-0">
+                Todos los himnos
+                <span class="block font-normal normal-case tracking-normal tabular-nums">{{ songs.length }} himnos</span>
+              </h3>
+              <!-- Desktop: the index as a horizontal strip. -->
+              <nav v-if="isLarge && browseList.length > 15" aria-label="Saltar a" class="flex-1 min-w-0 flex flex-wrap gap-0.5">
+                <button
+                  v-for="anchor in browseAnchors"
+                  :key="`a-${anchor}`"
+                  type="button"
+                  class="h-8 min-w-8 px-2.5 rounded-full text-sm font-medium tabular-nums text-toned hover:bg-(--control-bg) hover:text-highlighted"
+                  @click="songStore.jumpToSong(anchor)"
+                >
+                  {{ anchor }}
+                </button>
+              </nav>
+              <div class="segmented" role="radiogroup" aria-label="Ordenar">
+                <label
+                  v-for="opt in [
+                    { id: 'by_number', value: 'byNumber', label: 'Por número' },
+                    { id: 'by_title', value: 'byTitle', label: 'Por título' },
+                  ]"
+                  :key="opt.id"
+                  class="chip"
+                  :class="{ 'chip--on': currentTab === opt.value }"
+                >
+                  <input
+                    :id="opt.id"
+                    v-model="currentTab"
+                    type="radio"
+                    name="sort"
+                    :value="opt.value"
+                    class="sr-only"
+                  >
+                  {{ opt.label }}
+                </label>
+              </div>
+            </div>
+            <!-- Desktop: three columns. -->
+            <ul v-if="isLarge" class="grid grid-cols-3 gap-x-2">
+              <li
+                v-for="song in browseList"
+                :key="`g-${song.songId}`"
+                class="border-t border-muted scroll-mt-20"
+                :data-song-index="browseKey(song)"
+              >
+                <SongItem :song class="rounded-2xl hover:bg-muted" />
+              </li>
+            </ul>
+            <div v-else class="flex">
+              <SongsByNumber v-if="currentTab === 'byNumber'" />
+              <SongsByTitle v-else />
+            </div>
+          </section>
+        </template>
+      </div>
+
+      <!-- ===================== Desktop: the highlighted hymn ===================== -->
+      <article
+        v-if="isLarge && hasQuery && previewSong && selected"
+        class="flex-1 min-w-0 flex flex-col rounded-2xl bg-default shadow-card overflow-hidden"
+        :aria-label="`Vista previa del himno ${previewSong.songId}`"
+      >
+        <header class="flex flex-wrap items-center gap-x-5 gap-y-3 px-7 pt-6 pb-5 border-b border-muted">
+          <span class="min-w-18 h-18 px-3 rounded-2xl bg-primary/10 text-primary grid place-items-center text-3xl font-extrabold tabular-nums dark:bg-lime-300/15 dark:text-lime-300">
+            {{ previewSong.songId }}
+          </span>
+          <div class="flex-[1_1_16rem] min-w-0">
+            <p class="text-xs font-bold uppercase tracking-wider text-muted">
+              {{ songbookName }} · {{ previewSummary }}
+            </p>
+            <h2 class="mt-1 text-2xl font-bold leading-tight text-highlighted text-balance">
+              {{ previewSong.title }}
+            </h2>
+            <p v-if="previewCitation" class="mt-0.5 text-sm text-muted no-mark">
+              {{ previewCitation }}
+            </p>
           </div>
-          <div class="flex">
-            <SongsByNumber v-if="currentTab === 'byNumber'" />
-            <SongsByTitle v-else />
+          <div class="flex flex-wrap gap-2 no-mark">
+            <UButton
+              size="lg"
+              icon="i-tabler-music"
+              label="Cantar"
+              class="h-12 px-5"
+              @click="sing(selected)"
+            />
+            <UButton
+              size="lg"
+              color="neutral"
+              variant="soft"
+              icon="i-tabler-presentation"
+              label="Proyectar"
+              class="h-12 px-4"
+              @click="project(selected)"
+            />
+            <UButton
+              size="lg"
+              color="neutral"
+              variant="soft"
+              icon="i-tabler-plus"
+              label="Al culto"
+              class="h-12 px-4"
+              @click="addToCulto(selected)"
+            />
+            <UButton
+              size="lg"
+              :color="isFavorite(previewSong.songId) ? 'secondary' : 'neutral'"
+              variant="soft"
+              square
+              class="size-12 justify-center"
+              :icon="isFavorite(previewSong.songId) ? 'i-tabler-heart-filled' : 'i-tabler-heart'"
+              :ui="{ leadingIcon: 'size-5.5' }"
+              :aria-pressed="isFavorite(previewSong.songId)"
+              :aria-label="isFavorite(previewSong.songId) ? `Quitar «${previewSong.title}» de favoritos` : `Agregar «${previewSong.title}» a favoritos`"
+              @click="toggleFavorite(previewSong)"
+            />
           </div>
-        </section>
-      </template>
+        </header>
+
+        <!-- The lyric in the reading face, two columns when there is room. -->
+        <div ref="previewRef" class="context flex-1 overflow-y-auto px-7 py-6">
+          <div class="preview-lyric font-lyric text-lg/relaxed text-default">
+            <section
+              v-for="{ block, index } in previewBlocks"
+              :key="`p-${previewSong.songId}-${index}`"
+              :data-block="index"
+              class="preview-block"
+              :class="{
+                'preview-block--chorus': block.kind === 'chorus',
+                'preview-block--hit': index === selected.blockIndex,
+              }"
+            >
+              <p class="preview-block__label no-mark">
+                {{ blockLabel(block) || ' ' }}<template v-if="index === selected.blockIndex">
+                  · aquí coincide
+                </template>
+              </p>
+              <div class="hymn-block__text min-w-0" v-html="block.html" />
+            </section>
+          </div>
+        </div>
+
+        <footer class="flex flex-wrap items-center gap-x-5 gap-y-1 px-7 py-3 border-t border-muted text-sm text-muted no-mark">
+          <span class="inline-flex items-center gap-1"><UKbd value="↑" /><UKbd value="↓" /> elegir</span>
+          <span class="inline-flex items-center gap-1"><UKbd value="Enter" /> o doble clic: cantar</span>
+          <span class="inline-flex items-center gap-1"><UKbd value="/" /> buscar</span>
+          <span class="inline-flex items-center gap-1"><UKbd value="Esc" /> borrar</span>
+        </footer>
+      </article>
     </div>
   </div>
 </template>
@@ -505,6 +849,33 @@ onMounted(async () => {
 }
 .no-scrollbar {
   scrollbar-width: none;
+}
+/* Desktop preview: blocks flow in two columns, never split. */
+.preview-lyric {
+  columns: 2 20rem;
+  column-gap: 2.5rem;
+}
+.preview-block {
+  break-inside: avoid;
+  margin-bottom: 1.5rem;
+  border-radius: 1.125rem;
+  padding: 0.75rem 1rem;
+  margin-inline: -1rem;
+}
+.preview-block--chorus .hymn-block__text {
+  font-style: italic;
+}
+.preview-block--hit {
+  background: color-mix(in oklab, var(--ui-warning) 10%, transparent);
+}
+.preview-block__label {
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ui-text-muted);
+  margin-bottom: 0.25rem;
 }
 .no-scrollbar::-webkit-scrollbar {
   display: none;

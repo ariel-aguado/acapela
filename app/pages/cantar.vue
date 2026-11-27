@@ -213,11 +213,13 @@ onMounted(async () => {
                 <div class="mx-auto w-full max-w-[38rem]">
                   <h2
                     :id="`hymn-title-${song.songId}`"
-                    class="font-lyric font-semibold text-balance"
+                    class="font-lyric font-semibold flex items-baseline gap-[0.35em]"
                     :style="{ fontSize: `${Math.round(fontSize * 1.25)}px`, lineHeight: 1.25 }"
                   >
-                    <span class="text-primary tabular-nums">{{ song.songId }}.</span>
-                    {{ song.title }}
+                    <!-- The number stands apart: a long title wraps under
+                      itself, never under the number. -->
+                    <span class="shrink-0 text-primary tabular-nums">{{ song.songId }}.</span>
+                    <span class="min-w-0 text-balance">{{ song.title }}</span>
                   </h2>
                   <p
                     v-for="(cite, ci) in song.blocks.filter(b => b.kind === 'citation')"
