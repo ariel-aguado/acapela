@@ -237,7 +237,7 @@ try {
   const status = await page.evaluate(`document.body.innerText.includes('Proyector conectado')`)
   check(status, "la consola ve el proyector conectado")
 
-  const totalNow = await page.evaluate(`[...document.querySelectorAll('nav[aria-label="Orden del culto"] button')].length`)
+  const totalNow = await page.evaluate(`[...document.querySelectorAll('nav[aria-label="Orden del culto"] .order-fix-row')].length`)
   check(totalNow === 6, `el orden tiene 6 elementos con el insertado (${totalNow}); ${total} pantallas antes de insertar`)
 
   // ---------------------------------------------------------- editor: drag and the screen manager

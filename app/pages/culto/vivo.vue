@@ -83,6 +83,8 @@ const black = ref(false);
 const showLogo = ref(false);
 /** After something inserted "now", where to come back to. */
 const returnTo = ref<{ itemId: string; key: string; afterItemId: string } | null>(null);
+/** What stays on the projector after «Aplicar al pasar», until moving on. */
+const frozen = ref<{ itemId: string; screen: Screen | null; key: string } | null>(null);
 
 // While the element in position has no screens yet (inserted a moment ago,
 // still being measured), the previous screen stays.
@@ -112,6 +114,7 @@ const liveIndex = computed(() => {
 const live = computed(() => flat.value[liveIndex.value] ?? null);
 const liveEntry = computed(() => entries.value.find(e => e.item.id === live.value?.itemId) ?? null);
 function goTo(index: number) {
+  frozen.value = null;
   const target = flat.value[index];
   if (target)
     position.value = { itemId: target.itemId, key: target.screenKey };
@@ -142,6 +145,14 @@ const liveStrip = computed(() => {
 const upcoming = computed(() => {
   const list: { s: (typeof flat.value)[number]; at: number }[] = [];
   let i = liveIndex.value;
+  const pending = frozen.value?.itemId;
+  if (pending) {
+    const first = flat.value.findIndex(s => s.itemId === pending);
+    if (first >= 0) {
+      list.push({ s: flat.value[first]!, at: first });
+      i = first;
+    }
+  }
   while (list.length < 4) {
     const n = nextIndexOf(i);
     const s = flat.value[n];
@@ -160,6 +171,13 @@ const nextAt = computed(() => nextUp.value?.at ?? -1);
 function next() {
   if (showLogo.value) {
     showLogo.value = false;
+    return;
+  }
+  // After «Aplicar al pasar»: the corrected element, from its start.
+  if (frozen.value) {
+    const itemId = frozen.value.itemId;
+    frozen.value = null;
+    position.value = { itemId, key: "" };
     return;
   }
   const target = nextIndexOf(liveIndex.value);
@@ -271,15 +289,19 @@ const logoScreen = computed<Screen>(() => ({
 }));
 const onAir = computed(() => showLogo.value
   ? logoScreen.value
-  : live.value?.screen ?? null);
+  : frozen.value
+    ? frozen.value.screen
+    : live.value?.screen ?? null);
 
 // The transition of each change: the element's own, or the theme's between
 // its screens or when a new element begins; the logo, a short fade.
 const onAirKey = computed(() => (showLogo.value
   ? "logo"
-  : live.value
-    ? `${live.value.itemId}:${live.value.screenKey}`
-    : ""));
+  : frozen.value
+    ? frozen.value.key
+    : live.value
+      ? `${live.value.itemId}:${live.value.screenKey}`
+      : ""));
 const onAirTransition = ref<ScreenTransition>(DEFAULT_TRANSITIONS.screen);
 let lastItemId = "";
 let lastWasLogo = false;
@@ -298,6 +320,46 @@ watch(onAirKey, (key) => {
 }, { flush: "sync", immediate: true });
 /** The operator asked for less motion: the console cuts (the projector does not). */
 const reducedMotion = usePreferredReducedMotion();
+
+// ------------------------------------------------------------ correcting a passage
+// A wrong passage is corrected right here (C, or the pencil in the order).
+// On air, «Aplicar y mostrar» shows its first corrected screen at once;
+// «Aplicar al pasar» keeps the screen the congregation sees until → (which
+// then shows the corrected element from its start).
+const fixingId = ref<string | null>(null);
+const showFix = computed({
+  get: () => !!fixingId.value,
+  set: (value: boolean) => {
+    if (!value)
+      fixingId.value = null;
+  },
+});
+const fixEntry = computed(() => entries.value.find(e => e.item.id === fixingId.value) ?? null);
+/** It has a passage or a reference to correct. */
+function canFix(item: CultoItem | undefined) {
+  return item?.kind === "reading" || (item?.kind === "screen" && !!item.reference.trim());
+}
+function fix(itemId: string | undefined) {
+  if (itemId && canFix(entries.value.find(e => e.item.id === itemId)?.item))
+    fixingId.value = itemId;
+}
+function applyFix(changes: Partial<CultoItem>, show: "now" | "later" | "none") {
+  const item = fixEntry.value?.item;
+  if (!item)
+    return;
+  const before = Object.fromEntries(Object.keys(changes).map(k => [k, (item as Record<string, unknown>)[k]])) as Partial<CultoItem>;
+  if (show === "later")
+    frozen.value = { itemId: item.id, screen: onAir.value, key: onAirKey.value };
+  culto.updateItem(item.id, changes, liveCulto.value?.id);
+  if (show === "now")
+    position.value = { itemId: item.id, key: "" };
+  toast(show === "later"
+    ? "Se corrigió la cita: se verá al pasar."
+    : "Se corrigió la cita.", {
+    label: "Deshacer",
+    run: () => culto.updateItem(item.id, before, liveCulto.value?.id),
+  });
+}
 
 const liveState = computed<ProjectorState>(() => ({
   screen: onAir.value,
@@ -348,7 +410,7 @@ const elapsed = computed(() => {
 function blocked(e: KeyboardEvent) {
   const t = e.target as HTMLElement | null;
   const typing = !!t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable);
-  return typing || showInsert.value || showGoTo.value || showHelp.value || e.ctrlKey || e.metaKey || e.altKey;
+  return typing || showInsert.value || showGoTo.value || showHelp.value || showFix.value || e.ctrlKey || e.metaKey || e.altKey;
 }
 function keys(list: string[], run: () => void) {
   onKeyStroke(list, (e) => {
@@ -378,6 +440,7 @@ keys(["+", "="], () => changeScale(SCALE_STEP));
 keys(["-", "_"], () => changeScale(-SCALE_STEP));
 keys(["f", "F"], () => toggleFullscreen());
 keys(["?"], () => (showHelp.value = true));
+keys(["c", "C"], () => fix(live.value?.itemId));
 
 const serviceShortcuts: ShortcutGroup[] = [
   {
@@ -407,6 +470,10 @@ const serviceShortcuts: ShortcutGroup[] = [
       {
         keys: ["G"],
         label: "Proyectar ahora un himno por número",
+      },
+      {
+        keys: ["C"],
+        label: "Corregir la cita de lo que está en pantalla",
       },
     ],
   },
@@ -652,6 +719,25 @@ function saveAsService() {
               </template>
             </span>
           </template>
+          <template #actions>
+            <UBadge
+              v-if="frozen"
+              color="warning"
+              variant="soft"
+              icon="i-tabler-clock-pause"
+              label="Corregida: se verá al pasar"
+            />
+            <UButton
+              v-if="canFix(liveEntry?.item)"
+              color="neutral"
+              variant="outline"
+              size="sm"
+              icon="i-tabler-pencil"
+              @click="fix(liveEntry?.item.id)"
+            >
+              Corregir cita <UKbd value="C" size="sm" />
+            </UButton>
+          </template>
           <!-- As large as the room left allows, always 16:9. -->
           <div class="live-fit-box lg:flex-1 lg:min-h-0 flex items-center justify-center">
             <div
@@ -840,30 +926,46 @@ function saveAsService() {
                 {{ block.section.title }}
               </p>
               <div :class="block.kind === 'section' ? ['ms-2 border-s-2 border-(--m-seg) ps-1 flex flex-col gap-1', `moment--${momentTone(block.section.moment)}`] : 'contents'">
-                <button
+                <div
                   v-for="{ entry, index: i } in (block.kind === 'item' ? [block.item] : block.items)"
                   :key="entry.item.id"
-                  type="button"
-                  class="flex items-center gap-2 rounded-xl px-3 py-2 text-start text-sm"
-                  :class="[
-                    entry.item.id === live?.itemId ? 'bg-primary/15 font-semibold' : 'hover:bg-elevated',
-                    i < (live?.itemIndex ?? 0) ? 'opacity-55' : '',
-                  ]"
-                  :aria-current="entry.item.id === live?.itemId ? 'step' : undefined"
-                  :disabled="!entry.screens.length"
-                  @click="goToItem(entry.item.id)"
+                  class="order-fix-row group relative"
                 >
-                  <span class="w-5 text-xs tabular-nums opacity-60">{{ i + 1 }}</span>
-                  <CultoMomentTile :item="entry.item" size="sm" />
-                  <span class="flex-1 min-w-0 truncate">{{ entry.item.kind === 'hymn' ? entry.label.replace(`${entry.item.songId} · `, '') : entry.label }}</span>
-                  <UIcon
-                    v-if="entry.status === 'error'"
-                    name="i-tabler-alert-triangle"
-                    class="size-4 text-warning"
-                    :aria-label="entry.error"
+                  <button
+                    type="button"
+                    class="w-full flex items-center gap-2 rounded-xl px-3 py-2 text-start text-sm"
+                    :class="[
+                      entry.item.id === live?.itemId ? 'bg-primary/15 font-semibold' : 'hover:bg-elevated',
+                      i < (live?.itemIndex ?? 0) ? 'opacity-55' : '',
+                    ]"
+                    :aria-current="entry.item.id === live?.itemId ? 'step' : undefined"
+                    :disabled="!entry.screens.length"
+                    @click="goToItem(entry.item.id)"
+                  >
+                    <span class="w-5 text-xs tabular-nums opacity-60">{{ i + 1 }}</span>
+                    <CultoMomentTile :item="entry.item" size="sm" />
+                    <span class="flex-1 min-w-0 truncate">{{ entry.item.kind === 'hymn' ? entry.label.replace(`${entry.item.songId} · `, '') : entry.label }}</span>
+                    <UIcon
+                      v-if="entry.status === 'error'"
+                      name="i-tabler-alert-triangle"
+                      class="size-4 text-warning"
+                      :aria-label="entry.error"
+                    />
+                    <span v-else class="text-xs opacity-60">{{ entry.item.inserted && !quick ? 'insertado' : entry.screens.length }}</span>
+                  </button>
+                  <UButton
+                    v-if="canFix(entry.item)"
+                    color="neutral"
+                    variant="soft"
+                    size="xs"
+                    square
+                    icon="i-tabler-pencil"
+                    class="order-fix absolute end-1.5 top-1/2 -translate-y-1/2"
+                    :aria-label="`Corregir la cita de ${entry.label}`"
+                    title="Corregir la cita"
+                    @click="fix(entry.item.id)"
                   />
-                  <span v-else class="text-xs opacity-60">{{ entry.item.inserted && !quick ? 'insertado' : entry.screens.length }}</span>
-                </button>
+                </div>
               </div>
             </template>
           </nav>
@@ -882,6 +984,12 @@ function saveAsService() {
     </main>
 
     <CultoInsertDialog v-model:open="showInsert" @insert="insert" />
+    <CultoFixReference
+      v-model:open="showFix"
+      :entry="fixEntry"
+      :on-air="!!fixEntry && fixEntry.item.id === live?.itemId && !showLogo"
+      @apply="applyFix"
+    />
     <AppGoToHymn
       v-model:open="showGoTo"
       :heading="quick ? 'Proyectar un himno' : 'Proyectar un himno ahora'"
@@ -893,6 +1001,16 @@ function saveAsService() {
 </template>
 
 <style>
+/* The pencil of a row in the order: shown on hover or focus, always on touch. */
+@media (hover: hover) {
+  .order-fix-row .order-fix {
+    opacity: 0;
+  }
+  .order-fix-row:hover .order-fix,
+  .order-fix-row:focus-within .order-fix {
+    opacity: 1;
+  }
+}
 .live-wrap {
   position: relative;
 }
