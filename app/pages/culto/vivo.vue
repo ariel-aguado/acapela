@@ -5,6 +5,7 @@ import type { ProjectorState } from "~/composables/use-projector-channel";
 import type { Screen } from "~/utils/culto/screens";
 import type { CultoItem } from "~~/lib/culto";
 
+import { QUICK_POSITION_KEY } from "~/composables/use-project-hymn";
 import { PROJECTOR_WINDOW_NAME } from "~/composables/use-projector-channel";
 import { SCALE_MAX, SCALE_MIN, SCALE_STEP } from "~/stores/presentation";
 import { resolveLook } from "~/utils/culto/look";
@@ -13,23 +14,55 @@ import { resolveLook } from "~/utils/culto/look";
 // so → goes from the last verse of a hymn to the next reading without
 // looking for anything. The projector window (or this screen in full
 // screen) shows only the live screen. Anything can be inserted while live.
+//
+// It is the only projection console. /culto/vivo projects the service being
+// prepared; /culto/vivo?libre the free projection ("Proyectar himno": hymns
+// one after the other, no service prepared), which says so on top and can
+// be saved as a service. N and P go to the next and previous hymn there.
 definePageMeta({ bare: true });
-useHead({ title: "Culto en vivo" });
 
+const route = useRoute();
+const router = useRouter();
 const culto = useCultoStore();
 const songStore = useSongStore();
+const songbookStore = useSongbookStore();
 const presentation = usePresentationStore();
 const bible = useBibleStore();
-const { current } = storeToRefs(culto);
+const { current, quickCulto } = storeToRefs(culto);
+const { songs } = storeToRefs(songStore);
 const { show: toast } = useUndoToast();
 
-const items = computed<CultoItem[]>(() => current.value?.items ?? []);
+/** The free projection instead of the prepared service. */
+const quick = computed(() => route.query.libre !== undefined);
+const liveCulto = computed(() => (quick.value
+  ? quickCulto.value
+  : current.value));
+useHead(() => ({
+  title: quick.value
+    ? "Proyección libre"
+    : "Culto en vivo",
+}));
+
+const items = computed<CultoItem[]>(() => liveCulto.value?.items ?? []);
 const { entries, flat } = useCultoScreens(items);
 
 // ------------------------------------------------------------ position
 // Kept as "element + screen", not as a number: inserting or re-flowing
-// before it must not move what is on screen.
-const position = useSessionStorage<{ itemId: string; key: string } | null>("cultoLivePosition2", null);
+// before it must not move what is on screen. One for the service and one
+// for the free projection, so going from one to the other keeps both.
+type Position = { itemId: string; key: string } | null;
+const servicePosition = useSessionStorage<Position>("cultoLivePosition2", null);
+const quickPosition = useSessionStorage<Position>(QUICK_POSITION_KEY, null);
+const position = computed<Position>({
+  get: () => (quick.value
+    ? quickPosition
+    : servicePosition).value,
+  set: (value) => {
+    (quick.value
+      ? quickPosition
+      : servicePosition).value = value;
+  },
+});
 const black = ref(false);
 /** The church's logo instead of the live screen (L). */
 const showLogo = ref(false);
@@ -137,7 +170,7 @@ function insert(item: CultoItem, where: InsertWhere) {
       ? { itemId: after.itemId, key: after.screenKey, afterItemId: item.id }
       : null;
   }
-  culto.addItem(item, index);
+  culto.addItem(item, index, liveCulto.value?.id);
   if (where === "now") {
     position.value = { itemId: item.id, key: "" };
   }
@@ -149,7 +182,27 @@ function insert(item: CultoItem, where: InsertWhere) {
 }
 
 function insertHymn(songId: number) {
-  insert(culto.newHymn(useSongbookStore().currentId, songId, { inserted: true }), "now");
+  if (quick.value) {
+    // The free projection is just the hymns in the order they were shown.
+    const item = culto.projectQuick(songbookStore.currentId, songId);
+    returnTo.value = null;
+    position.value = { itemId: item.id, key: "" };
+    return;
+  }
+  insert(culto.newHymn(songbookStore.currentId, songId, { inserted: true }), "now");
+}
+
+/** Free projection: the hymn after or before the one on screen (N, P). */
+const liveHymn = computed(() => {
+  const item = liveEntry.value?.item;
+  return item?.kind === "hymn" && item.songbookId === songbookStore.currentId
+    ? item
+    : null;
+});
+function stepHymn(step: number) {
+  const id = (liveHymn.value?.songId ?? 0) + step;
+  if (quick.value && liveHymn.value && id >= 1 && id <= songs.value.length)
+    insertHymn(id);
 }
 
 // ------------------------------------------------------------ text size
@@ -168,7 +221,7 @@ function changeScale(delta: number) {
   if (item.kind === "hymn" && item.scale === undefined)
     presentation.setScale(item.songId, value);
   else
-    culto.updateItem(item.id, { scale: value });
+    culto.updateItem(item.id, { scale: value }, liveCulto.value?.id);
 }
 
 // ------------------------------------------------------------ projector
@@ -211,7 +264,18 @@ const { isFullscreen, toggle: toggleFullscreen } = useFullscreen(liveWrapRef);
 // ------------------------------------------------------------ clock
 
 const now = useNow({ interval: 1000 });
-const startedAt = useSessionStorage<number>("cultoLiveStartedAt", 0);
+const serviceStartedAt = useSessionStorage<number>("cultoLiveStartedAt", 0);
+const quickStartedAt = useSessionStorage<number>("cultoLiveStartedAtLibre", 0);
+const startedAt = computed<number>({
+  get: () => (quick.value
+    ? quickStartedAt
+    : serviceStartedAt).value,
+  set: (value) => {
+    (quick.value
+      ? quickStartedAt
+      : serviceStartedAt).value = value;
+  },
+});
 const clock = computed(() => now.value.toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" }));
 const elapsed = computed(() => {
   if (!startedAt.value)
@@ -251,12 +315,14 @@ keys(["b", "B", "."], () => (black.value = !black.value));
 keys(["i", "I"], () => (showInsert.value = true));
 keys(["l", "L"], () => (showLogo.value = !showLogo.value));
 keys(["g", "G"], () => (showGoTo.value = true));
+keys(["n", "N"], () => stepHymn(1));
+keys(["p", "P"], () => stepHymn(-1));
 keys(["+", "="], () => changeScale(SCALE_STEP));
 keys(["-", "_"], () => changeScale(-SCALE_STEP));
 keys(["f", "F"], () => toggleFullscreen());
 keys(["?"], () => (showHelp.value = true));
 
-const shortcutGroups: ShortcutGroup[] = [
+const serviceShortcuts: ShortcutGroup[] = [
   {
     title: "Avanzar",
     items: [
@@ -313,6 +379,29 @@ const shortcutGroups: ShortcutGroup[] = [
     ],
   },
 ];
+const shortcutGroups = computed<ShortcutGroup[]>(() => (quick.value
+  ? [
+      serviceShortcuts[0]!,
+      {
+        title: "Himnos",
+        items: [
+          {
+            keys: ["N", "P"],
+            label: "Himno siguiente / anterior",
+          },
+          {
+            keys: ["G"],
+            label: "Proyectar un himno por número",
+          },
+          {
+            keys: ["I"],
+            label: "Insertar un himno, una cita o un texto",
+          },
+        ],
+      },
+      serviceShortcuts[2]!,
+    ]
+  : serviceShortcuts));
 
 onMounted(() => {
   songStore.getSongs();
@@ -322,11 +411,37 @@ onMounted(() => {
     startedAt.value = Date.now();
 });
 
+function leave() {
+  if (window.history.state?.back)
+    router.back();
+  else
+    navigateTo("/cantar");
+}
+
 function endService() {
+  const wasQuick = quick.value;
   position.value = null;
   startedAt.value = 0;
   returnTo.value = null;
-  navigateTo("/culto");
+  if (wasQuick)
+    leave();
+  else
+    navigateTo("/culto");
+}
+
+/** The free projection becomes a service and the console stays on it. */
+function saveAsService() {
+  const at = quickPosition.value;
+  const since = quickStartedAt.value;
+  const saved = culto.saveQuick();
+  if (!saved)
+    return;
+  servicePosition.value = at;
+  serviceStartedAt.value = since || Date.now();
+  quickPosition.value = null;
+  quickStartedAt.value = 0;
+  router.replace({ path: "/culto/vivo" });
+  toast(`Guardado como el culto «${saved.title}». Puedes editarlo en Culto.`);
 }
 </script>
 
@@ -334,6 +449,16 @@ function endService() {
   <div class="min-h-dvh flex flex-col bg-muted text-default">
     <header class="flex flex-wrap items-center gap-2 px-3 py-2 bg-default border-b border-default">
       <UButton
+        v-if="quick"
+        color="neutral"
+        variant="ghost"
+        size="lg"
+        icon="i-tabler-arrow-left"
+        label="Volver"
+        @click="leave"
+      />
+      <UButton
+        v-else
         to="/culto"
         color="neutral"
         variant="ghost"
@@ -350,9 +475,24 @@ function endService() {
         <span class="size-2 rounded-full bg-error animate-pulse" aria-hidden="true" />
         EN VIVO
       </UBadge>
-      <h1 class="text-lg font-bold px-1 truncate">
-        {{ current?.title ?? 'Culto' }}
-      </h1>
+      <!-- What is being projected, in words: the service or the free projection. -->
+      <div class="min-w-0 px-1 flex flex-col leading-tight">
+        <h1 class="text-lg font-bold truncate">
+          {{ quick ? 'Proyección libre' : (liveCulto?.title ?? 'Culto') }}
+        </h1>
+        <span class="text-xs text-muted truncate">
+          {{ quick ? 'Himnos sueltos, sin culto preparado' : 'Culto preparado' }}
+        </span>
+      </div>
+      <UButton
+        v-if="quick && items.length"
+        color="neutral"
+        variant="soft"
+        size="lg"
+        icon="i-tabler-device-floppy"
+        label="Guardar como culto"
+        @click="saveAsService"
+      />
       <span class="flex-1" />
       <span
         class="inline-flex items-center gap-1.5 text-sm font-semibold"
@@ -379,7 +519,23 @@ function endService() {
       >
         Presentar aquí <UKbd value="F" />
       </UButton>
-      <UButton size="lg" icon="i-tabler-plus" @click="showInsert = true">
+      <!-- Free projection: going to a hymn is the usual step, as it was in
+        the old hymn console. -->
+      <UButton
+        v-if="quick"
+        size="lg"
+        icon="i-tabler-hash"
+        @click="showGoTo = true"
+      >
+        Ir al himno <UKbd value="G" />
+      </UButton>
+      <UButton
+        size="lg"
+        icon="i-tabler-plus"
+        :color="quick ? 'neutral' : 'primary'"
+        :variant="quick ? 'outline' : 'solid'"
+        @click="showInsert = true"
+      >
         Insertar <UKbd value="I" />
       </UButton>
       <UButton
@@ -401,6 +557,14 @@ function endService() {
           class="size-10 animate-spin text-primary"
           aria-label="Preparando"
         />
+        <template v-else-if="quick">
+          <p class="font-semibold">
+            Elige un himno para proyectar.
+          </p>
+          <UButton icon="i-tabler-hash" @click="showGoTo = true">
+            Ir al himno <UKbd value="G" />
+          </UButton>
+        </template>
         <template v-else>
           <p class="font-semibold">
             Este culto todavía no tiene pantallas.
@@ -540,7 +704,7 @@ function endService() {
 
         <nav aria-label="Orden del culto" class="flex flex-col gap-1">
           <h2 class="text-xs font-bold uppercase tracking-wider opacity-70 mb-1">
-            Orden
+            {{ quick ? 'Proyectados' : 'Orden' }}
           </h2>
           <button
             v-for="(entry, i) in entries"
@@ -563,7 +727,7 @@ function endService() {
               class="size-4 text-warning"
               :aria-label="entry.error"
             />
-            <span v-else class="text-xs opacity-60">{{ entry.item.inserted ? 'insertado' : entry.screens.length }}</span>
+            <span v-else class="text-xs opacity-60">{{ entry.item.inserted && !quick ? 'insertado' : entry.screens.length }}</span>
           </button>
         </nav>
 
@@ -571,7 +735,7 @@ function endService() {
           color="neutral"
           variant="ghost"
           icon="i-tabler-player-stop"
-          label="Terminar el culto"
+          :label="quick ? 'Terminar la proyección' : 'Terminar el culto'"
           class="self-start"
           @click="endService"
         />
@@ -581,7 +745,7 @@ function endService() {
     <CultoInsertDialog v-model:open="showInsert" @insert="insert" />
     <AppGoToHymn
       v-model:open="showGoTo"
-      heading="Proyectar un himno ahora"
+      :heading="quick ? 'Proyectar un himno' : 'Proyectar un himno ahora'"
       action-label="Proyectar"
       @go="insertHymn"
     />

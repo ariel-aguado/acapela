@@ -142,11 +142,17 @@ export const useCultoStore = defineStore("culto", () => {
     };
   }
 
+  /** The services, without the free projection. */
+  const services = computed(() => cultos.value.filter(c => !c.quick));
+
   const current = computed<Culto | null>(() =>
-    cultos.value.find(c => c.id === currentId.value) ?? cultos.value[0] ?? null,
+    services.value.find(c => c.id === currentId.value) ?? services.value[0] ?? null,
   );
 
-  const sorted = computed(() => [...cultos.value].sort((a, b) => b.date.localeCompare(a.date) || b.updatedAt - a.updatedAt));
+  const sorted = computed(() => [...services.value].sort((a, b) => b.date.localeCompare(a.date) || b.updatedAt - a.updatedAt));
+
+  /** The free projection of this device, if there is one. */
+  const quickCulto = computed<Culto | null>(() => cultos.value.find(c => c.quick) ?? null);
 
   function save(culto: Culto) {
     culto.updatedAt = Date.now();
@@ -194,6 +200,52 @@ export const useCultoStore = defineStore("culto", () => {
     return copy;
   }
 
+  /**
+   * Puts a hymn on the free projection and returns its element: the one
+   * already last if it is that hymn, else a new one at the end. A free
+   * projection from another day starts empty.
+   */
+  function projectQuick(songbookId: string, songId: number): CultoItem {
+    const today = toIsoDate(new Date());
+    let quick = quickCulto.value;
+    if (!quick || quick.date !== today) {
+      const fresh: Culto = {
+        id: quick?.id ?? nanoid(10),
+        title: "Proyección libre",
+        date: today,
+        items: [],
+        updatedAt: Date.now(),
+        quick: true,
+      };
+      cultos.value = quick
+        ? cultos.value.map(c => c.id === fresh.id
+            ? fresh
+            : c)
+        : [...cultos.value, fresh];
+      quick = fresh;
+    }
+    const last = quick.items.at(-1);
+    if (last?.kind === "hymn" && last.songbookId === songbookId && last.songId === songId)
+      return last;
+    return addItem(newHymn(songbookId, songId), undefined, quick.id);
+  }
+
+  /** The free projection becomes a service of its own, listed and editable. */
+  function saveQuick(): Culto | null {
+    const quick = quickCulto.value;
+    if (!quick)
+      return null;
+    // A shallow copy: its items are never changed in place.
+    const saved: Culto = {
+      ...quick,
+      title: "Himnos proyectados",
+      quick: undefined,
+    };
+    save(saved);
+    currentId.value = saved.id;
+    return saved;
+  }
+
   function remove(id: string) {
     cultos.value = cultos.value.filter(c => c.id !== id);
     if (currentId.value === id)
@@ -220,16 +272,23 @@ export const useCultoStore = defineStore("culto", () => {
 
   // ------------------------------------------------------------ items
 
-  function addItem(item: CultoItem, index?: number): CultoItem {
-    const culto = ensureCurrent();
+  /** The service by id, or the one being worked on. */
+  function target(cultoId?: string): Culto | null {
+    return cultoId
+      ? cultos.value.find(c => c.id === cultoId) ?? null
+      : current.value;
+  }
+
+  function addItem(item: CultoItem, index?: number, cultoId?: string): CultoItem {
+    const culto = target(cultoId) ?? ensureCurrent();
     const items = [...culto.items];
     items.splice(index ?? items.length, 0, item);
     save({ ...culto, items });
     return item;
   }
 
-  function updateItem(itemId: string, changes: Partial<CultoItem>) {
-    const culto = current.value;
+  function updateItem(itemId: string, changes: Partial<CultoItem>, cultoId?: string) {
+    const culto = target(cultoId);
     if (!culto)
       return;
     save({
@@ -372,6 +431,9 @@ export const useCultoStore = defineStore("culto", () => {
     newSlides,
     sorted,
     current,
+    quickCulto,
+    projectQuick,
+    saveQuick,
     currentId,
     create,
     duplicate,

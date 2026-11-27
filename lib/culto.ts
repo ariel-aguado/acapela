@@ -128,6 +128,12 @@ export type Culto = {
   date: string;
   items: CultoItem[];
   updatedAt: number;
+  /**
+   * The free projection ("Proyectar himno"): hymns projected one after the
+   * other without preparing a service. One per device, for the day; it is
+   * not listed among the services until it is saved as one.
+   */
+  quick?: boolean;
 };
 
 export const SCREEN_LAYOUT_LABELS: Record<ScreenLayout, string> = {

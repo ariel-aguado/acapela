@@ -6,6 +6,10 @@ const songStore = useSongStore();
 const { songs, songId } = storeToRefs(songStore);
 const { toggle, isFavorite } = useFavoriteToggle();
 const { show: showGoTo } = useGoToHymn();
+const { projectHymn } = useProjectHymn();
+// Culto has its own way to project ("Iniciar culto"), and a second
+// projection button there would compete with it.
+const showProject = computed(() => !route.path.startsWith("/culto"));
 
 const isReading = computed(() => route.path === "/cantar");
 
@@ -239,16 +243,19 @@ function isActive(match: string[]) {
           />
         </div>
         <!-- The primary action: a violet pill with its icon in a white
-          circle (Boltshift). -->
-        <NuxtLink
-          to="/fullscreen"
+          circle (Boltshift). It projects the open hymn on the one
+          projection console, as a free projection. -->
+        <button
+          v-if="showProject"
+          type="button"
           class="h-12 pl-1.5 pr-5 inline-flex items-center gap-2.5 rounded-full bg-(--color-iris-500) text-white text-sm font-semibold hover:bg-(--color-iris-600) transition-colors"
+          @click="projectHymn()"
         >
           <span class="size-9 grid place-items-center rounded-full bg-white text-(--color-iris-500)" aria-hidden="true">
             <UIcon name="i-tabler-presentation" class="size-5" />
           </span>
-          Proyectar
-        </NuxtLink>
+          Proyectar himno
+        </button>
       </div>
     </div>
   </header>

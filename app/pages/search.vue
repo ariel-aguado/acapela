@@ -393,10 +393,11 @@ function useSuggestion(word: string) {
   inputRef.value?.focus();
 }
 
+const { projectHymn } = useProjectHymn();
 function project(pick: Picked) {
   onOpen();
   songId.value = pick.songId;
-  navigateTo("/fullscreen");
+  projectHymn(pick.songId);
 }
 
 function addToCulto(pick: Picked) {

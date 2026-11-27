@@ -10,6 +10,7 @@ const { songs, songId, currentSong, recentSongIds } = storeToRefs(songStore);
 const { manifest, currentId, currentSongbook } = storeToRefs(songbookStore);
 const { status } = useSongbookWorker();
 const { show: showGoTo } = useGoToHymn();
+const { projectHymn } = useProjectHymn();
 const { canInstall, install, isInstalled } = usePwaInstall();
 const { shareApp } = useShareApp();
 const isLarge = useMediaQuery("(min-width: 1024px)");
@@ -165,10 +166,15 @@ const FEATURES = [
               <UIcon name="i-tabler-hash" class="size-5" />
               Ir al himno
             </button>
-            <NuxtLink v-if="isLarge" to="/fullscreen" class="hero__ghost">
+            <button
+              v-if="isLarge"
+              type="button"
+              class="hero__ghost"
+              @click="projectHymn()"
+            >
               <UIcon name="i-tabler-presentation" class="size-5" />
-              Proyectar
-            </NuxtLink>
+              Proyectar himno
+            </button>
             <NuxtLink v-else to="/search" class="hero__ghost">
               <UIcon name="i-tabler-search" class="size-5" />
               Buscar
