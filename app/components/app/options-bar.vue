@@ -30,9 +30,9 @@ const total = computed(() => songs.value.length);
 const number = computed(() => Number(songId.value) || 1);
 
 // ------------------------------------------------------------ actions
-// Only two actions, so each is its own button instead of a "⋯" menu (no
-// hidden options): Apariencia (Aa) everywhere and, on large screens where
-// a projector is plugged in, Proyectar with its label.
+// Each action is its own button instead of a "⋯" menu (no hidden
+// options): Apariencia (Aa) everywhere and, on large screens where a
+// projector is plugged in, Culto and Proyectar with their labels.
 const currentIsFavorite = computed(() => (current.value
   ? isFavorite(current.value.songId)
   : false));
@@ -110,16 +110,17 @@ const isLarge = useMediaQuery("(min-width: 1024px)");
         aria-haspopup="dialog"
         @click="emit('update:open')"
       />
+      <!-- Culto (preparing and running a service) is a desktop task: on the
+        phone the app stays a hymnal. -->
       <UButton
+        v-if="isLarge"
         to="/culto"
         color="neutral"
         variant="ghost"
-        :square="!isLarge"
-        class="h-10 font-semibold"
-        :class="isLarge ? 'px-3' : 'size-10 justify-center'"
+        class="h-10 px-3 font-semibold"
         icon="i-tabler-list-details"
         :ui="{ leadingIcon: 'size-6' }"
-        :label="isLarge ? 'Culto' : undefined"
+        label="Culto"
         aria-label="Culto: preparar y proyectar el servicio"
       />
       <UButton
