@@ -16,7 +16,8 @@ import process from "node:process"
 import { setTimeout as sleep } from "node:timers/promises"
 
 const PORT = 3210
-const ORIGIN = `http://localhost:${PORT}`
+// BIBLE_CHECK_ORIGIN=https://staging.acapela.app checks a deployed site instead.
+const ORIGIN = process.env.BIBLE_CHECK_ORIGIN ?? `http://localhost:${PORT}`
 
 function pass(msg) {
   console.log(`✓ ${msg}`)
@@ -49,9 +50,12 @@ const server = createServer(async (req, res) => {
   createReadStream(file).pipe(res)
 })
 let serverReady = false
-server.listen(PORT, () => {
+if (process.env.BIBLE_CHECK_ORIGIN)
   serverReady = true
-})
+else
+  server.listen(PORT, () => {
+    serverReady = true
+  })
 
 const PROFILE = "/tmp/pwa-chrome-validation-bible"
 rmSync(PROFILE, { recursive: true, force: true })
