@@ -129,15 +129,18 @@ onMounted(async () => {
   top: 0;
   left: 0;
   transform-origin: top left;
-  /* Fixed: the congregation's slides do not follow the interface font. */
-  font-family: "Inter", sans-serif;
+  /* The church's theme (utils/culto/look.ts), never the interface font. */
+  font-family: var(--proj-font, "Inter", sans-serif);
+  color: var(--proj-fg, #fff);
 }
 .projection-bg {
   position: absolute;
   inset: 0;
-  background:
+  background: var(
+    --proj-bg,
     linear-gradient(rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0.45)),
-    url("/img/background-fullscreen.webp") center / cover no-repeat;
+    url("/img/background-fullscreen.webp") center / cover no-repeat
+  );
 }
 .projection-area {
   position: absolute;
@@ -152,10 +155,12 @@ onMounted(async () => {
   font-weight: 700;
   line-height: 1.3;
   text-align: center;
-  text-shadow:
+  text-shadow: var(
+    --proj-shadow,
     0 3px 0 rgba(0, 0, 0, 0.85),
     0 0 14px rgba(0, 0, 0, 0.7),
-    0 6px 20px rgba(0, 0, 0, 0.5);
+    0 6px 20px rgba(0, 0, 0, 0.5)
+  );
 }
 .projection-lyric p {
   margin: 0;
@@ -183,7 +188,8 @@ onMounted(async () => {
   letter-spacing: 0.12em;
   text-transform: uppercase;
   opacity: 0.85;
-  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
+  color: var(--proj-accent, inherit);
+  text-shadow: var(--proj-shadow, 0 2px 6px rgba(0, 0, 0, 0.8));
 }
 .projection-footer {
   position: absolute;
@@ -196,7 +202,7 @@ onMounted(async () => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+  text-shadow: var(--proj-shadow, 0 2px 8px rgba(0, 0, 0, 0.8));
   opacity: 0.92;
 }
 .projection-badge {

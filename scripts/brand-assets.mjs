@@ -16,7 +16,7 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs"
 import process from "node:process"
 import { setTimeout as sleep } from "node:timers/promises"
 
-const BRAND = "#4f34b4"
+const BRAND = "#715DE3"
 const ICONS_ONLY = process.argv.includes("--icons")
 const PORT = 4000
 const APP = `http://localhost:${PORT}`
@@ -34,7 +34,7 @@ const TABLER = {
   search: `<path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10a7 7 0 1 0 14 0a7 7 0 1 0-14 0m18 11l-6-6"/>`,
   heart: `<path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.5 12.572L12 20l-7.5-7.428A5 5 0 1 1 12 6.006a5 5 0 1 1 7.5 6.572"/>`,
 }
-const FONTS = `<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Literata:opsz,wght@7..72,600;7..72,700&display=block">`
+const FONTS = `<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Literata:ital,opsz,wght@0,7..72,600;0,7..72,700;1,7..72,400&display=block">`
 
 // ------------------------------------------------------------------ chrome
 rmSync(PROFILE, { recursive: true, force: true })
@@ -88,7 +88,7 @@ async function render(cdp, html, width, height, { scale = 1, transparent = false
   // requested the faces (and display=block hides the text meanwhile), so
   // wait for the stylesheet and then load the faces explicitly.
   await cdp.ev(`Promise.all([...document.querySelectorAll("link[rel=stylesheet]")].map(l => l.sheet ? 0 : new Promise(r => { l.onload = r; l.onerror = r })))
-    .then(() => Promise.all(["700 20px Literata", "600 20px Literata", "400 20px Inter", "600 20px Inter", "700 20px Inter"].map(f => document.fonts.load(f))))
+    .then(() => Promise.all(["700 20px Literata", "600 20px Literata", "italic 400 20px Literata", "400 20px Inter", "600 20px Inter", "700 20px Inter"].map(f => document.fonts.load(f))))
     .then(() => document.fonts.ready).then(() => true)`)
   await waitUntil(cdp, `document.fonts.status === "loaded" && [...document.images].every(i => i.complete)`, "fonts and images")
   await sleep(100)
@@ -217,16 +217,22 @@ async function screenshots(cdp) {
   writeFileSync("public/screenshots/wide.png", await render(cdp, wide, 1280, 720, { scale: 1.5 }))
   console.log("✓ screenshots/wide.png")
 
-  // Link preview (WhatsApp, social networks): 1200×630.
-  const og = `<div style="width:1200px;height:630px;display:flex;align-items:center;gap:60px;padding:0 90px;box-sizing:border-box;color:#fff;overflow:hidden;
-      background:radial-gradient(120% 140% at 85% 15%,#6b52d6 0%,#4f34b4 45%,#241462 100%)">
-    <div style="flex:1;display:flex;flex-direction:column;gap:18px">
-      <div style="width:104px;height:104px;border-radius:24px;background:#fff;display:grid;place-items:center">${mark(74, BRAND)}</div>
-      <div style="font:700 92px/1 Literata,Georgia,serif;letter-spacing:-.01em">Acapela</div>
-      <div style="font:600 30px/1.3 Inter,sans-serif;opacity:.92">Himnos y cánticos espirituales</div>
-      <div style="font:400 24px/1.4 Inter,sans-serif;opacity:.78">El himnario de tu iglesia, siempre a mano.<br>acapela.app</div>
+  // Link preview (WhatsApp, social networks): 1200×630, same words as the
+  // home hero. WhatsApp often shows it cropped to the centred square
+  // (x 285–915), so the phone with the hymn sits inside that window.
+  const og = `<div style="width:1200px;height:630px;position:relative;color:#fff;overflow:hidden;
+      background:radial-gradient(120% 140% at 85% 15%,#9583EA 0%,#715DE3 45%,#372B79 100%)">
+    <div style="position:absolute;left:84px;top:0;bottom:0;width:500px;display:flex;flex-direction:column;justify-content:center;gap:22px">
+      <div style="display:flex;align-items:center;gap:18px">
+        <div style="width:72px;height:72px;border-radius:17px;background:#fff;display:grid;place-items:center">${mark(52, BRAND)}</div>
+        <div style="font:700 44px/1 Literata,Georgia,serif;letter-spacing:-.01em">Acapela</div>
+      </div>
+      <div style="font:700 17px/1 Inter,sans-serif;letter-spacing:.14em;text-transform:uppercase;opacity:.8;margin-top:14px">Himnos y cánticos espirituales</div>
+      <div style="font:700 70px/1.04 Literata,Georgia,serif;letter-spacing:-.01em">Cantemos juntos, <em style="font-style:italic;font-weight:400;color:#ddd6ff">a&nbsp;capela.</em></div>
+      <div style="font:400 28px/1.35 Inter,sans-serif;opacity:.9">Sin instrumentos y a una voz.</div>
+      <div style="font:600 24px/1 Inter,sans-serif;opacity:.75;margin-top:10px">acapela.app</div>
     </div>
-    <div style="align-self:flex-start;margin-top:70px">${phone(shots.reading, 300)}</div>
+    <div style="position:absolute;left:600px;top:52px">${phone(shots.reading, 290)}</div>
   </div>`
   writeFileSync("public/og-image.png", await render(cdp, og, 1200, 630))
   console.log("✓ og-image.png")

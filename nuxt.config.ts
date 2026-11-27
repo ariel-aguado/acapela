@@ -19,8 +19,8 @@ export default defineNuxtConfig({
       meta: [
         // Browser / status bar = page background of each theme (see
         // app/plugins/theme-color.client.ts for an explicit Claro / Oscuro).
-        { name: "theme-color", media: "(prefers-color-scheme: light)", content: "#ffffff" },
-        { name: "theme-color", media: "(prefers-color-scheme: dark)", content: "#0f172a" },
+        { name: "theme-color", media: "(prefers-color-scheme: light)", content: "#FAFAFA" },
+        { name: "theme-color", media: "(prefers-color-scheme: dark)", content: "#141416" },
         { name: "apple-mobile-web-app-status-bar-style", content: "default" },
         { name: "mobile-web-app-capable", content: "yes" },
         { name: "apple-mobile-web-app-capable", content: "yes" },
@@ -29,20 +29,20 @@ export default defineNuxtConfig({
         // open graph social image
         { property: "og:url", content: "https://acapela.app" },
         { property: "og:title", content: "Acapela" },
-        { name: "description", content: "Himnos y cánticos espirituales. El himnario de tu iglesia, siempre a mano y sin conexión." },
-        { property: "og:description", content: "Himnos y cánticos espirituales. El himnario de tu iglesia, siempre a mano." },
+        { name: "description", content: "Cantemos juntos, a capela: himnos y cánticos espirituales sin instrumentos y a una voz. Letra grande y clara, sin conexión y gratis." },
+        { property: "og:description", content: "Cantemos juntos, a capela. Himnos y cánticos espirituales, sin instrumentos y a una voz." },
         { property: "og:type", content: "website" },
-        { property: "og:image", content: "https://acapela.app/og-image.png" },
+        { property: "og:image", content: "https://acapela.app/og-image.png?v=2" },
         { property: "og:image:type", content: "image/png" },
         { property: "og:image:width", content: "1200" },
         { property: "og:image:height", content: "630" },
-        { property: "og:image:alt", content: "Acapela: himnos y cánticos espirituales" },
+        { property: "og:image:alt", content: "Acapela: Cantemos juntos, a capela. Un teléfono muestra un himno abierto." },
         { property: "og:site_name", content: "Acapela" },
         { property: "og:locale", content: "es_UY" },
         { name: "twitter:card", content: "summary_large_image" },
         { name: "twitter:title", content: "Acapela" },
-        { name: "twitter:description", content: "Himnos y cánticos espirituales. El himnario de tu iglesia, siempre a mano." },
-        { name: "twitter:image", content: "https://acapela.app/og-image.png" },
+        { name: "twitter:description", content: "Cantemos juntos, a capela. Himnos y cánticos espirituales, sin instrumentos y a una voz." },
+        { name: "twitter:image", content: "https://acapela.app/og-image.png?v=2" },
       ],
     },
     pageTransition: {
@@ -71,6 +71,25 @@ export default defineNuxtConfig({
     plugins: [
       tailwindcss(),
     ],
+    // The Bible worker imports sqlite-wasm, which loads its own wasm and
+    // worker with import.meta.url: module workers, and no esbuild
+    // pre-bundle (it breaks those URLs).
+    worker: { format: "es" },
+    optimizeDeps: {
+      exclude: ["@sqlite.org/sqlite-wasm"],
+    },
+  },
+  hooks: {
+    // The Bible worker (SQLite, a few hundred KB) runs in its own thread and
+    // only once a Bible is used: not a modulepreload of every page.
+    "build:manifest": (manifest) => {
+      for (const chunk of Object.values(manifest)) {
+        if (/bible\.worker|sqlite3-worker1|sqlite3-opfs/.test(chunk.file)) {
+          chunk.preload = false;
+          chunk.prefetch = false;
+        }
+      }
+    },
   },
   routeRules: {
     // The service list was removed; links shared before open the app.
@@ -169,7 +188,7 @@ export default defineNuxtConfig({
       id: "/",
       name: "Acapela",
       short_name: "Acapela",
-      description: "Himnos y cánticos espirituales. El himnario de tu iglesia, siempre a mano y sin conexión.",
+      description: "Cantemos juntos, a capela: himnos y cánticos espirituales sin instrumentos y a una voz. Letra grande y clara, sin conexión y gratis.",
       start_url: "/?source=pwa",
       scope: "/",
       display: "standalone",
@@ -178,8 +197,8 @@ export default defineNuxtConfig({
       dir: "ltr",
       // Launch screen: the brand colour with the white mark (also avoids a
       // white flash for people using the phone in dark mode).
-      theme_color: "#4f34b4",
-      background_color: "#4f34b4",
+      theme_color: "#715DE3",
+      background_color: "#715DE3",
       categories: ["music", "lifestyle"],
       // Generated from the mark by scripts/brand-assets.mjs.
       icons: [

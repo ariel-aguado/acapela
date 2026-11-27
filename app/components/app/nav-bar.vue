@@ -46,7 +46,7 @@ function goTo(id: number) {
 
 <template>
   <nav
-    class="glass float-bottom fixed left-1/2 -translate-x-1/2 z-30 w-[calc(100%-1.5rem)] max-w-md h-[60px] rounded-full flex items-stretch px-1.5"
+    class="lg:hidden glass float-bottom fixed left-1/2 -translate-x-1/2 z-30 w-[calc(100%-1.5rem)] max-w-md h-[60px] rounded-full flex items-stretch px-1.5"
     aria-label="Navegación principal"
   >
     <NuxtLink
@@ -104,14 +104,14 @@ function goTo(id: number) {
   font-size: 11px;
   line-height: 1;
   font-weight: 500;
-  color: color-mix(in oklab, var(--ui-text) 70%, transparent);
+  color: var(--ui-text-muted);
   transition:
     background-color 0.15s,
     color 0.15s;
 }
 .nav-item:hover {
-  color: var(--ui-text);
-  background: color-mix(in oklab, var(--ui-text) 5%, transparent);
+  color: var(--ui-text-highlighted);
+  background: var(--control-bg);
 }
 /* The raised "Ir al himno" button. */
 .nav-item--center {
@@ -138,8 +138,8 @@ function goTo(id: number) {
   border-radius: 9999px;
   background: var(--ui-primary);
   color: var(--ui-text-inverted);
-  /* A ring of the page colour detaches it from the bar. */
-  border: 4px solid var(--ui-bg);
+  /* A ring of the canvas colour detaches it from the bar. */
+  border: 4px solid var(--app-canvas);
   box-shadow: 0 10px 22px -8px var(--brand-shadow);
   transition: scale 0.15s ease;
 }
@@ -161,10 +161,16 @@ function goTo(id: number) {
     transition: none;
   }
 }
+/* Active: a soft violet pill (Diaconeo's tab bar); lime in dark mode. */
 .nav-item--on,
 .nav-item--on:hover {
   color: var(--ui-primary);
   font-weight: 700;
-  background: color-mix(in oklab, var(--ui-primary) 15%, transparent);
+  background: color-mix(in oklab, var(--ui-primary) 12%, transparent);
+}
+.dark .nav-item--on,
+.dark .nav-item--on:hover {
+  color: var(--color-lime-300);
+  background: color-mix(in oklab, var(--color-lime-300) 15%, transparent);
 }
 </style>

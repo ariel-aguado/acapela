@@ -23,3 +23,6 @@ coverage
 .env.*
 !.env.example
 legacy-vercel
+
+# Biblias: en el build vienen del repo privado (Dockerfile), nunca de la copia local.
+data/biblias/*.sqlite

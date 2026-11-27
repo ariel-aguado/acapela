@@ -2,7 +2,7 @@
 // use. The two <meta name="theme-color" media=…> tags in nuxt.config cover
 // "Sistema"; when the user picks Claro or Oscuro explicitly, both follow
 // that choice instead of the phone's setting.
-const BG = { light: "#ffffff", dark: "#0f172a" } as const;
+const BG = { light: "#FAFAFA", dark: "#141416" } as const;
 
 export default defineNuxtPlugin(() => {
   const colorMode = useColorMode();

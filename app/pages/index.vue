@@ -205,7 +205,7 @@ const FEATURES = [
           <li v-for="sb in manifest" :key="sb.id">
             <button
               type="button"
-              class="w-full flex items-center gap-3 rounded-2xl border border-default px-4 min-h-16 text-start hover:bg-elevated disabled:opacity-60"
+              class="w-full flex items-center gap-3 rounded-2xl bg-default shadow-card px-4 min-h-16 text-start hover:bg-elevated disabled:opacity-60"
               :disabled="status === 'loading'"
               @click="chooseSongbook(sb.id)"
             >
@@ -232,7 +232,7 @@ const FEATURES = [
           <li v-for="song in recents" :key="song.songId" class="shrink-0">
             <button
               type="button"
-              class="w-40 text-start rounded-2xl border border-default px-3 py-2.5 hover:bg-elevated"
+              class="w-40 text-start rounded-2xl bg-default shadow-card px-3 py-2.5 hover:bg-elevated"
               @click="songStore.navigateToSong(song.songId)"
             >
               <span class="block text-lg font-bold text-primary tabular-nums leading-tight">{{ song.songId }}</span>
@@ -299,8 +299,8 @@ const FEATURES = [
 
       <!-- ===================== Install ===================== -->
       <section v-if="canInstall && !isInstalled" class="pt-10" aria-label="Instalar Acapela">
-        <div class="flex items-center gap-3 rounded-3xl bg-[#4f34b4] text-white p-4">
-          <span class="grid place-items-center size-12 shrink-0 rounded-xl bg-white text-[#4f34b4]">
+        <div class="flex items-center gap-3 rounded-3xl bg-[#715DE3] text-white p-4">
+          <span class="grid place-items-center size-12 shrink-0 rounded-xl bg-white text-[#715DE3]">
             <AppBrandMark class="size-8" />
           </span>
           <span class="flex-1 min-w-0">
@@ -310,7 +310,7 @@ const FEATURES = [
           <UButton
             color="neutral"
             variant="solid"
-            class="bg-white text-[#4f34b4] hover:bg-white/90"
+            class="bg-white text-[#715DE3] hover:bg-white/90"
             label="Instalar"
             @click="install"
           />
@@ -349,9 +349,9 @@ const FEATURES = [
    floating capsules. */
 .hero {
   background:
-    radial-gradient(110% 90% at 100% 0%, #7b62e6 0%, transparent 55%),
-    radial-gradient(80% 80% at 0% 100%, #2a1678 0%, transparent 60%),
-    linear-gradient(160deg, #5a3fc6, #3b2596 60%, #26165f);
+    radial-gradient(110% 90% at 100% 0%, #9583ea 0%, transparent 55%),
+    radial-gradient(80% 80% at 0% 100%, #413098 0%, transparent 60%),
+    linear-gradient(160deg, #715de3, #5e46d6 60%, #372b79);
 }
 .hero__inner {
   padding-top: calc(var(--bar-top) + 1.25rem);
@@ -377,7 +377,7 @@ const FEATURES = [
 .hero__title em {
   font-style: italic;
   font-weight: 400;
-  color: #ddd6ff;
+  color: #d7cff9;
 }
 .cta {
   display: flex;
@@ -388,7 +388,7 @@ const FEATURES = [
   padding: 0.75rem 1rem 0.75rem 0.75rem;
   border-radius: 1.25rem;
   background: #fff;
-  color: #2b1a7d;
+  color: #372b79;
   box-shadow: 0 16px 34px -16px rgb(0 0 0 / 0.55);
   transition: transform 0.15s ease;
 }
@@ -396,7 +396,7 @@ const FEATURES = [
   transform: scale(0.98);
 }
 .cta:focus-visible {
-  outline: 3px solid #ddd6ff;
+  outline: 3px solid #d7cff9;
   outline-offset: 3px;
 }
 .cta__n {
@@ -406,7 +406,7 @@ const FEATURES = [
   height: 3rem;
   padding-inline: 0.5rem;
   border-radius: 0.9rem;
-  background: #4f34b4;
+  background: #715de3;
   color: #fff;
   font-size: 1.25rem;
   font-weight: 800;
@@ -418,7 +418,7 @@ const FEATURES = [
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #6f66a3;
+  color: #71717a;
 }
 .cta__title {
   display: block;
@@ -426,7 +426,7 @@ const FEATURES = [
   font-weight: 600;
   font-size: 1.05rem;
   line-height: 1.25;
-  color: #1e1b33;
+  color: #111114;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -469,13 +469,13 @@ const FEATURES = [
 @media (min-width: 1024px) {
   .hero__lyric {
     background: #fff;
-    color: #1e1b33;
+    color: #111114;
     border: 0;
     transform: rotate(1.5deg);
     box-shadow: 0 24px 50px -24px rgb(0 0 0 / 0.6);
   }
   .hero__lyric-label {
-    color: #4f34b4;
+    color: #715de3;
     opacity: 1;
   }
 }
@@ -499,12 +499,14 @@ const FEATURES = [
   gap: 0.4rem;
   min-height: 8rem;
   padding: 0.9rem;
-  border-radius: 1.25rem;
-  background: var(--ui-bg-muted);
-  transition: background-color 0.15s;
+  border-radius: 1.5rem;
+  /* A white card on the canvas, as Diaconeo's. */
+  background: var(--ui-bg);
+  box-shadow: var(--shadow-card);
+  transition: box-shadow 0.15s;
 }
 .feature--link:hover {
-  background: var(--ui-bg-elevated);
+  box-shadow: var(--shadow-float);
 }
 .feature__icon {
   display: grid;
@@ -517,12 +519,12 @@ const FEATURES = [
 }
 .feature--project {
   min-height: 0;
-  background: #1e1640;
+  background: #221a4a;
   color: #fff;
 }
 .feature--project .feature__icon {
   background: #fff;
-  color: #4f34b4;
+  color: #715de3;
 }
 .feature__slide {
   flex: 1;

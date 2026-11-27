@@ -411,7 +411,7 @@ onMounted(async () => {
             <li v-for="song in recentSongs" :key="`rm-${song.songId}`" class="shrink-0">
               <button
                 type="button"
-                class="w-40 text-start rounded-2xl border border-default px-3 py-2.5 hover:bg-elevated"
+                class="w-40 text-start rounded-2xl bg-default shadow-card px-3 py-2.5 hover:bg-elevated"
                 @click="songStore.navigateToSong(song.songId)"
               >
                 <span class="block text-lg font-bold text-primary tabular-nums leading-tight">{{ song.songId }}</span>

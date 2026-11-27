@@ -5,7 +5,7 @@
 </script>
 
 <template>
-  <span class="inline-grid place-items-center rounded-[23%] bg-[#4f34b4] text-white shrink-0" aria-hidden="true">
+  <span class="inline-grid place-items-center rounded-[23%] bg-[#715DE3] text-white shrink-0" aria-hidden="true">
     <AppBrandMark class="w-[68%] h-[68%]" />
   </span>
 </template>
