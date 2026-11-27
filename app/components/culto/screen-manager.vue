@@ -173,8 +173,7 @@ const nextTitle = computed(() => {
       />
     </div>
 
-    <!-- The strip, the count and the next element. In a narrow column the
-      next element goes to its own line, so the strip keeps its room. -->
+    <!-- The strip and the count; under them, the next element. -->
     <div class="flex flex-wrap items-center gap-x-3 gap-y-1 py-2 ps-1.5 pe-3">
       <div
         ref="strip"
@@ -231,26 +230,32 @@ const nextTitle = computed(() => {
         <template v-else>{{ visible.length }} {{ visible.length === 1 ? 'pantalla' : 'pantallas' }}</template>
       </span>
 
-      <!-- The next element: its first screen and its name -->
+      <!-- The next element, as in the presenter: its own row across the
+        whole width, with its first screen large enough to read. -->
       <button
         v-if="next"
         type="button"
-        class="ms-auto mb-1 flex max-w-72 shrink-0 items-center gap-2.5 rounded-xl bg-white/10 py-1.5 ps-1.5 pe-2 text-start transition-colors hover:bg-white/18"
+        class="group mt-1 mb-1 flex basis-full items-stretch gap-3 rounded-2xl bg-white/8 p-2 text-start ring-1 ring-white/10 transition-colors hover:bg-white/14 hover:ring-white/25"
         :aria-label="`Ir al elemento siguiente: ${nextLook?.label} · ${nextTitle}`"
         @click="emit('next')"
       >
-        <span class="w-16 shrink-0 overflow-hidden rounded-md">
-          <CultoScreen v-if="next.screens[0]" :screen="next.screens[0]" />
-          <span v-else class="grid aspect-video place-items-center bg-white/10">
-            <CultoMomentTile :item="next.item" size="sm" />
+        <span class="flex min-w-0 flex-1 flex-col justify-between gap-2 py-1 ps-1.5">
+          <span class="min-w-0">
+            <span class="block text-[0.68rem] font-semibold uppercase tracking-wider text-white/60">Siguiente · {{ nextLook?.label }}</span>
+            <span class="mt-1 flex min-w-0 items-start gap-2">
+              <CultoMomentTile :item="next.item" size="sm" class="mt-0.5 shrink-0" />
+              <span class="line-clamp-2 text-[0.95rem] font-semibold leading-snug">{{ nextTitle }}</span>
+            </span>
+          </span>
+          <span class="inline-flex items-center gap-1.5 self-start rounded-full bg-(--color-tangerine-400) px-3 py-1 text-xs font-bold text-(--color-tangerine-950)" aria-hidden="true">
+            Ir <UIcon name="i-tabler-arrow-right" class="size-3.5" />
           </span>
         </span>
-        <span class="min-w-0">
-          <span class="block text-[0.68rem] font-semibold uppercase tracking-wider text-white/60 whitespace-nowrap">Siguiente · {{ nextLook?.label }}</span>
-          <span class="block truncate text-sm font-semibold">{{ nextTitle }}</span>
-        </span>
-        <span class="grid size-8 shrink-0 place-items-center rounded-full bg-(--color-tangerine-400) text-(--color-tangerine-950)" aria-hidden="true">
-          <UIcon name="i-tabler-chevron-right" class="size-4" />
+        <span class="w-[55%] max-w-80 shrink-0 overflow-hidden rounded-xl ring-1 ring-white/15">
+          <CultoScreen v-if="next.screens[0]" :screen="next.screens[0]" />
+          <span v-else class="grid aspect-video place-items-center bg-white/10">
+            <CultoMomentTile :item="next.item" />
+          </span>
         </span>
       </button>
     </div>
