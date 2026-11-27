@@ -147,7 +147,7 @@ const PART_TITLE: Record<DayPart, string> = {
 const DEFAULT_TITLE = "Culto del domingo";
 /** A name Acapela gave, not one written by hand: it may follow the time. */
 function isDefaultTitle(title: string) {
-  return title === DEFAULT_TITLE || Object.values(PART_TITLE).includes(title) || /^Culto (?:del domingo|de la (?:mañana|tarde|noche)) \d+$/.test(title);
+  return title === DEFAULT_TITLE || Object.values(PART_TITLE).includes(title) || /^Culto (?:del domingo|de la (?:mañana|tarde|noche)) (?:\d+|\(\d\d:\d\d\))$/.test(title);
 }
 
 /** When a service is: "domingo, 29 de noviembre · 19:00 · noche". */
@@ -209,7 +209,10 @@ export const useCultoStore = defineStore("culto", () => {
     const free = candidates.find(t => !taken.has(t));
     if (free)
       return free;
+    // Taken: its time tells it apart; with no time, a number.
     const stem = candidates[0]!;
+    if (time && !taken.has(`${stem} (${time})`))
+      return `${stem} (${time})`;
     let n = 2;
     while (taken.has(`${stem} ${n}`))
       n++;

@@ -83,6 +83,30 @@ const cultoItems = computed(() => {
   ]);
 });
 
+/** The list of services, by day and time, to switch to another one. */
+const switchItems = computed(() => cultoItems.value.map(group => group.map(entry => "value" in entry
+  ? {
+      label: entry.label,
+      icon: entry.value === current.value?.id
+        ? "i-tabler-check"
+        : undefined,
+      onSelect: () => culto.select(entry.value),
+    }
+  : entry)));
+
+/** "Dom 29 nov · 19:00 · noche": when it is, short, for its button. */
+function whenShort(c: { date: string; time?: string }) {
+  const [y, m, d] = c.date.split("-").map(Number);
+  const day = y && m && d
+    ? new Date(y, m - 1, d).toLocaleDateString("es", { weekday: "short", day: "numeric", month: "short" }).replace(/[.,]/g, "")
+    : c.date;
+  const part = partOfDay(c.time);
+  const text = part
+    ? `${day} · ${c.time} · ${part}`
+    : day;
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
 // The time: optional, with Nuxt UI's time field; the part of the day
 // (mañana, tarde, noche) follows from it.
 const timeModel = computed({
@@ -126,7 +150,6 @@ const calendarDate = computed({
         date: value.toString(),
       });
     }
-    dateOpen.value = false;
   },
 });
 
@@ -686,72 +709,75 @@ onMounted(() => {
       </p>
     </div>
     <div class="w-full max-w-7xl mx-auto px-4 py-4 flex flex-col gap-5">
-      <!-- The service -->
-      <header class="flex flex-wrap items-start gap-3">
-        <div class="flex-1 min-w-64 flex flex-col gap-2">
-          <USelect
-            v-if="sorted.length > 1"
-            :model-value="current?.id"
-            :items="cultoItems"
+      <!-- The service, in one line (NN/g: visual hierarchy, proximity): its
+        name, edited in place, with the list of services beside it; when it
+        is (date, time, part of the day) in one button; its main action and
+        its menu. -->
+      <header class="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <div class="flex min-w-64 flex-1 items-center gap-1">
+          <UInput
+            v-model="titleModel"
             variant="ghost"
-            class="w-fit max-w-full -ms-2"
-            aria-label="Elegir otro culto"
-            @update:model-value="v => culto.select(String(v))"
+            size="xl"
+            class="title-edit min-w-0 max-w-full"
+            trailing-icon="i-tabler-pencil"
+            :ui="{ base: 'text-2xl font-bold text-highlighted px-2 [field-sizing:content] min-w-40 max-w-full', trailingIcon: 'title-edit__pencil' }"
+            aria-label="Nombre del culto"
+            title="Cambiar el nombre"
           />
-          <div class="flex flex-wrap gap-2">
-            <UInput
-              v-model="titleModel"
+          <UDropdownMenu v-if="sorted.length > 1" :items="switchItems">
+            <UButton
+              color="neutral"
+              variant="ghost"
               size="xl"
-              class="flex-1 min-w-56"
-              :ui="{ base: 'text-lg font-semibold' }"
-              aria-label="Nombre del culto"
+              square
+              icon="i-tabler-chevron-down"
+              aria-label="Elegir otro culto"
+              :title="`${sorted.length} cultos guardados`"
             />
-            <UPopover v-model:open="dateOpen">
-              <UButton
-                color="neutral"
-                variant="outline"
-                size="xl"
-                icon="i-tabler-calendar"
-                class="first-letter:uppercase"
-                :label="current ? formatCultoDate(current.date) : 'Fecha'"
-                :aria-label="current ? `Fecha del culto: ${formatCultoDate(current.date)}. Cambiarla` : 'Fecha del culto'"
-              />
-              <template #content>
-                <UCalendar v-model="calendarDate" class="p-2" />
-              </template>
-            </UPopover>
-            <div class="flex items-center gap-1">
-              <UInputTime
-                v-model="timeModel"
-                size="xl"
-                :hour-cycle="24"
-                aria-label="Hora del culto (opcional)"
-                title="Hora del culto (opcional): distingue varios cultos del mismo día"
-              />
-              <UBadge
-                v-if="partOfDay(current?.time)"
-                color="neutral"
-                variant="soft"
-                size="lg"
-                :label="partOfDay(current?.time)!"
-              />
-              <UButton
-                v-if="current?.time"
-                color="neutral"
-                variant="ghost"
-                size="sm"
-                square
-                icon="i-tabler-x"
-                aria-label="Quitar la hora"
-                @click="culto.patch({ time: undefined })"
-              />
-            </div>
-          </div>
-          <p class="text-sm opacity-70">
-            {{ items.length }} {{ items.length === 1 ? 'elemento' : 'elementos' }} · {{ totalScreens }} pantallas
-          </p>
+          </UDropdownMenu>
         </div>
-        <div class="flex items-center gap-2 sm:pt-0.5">
+        <UPopover v-model:open="dateOpen">
+          <UButton
+            color="neutral"
+            variant="outline"
+            size="xl"
+            icon="i-tabler-calendar-event"
+            :label="current ? whenShort(current) : 'Cuándo'"
+            :aria-label="current ? `Cuándo: ${cultoWhen(current)}. Cambiar fecha u hora` : 'Cuándo'"
+          />
+          <template #content>
+            <div class="flex flex-col gap-3 p-3">
+              <UCalendar v-model="calendarDate" />
+              <div class="flex flex-wrap items-center gap-2 border-t border-muted pt-3">
+                <span class="text-sm font-medium">Hora</span>
+                <UInputTime
+                  v-model="timeModel"
+                  :hour-cycle="24"
+                  aria-label="Hora del culto (opcional)"
+                />
+                <UBadge
+                  v-if="partOfDay(current?.time)"
+                  color="neutral"
+                  variant="soft"
+                  :label="partOfDay(current?.time)!"
+                />
+                <UButton
+                  v-if="current?.time"
+                  color="neutral"
+                  variant="link"
+                  size="sm"
+                  label="Quitar hora"
+                  @click="culto.patch({ time: undefined })"
+                />
+              </div>
+              <p class="max-w-64 text-xs text-muted">
+                La hora es opcional: distingue varios cultos del mismo día.
+              </p>
+            </div>
+          </template>
+        </UPopover>
+        <div class="flex items-center gap-2">
           <UButton
             to="/culto/vivo"
             size="xl"
@@ -831,7 +857,7 @@ onMounted(() => {
                 Orden del culto
               </h2>
               <span v-if="items.length" class="text-xs text-muted tabular-nums">
-                {{ items.length }} {{ items.length === 1 ? 'elemento' : 'elementos' }}<template v-if="hymnCount"> · {{ hymnCount }} {{ hymnCount === 1 ? 'himno' : 'himnos' }}</template>
+                {{ items.length }} {{ items.length === 1 ? 'elemento' : 'elementos' }} · {{ totalScreens }} {{ totalScreens === 1 ? 'pantalla' : 'pantallas' }}<template v-if="hymnCount"> · {{ hymnCount }} {{ hymnCount === 1 ? 'himno' : 'himnos' }}</template>
               </span>
             </div>
           </div>
@@ -1083,6 +1109,16 @@ onMounted(() => {
 </template>
 
 <style>
+/* The service's name, edited in place: the pencil shows it can be. */
+.title-edit .title-edit__pencil {
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+.title-edit:hover .title-edit__pencil,
+.title-edit:focus-within .title-edit__pencil {
+  opacity: 0.6;
+}
+
 /* The service's map: a segment per element, large enough to aim at. */
 .map-seg {
   flex: 1 1 1.25rem;
