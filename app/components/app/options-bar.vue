@@ -13,6 +13,34 @@ const showProject = computed(() => !route.path.startsWith("/culto"));
 
 const isReading = computed(() => route.path === "/cantar");
 
+// ------------------------------------------------------------ desktop bar
+// Not fixed on a computer: it goes up with the page. Each page scrolls in
+// its own full-height box (the layout is as tall as the window), so the bar
+// moves up as far as that box has scrolled, until it is out of sight, and
+// comes back with it. Lists inside a page (results, panels) do not move it:
+// only a box that starts at the top of the window and fills most of it.
+const desktopBar = useTemplateRef<HTMLElement>("desktopBar");
+const isDesktop = useMediaQuery("(min-width: 64rem)");
+const barShift = ref(0);
+function onPageScroll(event: Event) {
+  const el = event.target;
+  if (!isDesktop.value || !(el instanceof HTMLElement))
+    return;
+  const box = el.getBoundingClientRect();
+  if (box.top > 1 || box.height < window.innerHeight * 0.6)
+    return;
+  const bar = desktopBar.value;
+  const away = bar
+    ? bar.offsetTop + bar.offsetHeight + 8
+    : 96;
+  barShift.value = Math.min(el.scrollTop, away);
+}
+useEventListener(document, "scroll", onPageScroll, { capture: true, passive: true });
+// A new page starts at its top.
+watch(() => route.path, () => {
+  barShift.value = 0;
+});
+
 // Section name for screen readers outside the reading view.
 const titles: Record<string, string> = {
   "/": "Inicio",
@@ -156,7 +184,11 @@ function isActive(match: string[]) {
   </header>
 
   <!-- Desktop: one top bar with everything. -->
-  <header class="hidden lg:block float-top fixed inset-x-4 z-30">
+  <header
+    ref="desktopBar"
+    class="hidden lg:block float-top fixed inset-x-4 z-30"
+    :style="barShift ? { transform: `translateY(${-barShift}px)` } : undefined"
+  >
     <!-- As wide as the pages' content: max-w-7xl less its px-4. -->
     <div class="mx-auto max-w-[78rem] h-16 flex items-center gap-3 rounded-full bg-default shadow-card ring ring-(--ui-border-muted) px-2">
       <!-- Brand (home) and, while reading, the open hymn -->
