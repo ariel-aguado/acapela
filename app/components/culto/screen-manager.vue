@@ -354,19 +354,22 @@ const nextTitle = computed(() => {
         v-if="next"
         type="button"
         class="group mt-1 mb-1 flex basis-full items-stretch gap-3 rounded-2xl bg-white/8 p-2 text-start ring-1 ring-white/10 transition-colors hover:bg-white/14 hover:ring-white/25"
-        :aria-label="`Ir al elemento siguiente: ${nextLook?.label} · ${nextTitle}`"
+        :aria-label="`Siguiente: ${nextLook?.label} · ${nextTitle}`"
         @click="emit('next')"
       >
         <span class="flex min-w-0 flex-1 flex-col justify-between gap-2 py-1 ps-1.5">
           <span class="min-w-0">
-            <span class="block text-[0.68rem] font-semibold uppercase tracking-wider text-white/60">Siguiente · {{ nextLook?.label }}</span>
+            <span class="block text-[0.68rem] font-semibold uppercase tracking-wider text-white/60">{{ nextLook?.label }}</span>
             <span class="mt-1 flex min-w-0 items-start gap-2">
               <CultoMomentTile :item="next.item" size="sm" class="mt-0.5 shrink-0" />
               <span class="line-clamp-2 text-[0.95rem] font-semibold leading-snug">{{ nextTitle }}</span>
             </span>
           </span>
+          <!-- «Siguiente», as in the presenter (NN/g: consistency; the name
+            and the screen beside it say where it goes). -->
           <span class="inline-flex items-center gap-1.5 self-start rounded-full bg-(--color-tangerine-400) px-3 py-1 text-xs font-bold text-(--color-tangerine-950)" aria-hidden="true">
-            Ir <UIcon name="i-tabler-arrow-right" class="size-3.5" />
+            Siguiente <UIcon name="i-tabler-arrow-right" class="size-3.5" />
+            <kbd class="ms-0.5 rounded border border-(--color-tangerine-950)/30 px-1 font-sans text-[0.65rem]">→</kbd>
           </span>
         </span>
         <span class="w-[55%] max-w-80 shrink-0 overflow-hidden rounded-xl ring-1 ring-white/15">
