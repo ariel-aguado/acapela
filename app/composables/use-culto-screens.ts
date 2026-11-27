@@ -165,6 +165,7 @@ async function screenPages(item: ScreenItem, theme: ProjectionTheme, prefix = ""
     mediaId: logo
       ? theme.logoId
       : item.mediaId,
+    align: item.align,
   };
   if (item.layout !== "text" || !item.body.trim()) {
     return [

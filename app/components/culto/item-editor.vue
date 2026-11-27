@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import type { ItemScreens } from "~/composables/use-culto-screens";
 import type { ImportProgress } from "~/utils/culto/import-slides";
-import type { Background, CultoItem, ReadingMode, ScreenLayout, ScreenMoment } from "~~/lib/culto";
+import type { Background, CultoItem, ReadingMode, ScreenLayout, ScreenMoment, TextAlign } from "~~/lib/culto";
 
 import { importSlides } from "~/utils/culto/import-slides";
 import { importImage, mediaUrl } from "~/utils/culto/media";
-import { screenMoment } from "~/utils/culto/moment";
+import { itemLook, screenMoment } from "~/utils/culto/moment";
 import { ITEM_KIND_LABELS, SCREEN_LAYOUT_LABELS, SCREEN_MOMENT_LABELS } from "~~/lib/culto";
 
 // The fields of one element of the service, by kind. Every change is saved
@@ -62,6 +62,39 @@ const songId = computed({
       });
     }
   },
+});
+
+// How the text of a screen lines up; a title is centred unless chosen.
+const alignItems: { label: string; value: TextAlign; icon: string }[] = [
+  { label: "Izquierda", value: "start", icon: "i-tabler-align-left" },
+  { label: "Centro", value: "center", icon: "i-tabler-align-center" },
+  { label: "Derecha", value: "end", icon: "i-tabler-align-right" },
+];
+const screenAlign = computed<TextAlign>(() => {
+  const it = item.value;
+  if (it.kind !== "screen")
+    return "start";
+  return it.align ?? (it.layout === "title"
+    ? "center"
+    : "start");
+});
+
+// The moment whose backgrounds the picker offers first: the section's, or
+// the screen's own; readings have theirs.
+const backgroundMoment = computed(() => {
+  const it = item.value;
+  const section = sections.value.find(s => s.id === it.sectionId);
+  if (section)
+    return { moment: section.moment, label: section.title };
+  if (it.kind === "screen") {
+    return {
+      moment: screenMoment(it),
+      label: itemLook(it).label,
+    };
+  }
+  if (it.kind === "reading")
+    return { moment: "reading" as const, label: "lecturas" };
+  return null;
 });
 
 // Which moment a screen is: its icon and colour in the order.
@@ -273,6 +306,22 @@ onMounted(() => {
           @update:model-value="v => set({ layout: v as ScreenLayout })"
         />
       </UFormField>
+      <UFormField v-if="item.layout === 'title' || item.layout === 'quote' || item.layout === 'text'" label="Alineación">
+        <UFieldGroup role="radiogroup" aria-label="Alineación del texto">
+          <UButton
+            v-for="a in alignItems"
+            :key="a.value"
+            color="neutral"
+            :variant="screenAlign === a.value ? 'solid' : 'outline'"
+            size="lg"
+            :icon="a.icon"
+            :label="a.label"
+            role="radio"
+            :aria-checked="screenAlign === a.value"
+            @click="set({ align: a.value })"
+          />
+        </UFieldGroup>
+      </UFormField>
       <UFormField v-if="item.layout === 'image'" label="Imagen" help="Un afiche, una foto: se muestra entera.">
         <div class="flex items-center gap-3">
           <img
@@ -357,7 +406,12 @@ onMounted(() => {
     </UFormField>
 
     <UFormField v-if="item.kind !== 'slides'" label="Fondo">
-      <CultoBackgroundPicker v-model="background" inherit />
+      <CultoBackgroundPicker
+        v-model="background"
+        inherit
+        :moment="backgroundMoment?.moment"
+        :moment-label="backgroundMoment?.label"
+      />
     </UFormField>
 
     <UFormField v-if="item.kind !== 'hymn' && item.kind !== 'slides'" :label="`Tamaño de letra · ${scalePercent} %`">

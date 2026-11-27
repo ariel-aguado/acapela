@@ -1,5 +1,6 @@
 import type { Background, CultoItem, Look, ProjectionTheme } from "~~/lib/culto";
 
+import { galleryUrl } from "~/utils/culto/backgrounds";
 import { PROJECTION_FONTS } from "~~/lib/culto";
 
 /** Relative luminance of a #rrggbb colour (0 black – 1 white). */
@@ -41,6 +42,10 @@ export function lookVars(look: Look | undefined, imageUrl: string | null): Recor
   };
   if (look.background.kind === "color") {
     vars["--proj-bg"] = look.background.color;
+  }
+  else if (look.background.kind === "gallery") {
+    // Already dark in the middle: a lighter veil than a photo needs.
+    vars["--proj-bg"] = `linear-gradient(rgba(0, 0, 0, 0.12), rgba(0, 0, 0, 0.22)), url("${galleryUrl(look.background.id)}") center / cover no-repeat`;
   }
   else if (look.background.kind === "image") {
     vars["--proj-bg"] = imageUrl

@@ -9,6 +9,8 @@
 /** What is behind the text of a screen. */
 export type Background
   = | { kind: "acapela" }
+    /** One of Acapela's gallery (app/utils/culto/backgrounds.ts). */
+    | { kind: "gallery"; id: string }
     | { kind: "color"; color: string }
     | { kind: "image"; mediaId: string };
 
@@ -88,6 +90,7 @@ export type HymnItem = ItemBase & {
 
 /** A designed screen: welcome, Lord's supper, offering, prayer… */
 export type ScreenLayout = "title" | "quote" | "text" | "image" | "logo";
+export type TextAlign = "start" | "center" | "end";
 
 /**
  * Which moment of the service a screen is: it decides how the screen is told
@@ -136,6 +139,8 @@ export type ScreenItem = ItemBase & {
   kind: "screen";
   layout: ScreenLayout;
   moment?: ScreenMoment;
+  /** How its text lines up; none: centred for a title, to the left otherwise. */
+  align?: TextAlign;
   /** @deprecated Moved into a section on load. */
   parts?: MomentPart[];
   /** Small label on top ("SANTA CENA"). */

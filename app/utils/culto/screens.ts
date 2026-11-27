@@ -1,6 +1,6 @@
 import type { Slide } from "~/utils/slides";
 import type { VerseRow } from "~~/lib/bible";
-import type { Look, ScreenLayout } from "~~/lib/culto";
+import type { Look, ScreenLayout, TextAlign } from "~~/lib/culto";
 
 import type { PageItem } from "./paginate";
 
@@ -33,6 +33,8 @@ export type Screen
     scale: number;
     /** The picture of the image and logo layouts. */
     mediaId?: string;
+    /** Chosen alignment of the text; none: the layout's own. */
+    align?: TextAlign;
     look?: Look;
   }
   | {
@@ -57,7 +59,10 @@ export function escapeHtml(text: string): string {
  * to measure it while paginating, so what was measured is what is shown.
  */
 export function renderPage(screen: Extract<Screen, { type: "page" }>, body = screen.html): string {
-  const parts = [`<div class="page page--${screen.layout}" style="--page-body:${Math.round(PAGE_BODY_PX * screen.scale)}px">`];
+  const align = screen.align
+    ? ` page--align-${screen.align}`
+    : "";
+  const parts = [`<div class="page page--${screen.layout}${align}" style="--page-body:${Math.round(PAGE_BODY_PX * screen.scale)}px">`];
   if (screen.eyebrow)
     parts.push(`<p class="page-eyebrow">${escapeHtml(screen.eyebrow)}</p>`);
   parts.push(`<div class="page-main">`);

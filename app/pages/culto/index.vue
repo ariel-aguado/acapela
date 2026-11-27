@@ -173,15 +173,10 @@ const pickHymn = ref(false);
 const hymnSection = ref<string | null>(null);
 const { sections } = storeToRefs(culto);
 
-function insertIndex() {
-  const i = items.value.findIndex(item => item.id === selectedId.value);
-  return i < 0
-    ? items.value.length
-    : i + 1;
-}
-
+// Anything new goes last in the order (a section's own «Añadir a…» puts it
+// last in the section), and is chosen so it can be filled in.
 function add(item: CultoItem) {
-  culto.addItem(item, insertIndex());
+  culto.addItem(item);
   selectedId.value = item.id;
 }
 
@@ -224,14 +219,10 @@ async function onSlidesFiles(e: Event) {
 
 const SECTION_MOMENTS = new Set<string>(["supper", "offering", "sermon"]);
 
-/** A section with its title screen, after the chosen element's block. */
+/** A section with its title screen, last in the order. */
 function addSection(title: string, template: Omit<ScreenItem, "id">) {
   const screen = culto.newScreen(template);
-  const chosen = items.value.find(i => i.id === selectedId.value);
-  const after = chosen?.sectionId
-    ? items.value.findLastIndex(i => i.sectionId === chosen.sectionId) + 1
-    : insertIndex();
-  culto.createSection(template.moment ?? "other", title, [screen], after);
+  culto.createSection(template.moment ?? "other", title, [screen]);
   selectedId.value = screen.id;
 }
 
@@ -677,7 +668,7 @@ onMounted(() => {
             >
           </div>
           <p class="text-xs opacity-60">
-            Lo nuevo se agrega debajo del elemento elegido.
+            Lo nuevo se agrega al final del orden.
           </p>
           <p v-if="importing" class="text-xs opacity-80">
             {{ importing }}
