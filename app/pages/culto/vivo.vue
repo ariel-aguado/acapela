@@ -9,6 +9,8 @@ import { QUICK_POSITION_KEY } from "~/composables/use-project-hymn";
 import { PROJECTOR_WINDOW_NAME } from "~/composables/use-projector-channel";
 import { SCALE_MAX, SCALE_MIN, SCALE_STEP } from "~/stores/presentation";
 import { resolveLook } from "~/utils/culto/look";
+import { momentTone } from "~/utils/culto/moment";
+import { blocksOf } from "~/utils/culto/sections";
 
 // The live console of a service: every screen of every element in order,
 // so → goes from the last verse of a hymn to the next reading without
@@ -45,6 +47,17 @@ useHead(() => ({
 
 const items = computed<CultoItem[]>(() => liveCulto.value?.items ?? []);
 const { entries, flat } = useCultoScreens(items);
+
+/** The order on the right, with its sections as headings. */
+const orderBlocks = computed(() => blocksOf(
+  entries.value.map((entry, index) => ({
+    id: entry.item.id,
+    sectionId: entry.item.sectionId,
+    entry,
+    index,
+  })),
+  liveCulto.value?.sections,
+));
 
 // ------------------------------------------------------------ position
 // Kept as "element + screen", not as a number: inserting or re-flowing
@@ -170,6 +183,10 @@ function insert(item: CultoItem, where: InsertWhere) {
       ? { itemId: after.itemId, key: after.screenKey, afterItemId: item.id }
       : null;
   }
+  // Inserted during a section (the Lord's supper), it belongs to it.
+  const liveSection = list[currentItemIndex]?.sectionId;
+  if (where !== "end" && liveSection)
+    item.sectionId = liveSection;
   culto.addItem(item, index, liveCulto.value?.id);
   if (where === "now") {
     position.value = { itemId: item.id, key: "" };
@@ -706,30 +723,37 @@ function saveAsService() {
           <h2 class="text-xs font-bold uppercase tracking-wider opacity-70 mb-1">
             {{ quick ? 'Proyectados' : 'Orden' }}
           </h2>
-          <button
-            v-for="(entry, i) in entries"
-            :key="entry.item.id"
-            type="button"
-            class="flex items-center gap-2 rounded-xl px-3 py-2 text-start text-sm"
-            :class="[
-              entry.item.id === live?.itemId ? 'bg-primary/15 font-semibold' : 'hover:bg-default',
-              i < (live?.itemIndex ?? 0) ? 'opacity-55' : '',
-            ]"
-            :aria-current="entry.item.id === live?.itemId ? 'step' : undefined"
-            :disabled="!entry.screens.length"
-            @click="goToItem(entry.item.id)"
-          >
-            <span class="w-5 text-xs tabular-nums opacity-60">{{ i + 1 }}</span>
-            <CultoMomentTile :item="entry.item" size="sm" />
-            <span class="flex-1 min-w-0 truncate">{{ entry.item.kind === 'hymn' ? entry.label.replace(`${entry.item.songId} · `, '') : entry.label }}</span>
-            <UIcon
-              v-if="entry.status === 'error'"
-              name="i-tabler-alert-triangle"
-              class="size-4 text-warning"
-              :aria-label="entry.error"
-            />
-            <span v-else class="text-xs opacity-60">{{ entry.item.inserted && !quick ? 'insertado' : entry.screens.length }}</span>
-          </button>
+          <template v-for="block in orderBlocks" :key="block.kind === 'item' ? block.item.id : `s:${block.section.id}`">
+            <p v-if="block.kind === 'section'" class="mt-2 px-3 text-[0.7rem] font-bold uppercase tracking-wider text-(--m-label)" :class="`moment--${momentTone(block.section.moment)}`">
+              {{ block.section.title }}
+            </p>
+            <div :class="block.kind === 'section' ? ['ms-2 border-s-2 border-(--m-seg) ps-1 flex flex-col gap-1', `moment--${momentTone(block.section.moment)}`] : 'contents'">
+              <button
+                v-for="{ entry, index: i } in (block.kind === 'item' ? [block.item] : block.items)"
+                :key="entry.item.id"
+                type="button"
+                class="flex items-center gap-2 rounded-xl px-3 py-2 text-start text-sm"
+                :class="[
+                  entry.item.id === live?.itemId ? 'bg-primary/15 font-semibold' : 'hover:bg-default',
+                  i < (live?.itemIndex ?? 0) ? 'opacity-55' : '',
+                ]"
+                :aria-current="entry.item.id === live?.itemId ? 'step' : undefined"
+                :disabled="!entry.screens.length"
+                @click="goToItem(entry.item.id)"
+              >
+                <span class="w-5 text-xs tabular-nums opacity-60">{{ i + 1 }}</span>
+                <CultoMomentTile :item="entry.item" size="sm" />
+                <span class="flex-1 min-w-0 truncate">{{ entry.item.kind === 'hymn' ? entry.label.replace(`${entry.item.songId} · `, '') : entry.label }}</span>
+                <UIcon
+                  v-if="entry.status === 'error'"
+                  name="i-tabler-alert-triangle"
+                  class="size-4 text-warning"
+                  :aria-label="entry.error"
+                />
+                <span v-else class="text-xs opacity-60">{{ entry.item.inserted && !quick ? 'insertado' : entry.screens.length }}</span>
+              </button>
+            </div>
+          </template>
         </nav>
 
         <UButton

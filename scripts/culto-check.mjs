@@ -268,7 +268,7 @@ try {
   // list has settled, as a person would.
   await sleep(2000)
   // The last element (Santa Cena) dragged by its handle above the first.
-  await drag(await center("document.querySelectorAll('ol li .drag-handle')[5]"), await corner("document.querySelectorAll('ol li')[0]"))
+  await drag(await center("document.querySelectorAll('ol li .block-handle')[5]"), await corner("document.querySelectorAll('ol li')[0]"))
   const order = await labels()
   check(order[0]?.includes("Haced"), `arrastrar: Santa Cena pasa al primer lugar (${order.slice(0, 2).join(" · ")})`)
 

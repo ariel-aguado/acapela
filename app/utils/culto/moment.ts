@@ -83,3 +83,27 @@ export function itemLook(item: CultoItem): ItemLook {
     }
   }
 }
+
+/** A row's title in the order: a hymn's number is already on its tile. */
+export function rowTitle(entry: { item: CultoItem; label: string }): string {
+  const label = entry.label || itemLook(entry.item).label;
+  return entry.item.kind === "hymn"
+    ? label.replace(new RegExp(`^${entry.item.songId} · `), "")
+    : label;
+}
+
+/** An element as it is read aloud: «Himno 217, Maravillosa gracia», «Santa Cena: …». */
+export function spokenLabel(entry: { item: CultoItem; label: string }): string {
+  const title = rowTitle(entry);
+  const kind = itemLook(entry.item).label;
+  if (entry.item.kind === "hymn")
+    return `Himno ${entry.item.songId}, ${title}`;
+  return kind && kind !== title
+    ? `${kind}: ${title}`
+    : title;
+}
+
+/** The family colour of a moment, for a section of it. */
+export function momentTone(moment: ScreenMoment): MomentTone {
+  return SCREEN_LOOK[moment].tone;
+}

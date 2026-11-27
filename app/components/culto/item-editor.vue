@@ -41,6 +41,14 @@ const reference = field("reference");
 const body = field("body");
 const notes = field("notes");
 
+const { sections } = storeToRefs(culto);
+const sectionItems = computed(() => [
+  { label: "Ninguna (suelto)", value: "none" },
+  ...sections.value.map(s => ({ label: s.title, value: s.id })),
+]);
+/** A screen on its own can start a section, to add more to its moment. */
+const canGroup = computed(() => item.value.kind === "screen" && !item.value.sectionId);
+
 const songbookItems = computed(() => manifest.value.map(sb => ({ label: sb.name, value: sb.id })));
 
 const songId = computed({
@@ -320,8 +328,33 @@ onMounted(() => {
           class="w-full"
         />
       </UFormField>
-      <CultoMomentParts :entry="entry" class="border-t border-muted pt-5" />
     </template>
+
+    <!-- The section it belongs to (the Lord's supper, the offering…). -->
+    <UFormField
+      v-if="sectionItems.length > 1 || canGroup"
+      label="Sección"
+      help="Una sección junta pantallas, citas e himnos de un momento del culto, y se mueven juntos."
+    >
+      <div class="flex flex-wrap items-center gap-2">
+        <USelect
+          v-if="sectionItems.length > 1"
+          :model-value="item.sectionId ?? 'none'"
+          :items="sectionItems"
+          size="lg"
+          class="w-full sm:w-64"
+          @update:model-value="v => culto.setItemSection(item.id, v === 'none' ? undefined : String(v))"
+        />
+        <UButton
+          v-if="canGroup"
+          color="neutral"
+          variant="outline"
+          icon="i-tabler-stack-2"
+          label="Agrupar en una sección"
+          @click="culto.groupInSection(item.id)"
+        />
+      </div>
+    </UFormField>
 
     <UFormField v-if="item.kind !== 'slides'" label="Fondo">
       <CultoBackgroundPicker v-model="background" inherit />

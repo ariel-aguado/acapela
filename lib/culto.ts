@@ -64,6 +64,8 @@ type ItemBase = {
   notes?: string;
   /** Added from the live console during the service. */
   inserted?: boolean;
+  /** The section it belongs to (Culto.sections); none: on its own in the order. */
+  sectionId?: string;
   /** Text size for this element, 1 = automatic (0.6–1.5). */
   scale?: number;
   /**
@@ -107,10 +109,9 @@ export const SCREEN_MOMENT_LABELS: Record<ScreenMoment, string> = {
 };
 
 /**
- * More screens of a moment, after its own: the Lord's supper with the
- * passages read during it, the offering with its verse, the sermon with
- * its references. A passage is split into as many screens as it needs, as
- * a reading is; a text page is a screen like the moment's own.
+ * Earlier model of a moment's extra screens, kept inside its title screen.
+ * Services saved that way become a section on load (see the culto store):
+ * the moment's screens are now elements of their own in the section.
  */
 export type MomentPart
   = | {
@@ -135,7 +136,7 @@ export type ScreenItem = ItemBase & {
   kind: "screen";
   layout: ScreenLayout;
   moment?: ScreenMoment;
-  /** Its other screens, in order, after its own. */
+  /** @deprecated Moved into a section on load. */
   parts?: MomentPart[];
   /** Small label on top ("SANTA CENA"). */
   eyebrow: string;
@@ -169,12 +170,26 @@ export type SlidesItem = ItemBase & {
 export type CultoItem = HymnItem | ScreenItem | ReadingItem | SlidesItem;
 export type CultoItemKind = CultoItem["kind"];
 
+/**
+ * A part of the service made of several elements: the Lord's supper with
+ * its title screen, the passages read and a hymn; the offering with its
+ * verse; the sermon with its references. Its elements are together in the
+ * order (consecutive) and move with it.
+ */
+export type CultoSection = {
+  id: string;
+  moment: ScreenMoment;
+  /** "Santa Cena": its name in the order; not projected. */
+  title: string;
+};
+
 export type Culto = {
   id: string;
   title: string;
   /** yyyy-mm-dd */
   date: string;
   items: CultoItem[];
+  sections?: CultoSection[];
   updatedAt: number;
   /**
    * The free projection ("Proyectar himno"): hymns projected one after the

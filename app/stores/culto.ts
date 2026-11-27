@@ -1,7 +1,9 @@
 import { nanoid } from "nanoid";
 
-import type { Culto, CultoItem, HymnItem, MomentPart, ProjectionTheme, ReadingItem, ScreenItem, SlidesItem } from "~~/lib/culto";
+import type { Culto, CultoItem, CultoSection, HymnItem, ProjectionTheme, ReadingItem, ScreenItem, ScreenMoment, SlidesItem } from "~~/lib/culto";
 
+import { screenMoment } from "~/utils/culto/moment";
+import { assignSections, normalizeCulto, sectionTitleFor, stepItem, stepSection } from "~/utils/culto/sections";
 import { DEFAULT_THEME } from "~~/lib/culto";
 
 /** Ready-made screens for the usual moments of a service. */
@@ -162,11 +164,21 @@ export const useCultoStore = defineStore("culto", () => {
   const quickCulto = computed<Culto | null>(() => cultos.value.find(c => c.quick) ?? null);
 
   function save(culto: Culto) {
-    culto.updatedAt = Date.now();
+    const kept = normalizeCulto({
+      ...culto,
+      updatedAt: Date.now(),
+    });
     cultos.value = cultos.value.map(c => c.id === culto.id
-      ? { ...culto }
+      ? { ...kept }
       : c);
   }
+
+  // Services saved with the earlier model (a moment's screens inside its
+  // title screen) become sections, once, when they are read.
+  watch(cultos, (list) => {
+    if (list.some(c => normalizeCulto(c) !== c))
+      cultos.value = list.map(c => normalizeCulto(c));
+  }, { immediate: true });
 
   function create(): Culto {
     const culto: Culto = {
@@ -379,77 +391,146 @@ export const useCultoStore = defineStore("culto", () => {
     });
   }
 
-  // ------------------------------------------------------------ parts of a moment
+  // ------------------------------------------------------------ sections
 
-  function screenById(itemId: string): ScreenItem | null {
-    const item = itemById(itemId);
-    return item?.kind === "screen"
-      ? item
-      : null;
+  const sections = computed<CultoSection[]>(() => current.value?.sections ?? []);
+
+  function setItems(culto: Culto, items: CultoItem[], list: CultoSection[] = culto.sections ?? []) {
+    save({ ...culto, items, sections: list });
   }
 
-  function setParts(itemId: string, parts: MomentPart[]) {
-    updateItem(itemId, { parts } as Partial<CultoItem>);
-  }
-
-  /** Adds a passage or a text page to a moment and returns it. */
-  function addPart(itemId: string, part: MomentPart): MomentPart {
-    const item = screenById(itemId);
-    setParts(itemId, [
-      ...(item?.parts ?? []),
-      part,
+  /** A new section with its first elements, at `index` (the end by default). */
+  function createSection(moment: ScreenMoment, title: string, first: CultoItem[], index?: number): CultoSection {
+    const culto = ensureCurrent();
+    const section: CultoSection = {
+      id: nanoid(8),
+      moment,
+      title,
+    };
+    const items = [...culto.items];
+    items.splice(index ?? items.length, 0, ...first.map(i => ({ ...i, sectionId: section.id })));
+    setItems(culto, items, [
+      ...(culto.sections ?? []),
+      section,
     ]);
-    return part;
+    return section;
   }
 
-  function updatePart(itemId: string, partId: string, changes: Partial<MomentPart>) {
-    const item = screenById(itemId);
-    setParts(itemId, (item?.parts ?? []).map(p => p.id === partId
-      ? {
-          ...p,
-          ...changes,
-        } as MomentPart
-      : p));
+  /** A loose screen becomes the first element of a section of its moment. */
+  function groupInSection(itemId: string): CultoSection | null {
+    const culto = current.value;
+    const item = culto?.items.find(i => i.id === itemId);
+    if (!culto || item?.kind !== "screen" || item.sectionId)
+      return null;
+    const section: CultoSection = {
+      id: nanoid(8),
+      moment: screenMoment(item),
+      title: sectionTitleFor(item),
+    };
+    setItems(culto, culto.items.map(i => i.id === itemId
+      ? { ...i, sectionId: section.id }
+      : i), [
+      ...(culto.sections ?? []),
+      section,
+    ]);
+    return section;
   }
 
-  function removePart(itemId: string, partId: string) {
-    const item = screenById(itemId);
-    setParts(itemId, (item?.parts ?? []).filter(p => p.id !== partId));
+  /** Adds an element at the end of a section. */
+  function addToSection(sectionId: string, item: CultoItem): CultoItem {
+    const culto = ensureCurrent();
+    const items = [...culto.items];
+    const last = items.findLastIndex(i => i.sectionId === sectionId);
+    items.splice(last < 0
+      ? items.length
+      : last + 1, 0, { ...item, sectionId });
+    setItems(culto, items);
+    return item;
   }
 
-  function movePart(itemId: string, partId: string, delta: number) {
-    const parts = [
-      ...(screenById(itemId)?.parts ?? []),
-    ];
-    const from = parts.findIndex(p => p.id === partId);
-    const to = from + delta;
-    if (from < 0 || to < 0 || to >= parts.length)
+  function updateSection(sectionId: string, changes: Partial<Omit<CultoSection, "id">>) {
+    const culto = current.value;
+    if (culto) {
+      setItems(culto, culto.items, (culto.sections ?? []).map(s => s.id === sectionId
+        ? {
+            ...s,
+            ...changes,
+          }
+        : s));
+    }
+  }
+
+  /** The section goes; its elements stay, on their own, where they were. */
+  function dissolveSection(sectionId: string) {
+    const culto = current.value;
+    if (culto) {
+      setItems(culto, assignSections(culto.items, culto.items.map(i => ({
+        id: i.id,
+        sectionId: i.sectionId === sectionId
+          ? undefined
+          : i.sectionId,
+      }))), (culto.sections ?? []).filter(s => s.id !== sectionId));
+    }
+  }
+
+  /** The section and its elements go; returns what is needed to undo it. */
+  function removeSection(sectionId: string): { section: CultoSection; items: CultoItem[]; index: number } | null {
+    const culto = current.value;
+    const section = culto?.sections?.find(s => s.id === sectionId);
+    if (!culto || !section)
+      return null;
+    const index = culto.items.findIndex(i => i.sectionId === sectionId);
+    const removed = culto.items.filter(i => i.sectionId === sectionId);
+    setItems(culto, culto.items.filter(i => i.sectionId !== sectionId), (culto.sections ?? []).filter(s => s.id !== sectionId));
+    return { section, items: removed, index };
+  }
+
+  function restoreSection(saved: { section: CultoSection; items: CultoItem[]; index: number }) {
+    const culto = ensureCurrent();
+    const items = [...culto.items];
+    items.splice(Math.max(0, saved.index), 0, ...saved.items);
+    setItems(culto, items, [
+      ...(culto.sections ?? []),
+      saved.section,
+    ]);
+  }
+
+  /** The arrows of an element (see stepItem: it may leave its section at the edge). */
+  function stepItemInOrder(itemId: string, delta: -1 | 1) {
+    const culto = current.value;
+    if (culto)
+      setItems(culto, stepItem(culto.items, culto.sections ?? [], itemId, delta));
+  }
+
+  function stepSectionInOrder(sectionId: string, delta: -1 | 1) {
+    const culto = current.value;
+    if (culto)
+      setItems(culto, stepSection(culto.items, culto.sections ?? [], sectionId, delta));
+  }
+
+  /** The order and sections after dragging. */
+  function setLayout(order: { id: string; sectionId?: string }[]) {
+    const culto = current.value;
+    if (culto)
+      setItems(culto, assignSections(culto.items, order));
+  }
+
+  /** Moves an element into a section (at its end) or out of its section (right after it). */
+  function setItemSection(itemId: string, sectionId: string | undefined) {
+    const culto = current.value;
+    const item = culto?.items.find(i => i.id === itemId);
+    if (!culto || !item || item.sectionId === sectionId)
       return;
-    const [part] = parts.splice(from, 1);
-    parts.splice(to, 0, part!);
-    setParts(itemId, parts);
-  }
-
-  function newReadingPart(reference: string, versionId: string): MomentPart {
-    return {
-      id: nanoid(6),
-      kind: "reading",
-      reference,
-      versionId,
-      mode: "fit",
-    };
-  }
-
-  function newTextPart(eyebrow = ""): MomentPart {
-    return {
-      id: nanoid(6),
-      kind: "text",
-      layout: "quote",
-      eyebrow,
-      title: "",
-      body: "",
-      reference: "",
-    };
+    const rest = culto.items.filter(i => i.id !== itemId);
+    const anchor = sectionId ?? item.sectionId;
+    const last = rest.findLastIndex(i => i.sectionId === anchor);
+    const moved = { ...item, sectionId } as CultoItem;
+    if (!sectionId)
+      delete moved.sectionId;
+    rest.splice(last < 0
+      ? rest.length
+      : last + 1, 0, moved);
+    setItems(culto, rest);
   }
 
   function resetScreens(itemId: string) {
@@ -511,6 +592,18 @@ export const useCultoStore = defineStore("culto", () => {
     newSlides,
     sorted,
     current,
+    sections,
+    createSection,
+    groupInSection,
+    addToSection,
+    updateSection,
+    dissolveSection,
+    removeSection,
+    restoreSection,
+    stepItemInOrder,
+    stepSectionInOrder,
+    setLayout,
+    setItemSection,
     quickCulto,
     projectQuick,
     saveQuick,
@@ -530,12 +623,6 @@ export const useCultoStore = defineStore("culto", () => {
     toggleHidden,
     setBreak,
     resetScreens,
-    addPart,
-    updatePart,
-    removePart,
-    movePart,
-    newReadingPart,
-    newTextPart,
     newHymn,
     newReading,
     newScreen,

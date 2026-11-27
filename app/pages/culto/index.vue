@@ -2,11 +2,12 @@
 import { VueDraggable } from "vue-draggable-plus";
 
 import type { ItemScreens } from "~/composables/use-culto-screens";
-import type { CultoItem } from "~~/lib/culto";
+import type { CultoItem, CultoSection, ScreenItem } from "~~/lib/culto";
 
 import { formatCultoDate, SCREEN_TEMPLATES } from "~/stores/culto";
 import { importSlides, titleFromFiles } from "~/utils/culto/import-slides";
-import { itemLook } from "~/utils/culto/moment";
+import { itemLook, momentTone, spokenLabel } from "~/utils/culto/moment";
+import { blocksOf } from "~/utils/culto/sections";
 import { exportCulto, importCulto, shareOrDownload } from "~/utils/culto/transfer";
 
 // Preparing a service: its order (hymns, readings, screens), each element's
@@ -168,6 +169,9 @@ const cultoMenu = computed(() => [
 // ------------------------------------------------------------ adding
 
 const pickHymn = ref(false);
+/** The section a hymn being picked goes to (its «Añadir a…»). */
+const hymnSection = ref<string | null>(null);
+const { sections } = storeToRefs(culto);
 
 function insertIndex() {
   const i = items.value.findIndex(item => item.id === selectedId.value);
@@ -182,7 +186,12 @@ function add(item: CultoItem) {
 }
 
 function addHymn(songId: number) {
-  add(culto.newHymn(songbook.currentId, songId));
+  const section = sections.value.find(s => s.id === hymnSection.value);
+  hymnSection.value = null;
+  if (section)
+    addIn(section, culto.newHymn(songbook.currentId, songId));
+  else
+    add(culto.newHymn(songbook.currentId, songId));
 }
 
 // Slides from a PDF or images: chosen first, then imported as a new element.
@@ -213,6 +222,19 @@ async function onSlidesFiles(e: Event) {
   }
 }
 
+const SECTION_MOMENTS = new Set<string>(["supper", "offering", "sermon"]);
+
+/** A section with its title screen, after the chosen element's block. */
+function addSection(title: string, template: Omit<ScreenItem, "id">) {
+  const screen = culto.newScreen(template);
+  const chosen = items.value.find(i => i.id === selectedId.value);
+  const after = chosen?.sectionId
+    ? items.value.findLastIndex(i => i.sectionId === chosen.sectionId) + 1
+    : insertIndex();
+  culto.createSection(template.moment ?? "other", title, [screen], after);
+  selectedId.value = screen.id;
+}
+
 function addReading() {
   add(culto.newReading("", bible.currentId));
 }
@@ -221,7 +243,10 @@ const screenMenu = [
   SCREEN_TEMPLATES.map(t => ({
     label: t.label,
     icon: itemLook({ ...t.item, id: "" }).icon,
-    onSelect: () => add(culto.newScreen(t.item)),
+    // The central moments come as a section, ready for their passages.
+    onSelect: () => SECTION_MOMENTS.has(t.item.moment ?? "other")
+      ? addSection(t.label, t.item)
+      : add(culto.newScreen(t.item)),
   })),
   [
     {
@@ -254,53 +279,66 @@ const looks = computed(() => new Map(items.value.map(i => [
 ])));
 const hymnCount = computed(() => items.value.filter(i => i.kind === "hymn").length);
 
-/** A row's title: a hymn's number is already on its tile. */
-function rowTitle(entry: ItemScreens): string {
-  const label = entry.label || looks.value.get(entry.item.id)?.label || "";
-  return entry.item.kind === "hymn"
-    ? label.replace(new RegExp(`^${entry.item.songId} · `), "")
-    : label;
-}
+// ------------------------------------------------------------ order, with sections
+// The order in blocks: an element on its own, or a section (the Lord's
+// supper, the offering, the sermon…) with its elements, which move with it.
+// Two levels of dragging: blocks in the order (by their handle), and the
+// elements of a section inside it or into another one. The arrows of the
+// chosen element do the same without dragging (NN/g, WCAG 2.2 · 2.5.7); at
+// a section's edge they take it out. Every move is announced.
 
-function reorder(list: ItemScreens[]) {
-  culto.setOrder(list.map(e => e.item.id));
-}
+type DragBlock
+  = | { key: string; kind: "item"; entry: ItemScreens }
+    | { key: string; kind: "section"; section: CultoSection; items: ItemScreens[] };
 
-// Two ways to reorder (NN/g, WCAG 2.2 · 2.5.7): dragging by the handle, a
-// shortcut for the mouse, and the arrows of the selected element, which
-// need no dragging and work from the keyboard. Either way the new position
-// is announced, and the arrows keep the focus so they can be pressed again.
+const dragBlocks = ref<DragBlock[]>([]);
+watch([entries, sections], () => {
+  const byId = new Map(entries.value.map(e => [e.item.id, e]));
+  dragBlocks.value = blocksOf(items.value, sections.value).map(b => b.kind === "item"
+    ? {
+        key: b.item.id,
+        kind: "item" as const,
+        entry: byId.get(b.item.id)!,
+      }
+    : {
+        key: `s:${b.section.id}`,
+        kind: "section" as const,
+        section: b.section,
+        items: b.items.map(i => byId.get(i.id)!),
+      }).filter(b => b.kind === "section" || b.entry);
+}, { immediate: true });
+
+/** Where everything is, in order: the first and last can't go further. */
+const flatIds = computed(() => dragBlocks.value.flatMap(b => b.kind === "item"
+  ? [b.entry.item.id]
+  : b.items.map(e => e.item.id)));
+
 const announcement = ref("");
-
-/** An element as it is read aloud: «Himno 217, Maravillosa gracia», «Santa Cena: …». */
-function spoken(entry: ItemScreens): string {
-  const title = rowTitle(entry);
-  const kind = looks.value.get(entry.item.id)?.label ?? "";
-  if (entry.item.kind === "hymn")
-    return `Himno ${entry.item.songId}, ${title}`;
-  return kind && kind !== title
-    ? `${kind}: ${title}`
-    : title;
-}
-
 function announce(id: string) {
   const index = entries.value.findIndex(e => e.item.id === id);
   const entry = entries.value[index];
-  if (entry)
-    announcement.value = `${spoken(entry).replace(/[.\s]+$/, "")}. Posición ${index + 1} de ${entries.value.length}.`;
+  if (!entry)
+    return;
+  const section = sections.value.find(s => s.id === entry.item.sectionId);
+  announcement.value = `${spokenLabel(entry).replace(/[.\s]+$/, "")}. Posición ${index + 1} de ${entries.value.length}${section
+    ? `, en ${section.title}`
+    : ""}.`;
 }
 
-function onDragEnd(event: { newIndex?: number }) {
-  nextTick(() => {
-    const id = entries.value[event.newIndex ?? -1]?.item.id;
-    if (id)
-      announce(id);
-  });
+/** After dragging: the new order and sections, as they are on screen. */
+function commitDrag(event?: { item?: HTMLElement }) {
+  culto.setLayout(dragBlocks.value.flatMap(b => b.kind === "item"
+    ? [
+        { id: b.entry.item.id },
+      ]
+    : b.items.map(e => ({ id: e.item.id, sectionId: b.section.id }))));
+  const id = event?.item?.dataset.itemId;
+  if (id)
+    nextTick(() => announce(id));
 }
 
-async function move(id: string, delta: number) {
-  const index = items.value.findIndex(i => i.id === id);
-  culto.moveItem(id, index + delta);
+async function step(id: string, delta: -1 | 1) {
+  culto.stepItemInOrder(id, delta);
   await nextTick();
   announce(id);
   const here = delta < 0
@@ -312,6 +350,76 @@ async function move(id: string, delta: number) {
   const button = document.querySelector<HTMLButtonElement>(`[data-move-for="${id}"][data-move="${here}"]:not(:disabled)`)
     ?? document.querySelector<HTMLButtonElement>(`[data-move-for="${id}"][data-move="${there}"]`);
   button?.focus();
+}
+
+// ------------------------------------------------------------ a chosen section
+
+const selectedSectionId = ref<string | null>(null);
+const selectedSection = computed(() => sections.value.find(s => s.id === selectedSectionId.value) ?? null);
+watch(selectedId, () => {
+  selectedSectionId.value = null;
+});
+
+function chooseSection(section: CultoSection) {
+  const first = items.value.find(i => i.sectionId === section.id);
+  if (first)
+    selectedId.value = first.id;
+  nextTick(() => {
+    selectedSectionId.value = section.id;
+  });
+}
+
+async function stepSection(id: string, delta: -1 | 1) {
+  culto.stepSectionInOrder(id, delta);
+  await nextTick();
+  const section = sections.value.find(s => s.id === id);
+  const at = dragBlocks.value.findIndex(b => b.kind === "section" && b.section.id === id);
+  if (section)
+    announcement.value = `${section.title}. Lugar ${at + 1} de ${dragBlocks.value.length} en el orden.`;
+  document.querySelector<HTMLButtonElement>(`[data-section-move="${id}"][data-move="${delta < 0
+    ? "up"
+    : "down"}"]:not(:disabled)`)?.focus();
+}
+
+/** What can be added to a section: a screen of its moment, a passage, a hymn. */
+function sectionMenu(section: CultoSection) {
+  return [
+    [
+      {
+        label: "Pantalla",
+        icon: "i-tabler-presentation",
+        onSelect: () => addIn(section, culto.newScreen(undefined, { moment: section.moment, layout: "title", eyebrow: section.title })),
+      },
+      {
+        label: "Cita bíblica",
+        icon: "i-tabler-book",
+        onSelect: () => addIn(section, culto.newReading("", bible.currentId)),
+      },
+      {
+        label: "Himno",
+        icon: "i-tabler-music",
+        onSelect: () => {
+          hymnSection.value = section.id;
+          pickHymn.value = true;
+        },
+      },
+    ],
+  ];
+}
+
+function addIn(section: CultoSection, item: CultoItem) {
+  culto.addToSection(section.id, item);
+  selectedId.value = item.id;
+}
+
+function removeSection(section: CultoSection) {
+  const saved = culto.removeSection(section.id);
+  if (!saved)
+    return;
+  toast(`Se quitó «${section.title}» con sus elementos.`, {
+    label: "Deshacer",
+    run: () => culto.restoreSection(saved),
+  });
 }
 
 onMounted(() => {
@@ -411,89 +519,117 @@ onMounted(() => {
           <p v-if="!items.length" class="text-sm opacity-70">
             Todavía no hay nada. Empieza por un himno o una pantalla de bienvenida.
           </p>
-          <!-- Drag by the handle (as in SúperBiblia's screen manager); the
-            arrows do the same from the keyboard. -->
+          <!-- Blocks: an element on its own or a section with its elements.
+            Each level is dragged by its own handle. -->
           <VueDraggable
-            :model-value="[...entries]"
+            v-model="dragBlocks"
             tag="ol"
             class="flex flex-col gap-1.5"
-            handle=".drag-handle"
+            handle=".block-handle"
+            group="blocks"
             :animation="150"
             :force-fallback="true"
             ghost-class="drag-ghost"
             chosen-class="drag-chosen"
-            @end="onDragEnd"
-            @update:model-value="reorder"
+            @end="commitDrag"
           >
-            <li v-for="(entry, i) in entries" :key="entry.item.id">
-              <div
-                class="flex items-center gap-1 rounded-2xl border transition-colors"
-                :class="entry.item.id === selectedId ? 'border-primary bg-primary/10' : 'border-transparent bg-default shadow-card hover:bg-muted'"
+            <li
+              v-for="block in dragBlocks"
+              :key="block.key"
+              :data-item-id="block.kind === 'item' ? block.entry.item.id : undefined"
+            >
+              <CultoOrderRow
+                v-if="block.kind === 'item'"
+                :entry="block.entry"
+                :selected="block.entry.item.id === selectedId && !selectedSection"
+                :can-up="flatIds[0] !== block.entry.item.id"
+                :can-down="flatIds.at(-1) !== block.entry.item.id"
+                handle="block-handle"
+                @choose="choose(block.entry.item.id)"
+                @step="d => step(block.entry.item.id, d)"
+              />
+              <!-- A section: its elements in one container, in its colour. -->
+              <section
+                v-else
+                class="section-box flex flex-col gap-1.5 rounded-3xl p-1.5"
+                :class="[`moment--${momentTone(block.section.moment)}`, { 'section-box--on': selectedSectionId === block.section.id }]"
+                :aria-label="`Sección ${block.section.title}`"
               >
-                <!-- A mouse shortcut: the arrows do the same without dragging,
-                  so assistive technology skips it. -->
-                <span
-                  class="drag-handle self-stretch flex items-center ps-2 cursor-grab touch-none opacity-50 hover:opacity-100"
-                  aria-hidden="true"
-                  title="Arrastrar para mover"
-                >
-                  <UIcon name="i-tabler-grip-vertical" class="size-5" />
-                </span>
-                <button
-                  type="button"
-                  class="flex-1 min-w-0 flex items-center gap-3 ps-1 py-2.5 text-start"
-                  :aria-current="entry.item.id === selectedId ? 'true' : undefined"
-                  @click="choose(entry.item.id)"
-                >
-                  <CultoMomentTile :item="entry.item" />
-                  <span class="flex-1 min-w-0 flex flex-col">
-                    <span class="font-semibold text-highlighted truncate">{{ rowTitle(entry) }}</span>
-                    <span class="text-xs text-muted truncate">
-                      <span class="font-semibold text-(--m-label)" :class="`moment--${looks.get(entry.item.id)?.tone}`">{{ looks.get(entry.item.id)?.label }}</span>
-                      <template v-if="entry.status === 'ready'"> · {{ entry.screens.length }} {{ entry.screens.length === 1 ? 'pantalla' : 'pantallas' }}</template>
-                      <template v-if="entry.item.inserted"> · insertado en vivo</template>
-                    </span>
+                <div class="flex items-center gap-1 ps-0.5 pe-1">
+                  <span class="block-handle self-stretch flex items-center ps-1.5 cursor-grab touch-none opacity-50 hover:opacity-100" aria-hidden="true" title="Arrastrar la sección">
+                    <UIcon name="i-tabler-grip-vertical" class="size-5" />
                   </span>
-                  <UIcon
-                    v-if="entry.status === 'error'"
-                    name="i-tabler-alert-triangle"
-                    class="size-5 text-warning shrink-0"
-                    :aria-label="entry.error"
-                  />
-                  <UIcon
-                    v-else-if="entry.status === 'loading'"
-                    name="i-tabler-loader-2"
-                    class="size-4 animate-spin opacity-60 shrink-0"
-                    aria-label="Preparando"
-                  />
-                </button>
-                <div v-if="entry.item.id === selectedId" class="flex flex-col pe-1">
-                  <UButton
-                    color="neutral"
-                    variant="ghost"
-                    size="sm"
-                    square
-                    icon="i-tabler-chevron-up"
-                    :disabled="i === 0"
-                    :aria-label="`Subir: ${spoken(entry)}`"
-                    :data-move-for="entry.item.id"
-                    data-move="up"
-                    @click="move(entry.item.id, -1)"
-                  />
-                  <UButton
-                    color="neutral"
-                    variant="ghost"
-                    size="sm"
-                    square
-                    icon="i-tabler-chevron-down"
-                    :disabled="i === entries.length - 1"
-                    :aria-label="`Bajar: ${spoken(entry)}`"
-                    :data-move-for="entry.item.id"
-                    data-move="down"
-                    @click="move(entry.item.id, 1)"
-                  />
+                  <button
+                    type="button"
+                    class="flex-1 min-w-0 flex items-baseline gap-2 py-1.5 ps-1 text-start"
+                    :aria-current="selectedSectionId === block.section.id ? 'true' : undefined"
+                    @click="chooseSection(block.section)"
+                  >
+                    <span class="text-sm font-bold uppercase tracking-wider text-(--m-label) truncate">{{ block.section.title }}</span>
+                    <span class="text-xs text-muted shrink-0">{{ block.items.length }} {{ block.items.length === 1 ? 'elemento' : 'elementos' }}</span>
+                  </button>
+                  <template v-if="selectedSectionId === block.section.id">
+                    <UButton
+                      color="neutral"
+                      variant="ghost"
+                      size="sm"
+                      square
+                      icon="i-tabler-chevron-up"
+                      :disabled="dragBlocks[0] === block"
+                      :aria-label="`Subir la sección ${block.section.title}`"
+                      :data-section-move="block.section.id"
+                      data-move="up"
+                      @click="stepSection(block.section.id, -1)"
+                    />
+                    <UButton
+                      color="neutral"
+                      variant="ghost"
+                      size="sm"
+                      square
+                      icon="i-tabler-chevron-down"
+                      :disabled="dragBlocks.at(-1) === block"
+                      :aria-label="`Bajar la sección ${block.section.title}`"
+                      :data-section-move="block.section.id"
+                      data-move="down"
+                      @click="stepSection(block.section.id, 1)"
+                    />
+                  </template>
                 </div>
-              </div>
+                <VueDraggable
+                  v-model="block.items"
+                  tag="ol"
+                  class="flex flex-col gap-1.5 min-h-2"
+                  handle=".item-handle"
+                  group="items"
+                  :animation="150"
+                  :force-fallback="true"
+                  ghost-class="drag-ghost"
+                  chosen-class="drag-chosen"
+                  @end="commitDrag"
+                >
+                  <li v-for="entry in block.items" :key="entry.item.id" :data-item-id="entry.item.id">
+                    <CultoOrderRow
+                      :entry="entry"
+                      :selected="entry.item.id === selectedId && !selectedSection"
+                      :can-up="true"
+                      :can-down="true"
+                      handle="item-handle"
+                      @choose="choose(entry.item.id)"
+                      @step="d => step(entry.item.id, d)"
+                    />
+                  </li>
+                </VueDraggable>
+                <UDropdownMenu :items="sectionMenu(block.section)">
+                  <UButton
+                    color="neutral"
+                    variant="ghost"
+                    size="sm"
+                    icon="i-tabler-plus"
+                    class="self-start text-(--m-label)"
+                    :label="`Añadir a ${block.section.title}`"
+                  />
+                </UDropdownMenu>
+              </section>
             </li>
           </VueDraggable>
           <p class="sr-only" aria-live="polite">
@@ -571,7 +707,18 @@ onMounted(() => {
               </div>
             </div>
             <div class="rounded-2xl p-4 bg-default shadow-card">
-              <CultoItemEditor :key="selected.item.id" :entry="selected" @remove="removeItem(selected.item.id)" />
+              <CultoSectionEditor
+                v-if="selectedSection"
+                :key="selectedSection.id"
+                :section="selectedSection"
+                @remove="removeSection(selectedSection)"
+              />
+              <CultoItemEditor
+                v-else
+                :key="selected.item.id"
+                :entry="selected"
+                @remove="removeItem(selected.item.id)"
+              />
             </div>
           </div>
         </section>
@@ -596,6 +743,15 @@ onMounted(() => {
 </template>
 
 <style>
+/* A section of the service: its elements on a tint of its family. */
+.section-box {
+  background: color-mix(in oklab, var(--m-seg) 12%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--m-seg) 30%, transparent);
+}
+.section-box--on {
+  box-shadow: inset 0 0 0 1.5px var(--ui-primary);
+}
+
 /* Dragging, here and in the screen manager. */
 .drag-ghost {
   opacity: 0.35;
