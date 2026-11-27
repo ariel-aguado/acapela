@@ -240,15 +240,6 @@ function removeItem(id: string) {
   });
 }
 
-function reorder(list: ItemScreens[]) {
-  culto.setOrder(list.map(e => e.item.id));
-}
-
-function move(id: string, delta: number) {
-  const index = items.value.findIndex(i => i.id === id);
-  culto.moveItem(id, index + delta);
-}
-
 /** Each element's family and label, for its row and the service's map. */
 const looks = computed(() => new Map(items.value.map(i => [
   i.id,
@@ -262,6 +253,58 @@ function rowTitle(entry: ItemScreens): string {
   return entry.item.kind === "hymn"
     ? label.replace(new RegExp(`^${entry.item.songId} · `), "")
     : label;
+}
+
+function reorder(list: ItemScreens[]) {
+  culto.setOrder(list.map(e => e.item.id));
+}
+
+// Two ways to reorder (NN/g, WCAG 2.2 · 2.5.7): dragging by the handle, a
+// shortcut for the mouse, and the arrows of the selected element, which
+// need no dragging and work from the keyboard. Either way the new position
+// is announced, and the arrows keep the focus so they can be pressed again.
+const announcement = ref("");
+
+/** An element as it is read aloud: «Himno 217, Maravillosa gracia», «Santa Cena: …». */
+function spoken(entry: ItemScreens): string {
+  const title = rowTitle(entry);
+  const kind = looks.value.get(entry.item.id)?.label ?? "";
+  if (entry.item.kind === "hymn")
+    return `Himno ${entry.item.songId}, ${title}`;
+  return kind && kind !== title
+    ? `${kind}: ${title}`
+    : title;
+}
+
+function announce(id: string) {
+  const index = entries.value.findIndex(e => e.item.id === id);
+  const entry = entries.value[index];
+  if (entry)
+    announcement.value = `${spoken(entry).replace(/[.\s]+$/, "")}. Posición ${index + 1} de ${entries.value.length}.`;
+}
+
+function onDragEnd(event: { newIndex?: number }) {
+  nextTick(() => {
+    const id = entries.value[event.newIndex ?? -1]?.item.id;
+    if (id)
+      announce(id);
+  });
+}
+
+async function move(id: string, delta: number) {
+  const index = items.value.findIndex(i => i.id === id);
+  culto.moveItem(id, index + delta);
+  await nextTick();
+  announce(id);
+  const here = delta < 0
+    ? "up"
+    : "down";
+  const there = delta < 0
+    ? "down"
+    : "up";
+  const button = document.querySelector<HTMLButtonElement>(`[data-move-for="${id}"][data-move="${here}"]:not(:disabled)`)
+    ?? document.querySelector<HTMLButtonElement>(`[data-move-for="${id}"][data-move="${there}"]`);
+  button?.focus();
 }
 
 onMounted(() => {
@@ -372,6 +415,7 @@ onMounted(() => {
             :force-fallback="true"
             ghost-class="drag-ghost"
             chosen-class="drag-chosen"
+            @end="onDragEnd"
             @update:model-value="reorder"
           >
             <li v-for="(entry, i) in entries" :key="entry.item.id">
@@ -379,9 +423,11 @@ onMounted(() => {
                 class="flex items-center gap-1 rounded-2xl border transition-colors"
                 :class="entry.item.id === selectedId ? 'border-primary bg-primary/10' : 'border-transparent bg-default shadow-card hover:bg-muted'"
               >
+                <!-- A mouse shortcut: the arrows do the same without dragging,
+                  so assistive technology skips it. -->
                 <span
                   class="drag-handle self-stretch flex items-center ps-2 cursor-grab touch-none opacity-50 hover:opacity-100"
-                  :aria-label="`Arrastrar para mover «${entry.label}»`"
+                  aria-hidden="true"
                   title="Arrastrar para mover"
                 >
                   <UIcon name="i-tabler-grip-vertical" class="size-5" />
@@ -418,25 +464,34 @@ onMounted(() => {
                   <UButton
                     color="neutral"
                     variant="ghost"
-                    size="xs"
+                    size="sm"
+                    square
                     icon="i-tabler-chevron-up"
                     :disabled="i === 0"
-                    aria-label="Subir"
+                    :aria-label="`Subir: ${spoken(entry)}`"
+                    :data-move-for="entry.item.id"
+                    data-move="up"
                     @click="move(entry.item.id, -1)"
                   />
                   <UButton
                     color="neutral"
                     variant="ghost"
-                    size="xs"
+                    size="sm"
+                    square
                     icon="i-tabler-chevron-down"
                     :disabled="i === entries.length - 1"
-                    aria-label="Bajar"
+                    :aria-label="`Bajar: ${spoken(entry)}`"
+                    :data-move-for="entry.item.id"
+                    data-move="down"
                     @click="move(entry.item.id, 1)"
                   />
                 </div>
               </div>
             </li>
           </VueDraggable>
+          <p class="sr-only" aria-live="polite">
+            {{ announcement }}
+          </p>
           <div class="flex flex-wrap gap-2">
             <UButton
               color="neutral"
