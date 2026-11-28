@@ -4,10 +4,9 @@
 export function useShareApp() {
   const { show: toast } = useUndoToast();
 
-  async function shareApp() {
-    const url = window.location.origin;
+  /** A link of the app through the share sheet, or copied where there is none. */
+  async function shareLink(url: string, text: string, copied: string) {
     const title = "Acapela";
-    const text = "Himnos y cánticos espirituales, a capela";
     if (navigator.share) {
       try {
         await navigator.share({ title, text, url });
@@ -21,12 +20,21 @@ export function useShareApp() {
     }
     try {
       await navigator.clipboard.writeText(url);
-      toast("Enlace copiado. Pégalo donde quieras compartirlo.");
+      toast(copied);
     }
     catch {
       toast("No se pudo compartir el enlace");
     }
   }
 
-  return { shareApp };
+  function shareApp() {
+    return shareLink(window.location.origin, "Himnos y cánticos espirituales, a capela", "Enlace copiado. Pégalo donde quieras compartirlo.");
+  }
+
+  /** From the phone: the service console's link, to open on the computer. */
+  function shareCulto() {
+    return shareLink(`${window.location.origin}/culto`, "Prepara y proyecta el culto con Acapela", "Enlace copiado. Ábrelo en la computadora para preparar el culto.");
+  }
+
+  return { shareApp, shareCulto };
 }

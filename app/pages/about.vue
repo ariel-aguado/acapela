@@ -17,15 +17,7 @@ const CONTACT_EMAIL = "ariel.841207@gmail.com";
         Acerca de Acapela
       </h2>
       <p class="md:max-w-2xl md:mx-auto text-left md:text-center mt-4 leading-8">
-        "Acapela" nace con una misión clara: poner la tecnología al servicio de la alabanza. Es una herramienta diseñada para que la Iglesia pueda exaltar el nombre del Señor, a quien sea toda la honra y la gloria. Amén.
-      </p>
-      <p class="md:max-w-2xl md:mx-auto text-left md:text-center mt-4 leading-8">
-        Esta aplicación es completamente gratuita y de código abierto. Puedes encontrar el código fuente en <a
-          class="text-primary underline underline-offset-2"
-          href="https://github.com/ariel-aguado/acapela"
-          target="_blank"
-          rel="noopener noreferrer"
-        >GitHub</a>.
+        "Acapela" nace con una misión clara: poner la tecnología al servicio de la alabanza y la adoración. Es una herramienta diseñada para que la Iglesia pueda exaltar el nombre del Señor, a quien sea toda la honra y la gloria. Amén.
       </p>
       <!-- The one highlighted block of the page: contact (as in Superbiblia). -->
       <section aria-labelledby="about-opinion" class="mt-10 mb-6 rounded-2xl bg-default shadow-card p-5 text-left">
