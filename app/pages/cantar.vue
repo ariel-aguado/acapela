@@ -202,7 +202,7 @@ onMounted(async () => {
           >
             <article
               v-if="song"
-              class="hymn reader-scroll flex flex-col w-full overflow-y-auto"
+              class="hymn reader-scroll pad-reading-bottom flex flex-col w-full overflow-y-auto"
               :data-song="song.songId"
               :aria-labelledby="`hymn-title-${song.songId}`"
             >
@@ -263,7 +263,6 @@ onMounted(async () => {
 .reader-scroll {
   height: 100dvh;
   padding-top: var(--bar-top);
-  padding-bottom: calc(var(--bar-bottom) + 1rem);
 }
 
 .swiper {

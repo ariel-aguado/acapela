@@ -308,6 +308,17 @@ html[data-reading-margin="4"] {
 .pad-bar-bottom {
   padding-bottom: var(--bar-bottom);
 }
+/* The end of a hymn: on the phone the raised "Ir al himno" button stands
+   1.75rem above the bottom bar, so the last stanza keeps clear of it with
+   room to breathe. On a computer there is no bottom bar. */
+.pad-reading-bottom {
+  padding-bottom: calc(var(--bar-bottom) + 3.5rem);
+}
+@media (min-width: 64rem) {
+  .pad-reading-bottom {
+    padding-bottom: calc(var(--bar-bottom) + 1rem);
+  }
+}
 .rail-height {
   height: calc(100dvh - var(--bar-top) - var(--bar-bottom) - 9rem);
 }
