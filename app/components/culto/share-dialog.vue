@@ -1,22 +1,26 @@
 <script setup lang="ts">
-import type { SharedPassage } from "~/utils/culto/program";
-
 import { cultoWhen } from "~/stores/culto";
-import { buildProgram, encodeProgram, passageKey, programUrl, readingsOf } from "~/utils/culto/program";
+import { qrSvg, roomUrl } from "~/utils/culto/relay";
 
 // «Compartir con la congregación»: the service as a link for the church's
 // group. It opens the program on any phone, read-only, to follow the
-// service. The readings travel with their text; notes, messages and
-// images stay here. Built when the dialog opens, from the service as it is.
+// service; the readings travel with their text; notes, messages and images
+// stay here. The link also names the service's room, so the phones follow
+// the screen live once the service starts; the QR (for the screen, or to
+// print) is the room's short link. Built when the dialog opens.
 const open = defineModel<boolean>("open", { required: true });
 
 const culto = useCultoStore();
-const bible = useBibleStore();
-const { current, theme } = storeToRefs(culto);
+const { current } = storeToRefs(culto);
 const { show: toast } = useUndoToast();
+const programShare = useProgramShare();
 
 const building = ref(false);
 const url = ref("");
+const shortUrl = ref("");
+const qr = ref("");
+/** The room got the program: the QR works. */
+const online = ref(false);
 const failed = ref<string[]>([]);
 const error = ref("");
 
@@ -28,28 +32,25 @@ async function build() {
   error.value = "";
   failed.value = [];
   url.value = "";
+  online.value = false;
   try {
-    const passages: Record<string, SharedPassage> = {};
-    for (const { reference, versionId } of readingsOf(c.items)) {
-      const key = passageKey(reference, versionId);
-      if (passages[key])
-        continue;
-      try {
-        const passage = await bible.passage(reference, versionId);
-        if (!passage?.verses.length)
-          throw new Error("sin texto");
-        passages[key] = {
-          label: passage.label,
-          version: bible.versions.find(v => v.id === passage.versionId)?.label ?? "",
-          verses: passage.verses,
-        };
-      }
-      catch {
-        failed.value.push(reference);
-      }
-    }
-    const encoded = await encodeProgram(buildProgram(c, theme.value, passages));
-    url.value = programUrl(window.location.origin, encoded);
+    const { encoded, failed: missing } = await programShare.build(c);
+    failed.value = missing;
+    const room = programShare.roomFor(c.id);
+    shortUrl.value = roomUrl(room.code);
+    url.value = `${shortUrl.value}#${encoded}`;
+    qr.value = qrSvg(shortUrl.value);
+    // The full link works even without the relay; the QR needs it.
+    programShare.publish(c.id, encoded, c.updatedAt)
+      .then(({ room: kept }) => {
+        if (kept.code !== room.code) {
+          shortUrl.value = roomUrl(kept.code);
+          url.value = `${shortUrl.value}#${encoded}`;
+          qr.value = qrSvg(shortUrl.value);
+        }
+        online.value = true;
+      })
+      .catch(() => (online.value = false));
   }
   catch (err) {
     error.value = err instanceof Error
@@ -203,6 +204,29 @@ async function share() {
             </p>
           </div>
         </div>
+        <div v-if="url && qr" class="flex items-center gap-4 rounded-xl ring-1 ring-default p-3">
+          <div
+            class="share-qr size-32 shrink-0 overflow-hidden rounded-lg bg-white"
+            role="img"
+            :aria-label="`Código QR: ${shortUrl}`"
+            data-program-qr
+            v-html="qr"
+          />
+          <div class="flex min-w-0 flex-col gap-1 text-sm">
+            <p class="font-semibold">
+              Código QR para la pantalla
+            </p>
+            <p class="text-muted">
+              Para quien llega sin el enlace. En la consola en vivo, la tecla <kbd class="rounded bg-elevated px-1 font-mono">Q</kbd> lo muestra sobre la pantalla.
+            </p>
+            <p class="truncate font-mono text-xs text-muted">
+              {{ shortUrl.replace(/^https?:\/\//, "") }}
+            </p>
+            <p v-if="!online" class="text-xs text-warning">
+              Sin conexión con el servidor de salas: el QR funcionará cuando la consola se conecte.
+            </p>
+          </div>
+        </div>
         <p v-if="failed.length" class="rounded-xl bg-warning/10 px-4 py-3 text-sm">
           No se pudo leer {{ failed.map(f => `«${f}»`).join(", ") }}: en el teléfono aparecerá solo la cita.
         </p>
@@ -210,9 +234,16 @@ async function share() {
           <template v-if="url">
             Enlace de {{ kb }} KB.
           </template>
-          Si cambias el orden, vuelve a compartirlo: el enlace nuevo reemplaza al anterior en los teléfonos.
+          Durante el culto, los teléfonos siguen la pantalla y reciben los cambios del orden solos.
         </p>
       </div>
     </template>
   </UModal>
 </template>
+
+<style scoped>
+.share-qr :deep(svg) {
+  width: 100%;
+  height: 100%;
+}
+</style>
