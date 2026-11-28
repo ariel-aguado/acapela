@@ -1,10 +1,10 @@
 import { nanoid } from "nanoid";
 
-import type { Culto, CultoItem, CultoSection, HymnItem, ProjectionTheme, ReadingItem, ScreenItem, ScreenMoment, SlidesItem } from "~~/lib/culto";
+import type { Culto, CultoItem, CultoSection, HymnItem, MessageKind, ProjectionTheme, ReadingItem, ScreenItem, ScreenMessage, ScreenMoment, SlidesItem } from "~~/lib/culto";
 
 import { screenMoment } from "~/utils/culto/moment";
 import { assignSections, normalizeCulto, sectionTitleFor, stepItem, stepSection } from "~/utils/culto/sections";
-import { DEFAULT_THEME } from "~~/lib/culto";
+import { DEFAULT_THEME, MESSAGE_TEMPLATES } from "~~/lib/culto";
 
 /** Ready-made screens for the usual moments of a service. */
 export const SCREEN_TEMPLATES: { label: string; item: Omit<ScreenItem, "id"> }[] = [
@@ -274,10 +274,25 @@ export const useCultoStore = defineStore("culto", () => {
       date,
       updatedAt: Date.now(),
     };
-    copy.items = copy.items.filter(i => !i.inserted).map(i => ({
-      ...i,
-      id: nanoid(8),
-    }));
+    const newIds = new Map<string, string>();
+    copy.items = copy.items.filter(i => !i.inserted).map((i) => {
+      const fresh = nanoid(8);
+      newIds.set(i.id, fresh);
+      return { ...i, id: fresh };
+    });
+    // Messages hung on an element follow it to the copy.
+    copy.messages = copy.messages?.map((m) => {
+      if (!m.trigger)
+        return m;
+      const itemId = newIds.get(m.trigger.itemId);
+      const { trigger, ...rest } = m;
+      return itemId
+        ? {
+            ...rest,
+            trigger: { ...trigger, itemId },
+          }
+        : rest;
+    });
     cultos.value = [...cultos.value, copy];
     currentId.value = copy.id;
     return copy;
@@ -628,6 +643,48 @@ export const useCultoStore = defineStore("culto", () => {
     updateItem(itemId, { screenOrder: undefined, hidden: undefined, breaks: undefined });
   }
 
+  // ------------------------------------------------------------ messages
+
+  /** A new message from a kind's template (not saved yet). */
+  function newMessage(kind: MessageKind): ScreenMessage {
+    const { hint: _hint, ...template } = MESSAGE_TEMPLATES[kind];
+    return {
+      id: nanoid(8),
+      kind,
+      ...structuredClone(template),
+    };
+  }
+
+  /** Adds or replaces a message of a service (the one being worked on by default). */
+  function saveMessage(message: ScreenMessage, cultoId?: string) {
+    const culto = target(cultoId) ?? ensureCurrent();
+    const list = culto.messages ?? [];
+    // A plain deep copy: structuredClone fails on reactive objects.
+    const kept = JSON.parse(JSON.stringify(message)) as ScreenMessage;
+    if (!kept.trigger)
+      delete kept.trigger;
+    save({
+      ...culto,
+      messages: list.some(m => m.id === message.id)
+        ? list.map(m => m.id === message.id
+            ? kept
+            : m)
+        : [...list, kept],
+    });
+  }
+
+  function removeMessage(messageId: string, cultoId?: string): ScreenMessage | null {
+    const culto = target(cultoId);
+    const removed = culto?.messages?.find(m => m.id === messageId) ?? null;
+    if (culto && removed) {
+      save({
+        ...culto,
+        messages: culto.messages!.filter(m => m.id !== messageId),
+      });
+    }
+    return removed;
+  }
+
   // ------------------------------------------------------------ factories
 
   function newHymn(songbookId: string, songId: number, extra: Partial<HymnItem> = {}): HymnItem {
@@ -715,6 +772,9 @@ export const useCultoStore = defineStore("culto", () => {
     toggleHidden,
     setBreak,
     resetScreens,
+    newMessage,
+    saveMessage,
+    removeMessage,
     newHymn,
     newReading,
     newScreen,

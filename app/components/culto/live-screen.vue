@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import type { ProjectorMessage } from "~/composables/use-projector-channel";
 import type { Screen } from "~/utils/culto/screens";
 import type { ScreenTransition } from "~~/lib/culto";
 
@@ -17,7 +18,10 @@ const props = withDefaults(defineProps<{
   transition?: ScreenTransition;
   /** False: always a cut (the operator asked for less motion). */
   animate?: boolean;
+  /** A message over the screen (hidden while the screen is black). */
+  message?: ProjectorMessage | null;
 }>(), {
+  message: null,
   black: false,
   screenKey: "",
   transition: undefined,
@@ -60,12 +64,22 @@ watch(shownKey, () => {
         <CultoScreen :screen="screen" :black="black" />
       </div>
     </Transition>
+    <Transition name="cmsg">
+      <CultoScreenMessage
+        v-if="message && !black"
+        :key="message.key"
+        :message="message.message"
+        :started-at="message.startedAt"
+        :theme-font="message.themeFont"
+      />
+    </Transition>
   </div>
 </template>
 
 <style>
 /* Both screens in the same cell while the change lasts. */
 .live-screen {
+  position: relative;
   display: grid;
   overflow: hidden;
   background: #000;
