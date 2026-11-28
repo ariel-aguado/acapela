@@ -276,8 +276,10 @@ function searchEverywhere() {
       </div>
 
       <template v-else-if="all.length">
-        <!-- Search, count, order and the jump row: always at hand. -->
-        <div ref="bar" class="fav-bar sticky top-0 z-20 flex flex-col gap-2 bg-muted/90 px-4 pt-3 pb-2 backdrop-blur lg:px-0">
+        <!-- Search, count, order and the jump row: always at hand. Its
+          backdrop is the page canvas in either theme, so it never shows as
+          a lighter band in dark mode. -->
+        <div ref="bar" class="fav-bar sticky top-0 z-20 flex flex-col gap-2 bg-(--app-canvas)/90 px-4 pt-3 pb-2 backdrop-blur lg:px-0">
           <div class="flex items-center gap-2">
             <UInput
               v-model="query"
