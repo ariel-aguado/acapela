@@ -154,9 +154,9 @@ const OWN = [
 </script>
 
 <template>
-  <div class="home h-dvh overflow-y-auto pad-bar-bottom">
+  <div class="home h-dvh overflow-y-auto flex flex-col">
     <!-- ===================== Hero ===================== -->
-    <section class="hero relative overflow-hidden text-white" aria-labelledby="home-title">
+    <section class="hero relative shrink-0 overflow-hidden text-white" aria-labelledby="home-title">
       <!-- The staff that waves behind the title, its notes floating. -->
       <svg
         class="hero__staff"
@@ -286,7 +286,7 @@ const OWN = [
       </div>
     </section>
 
-    <div class="mx-auto max-w-5xl lg:max-w-7xl px-5 lg:px-4">
+    <div class="w-full shrink-0 mx-auto max-w-5xl lg:max-w-7xl px-5 lg:px-4 pb-12 lg:pb-24">
       <!-- ===================== First visit: pick a songbook ===================== -->
       <section
         v-if="!hasSongbook"
@@ -573,7 +573,7 @@ const OWN = [
     </div>
 
     <!-- ===================== Footer ===================== -->
-    <footer class="home-footer mt-12 lg:mt-24">
+    <footer class="home-footer mt-auto shrink-0">
       <div class="mx-auto max-w-5xl lg:max-w-7xl px-5 lg:px-4 py-10 lg:py-14 flex flex-col items-center gap-5 text-center lg:flex-row lg:text-start">
         <div class="flex flex-col items-center gap-3 lg:flex-row lg:gap-4 lg:flex-1">
           <AppBrandMark class="size-14 lg:size-16" />
@@ -857,9 +857,17 @@ const OWN = [
   background: var(--ui-primary);
   color: var(--ui-text-inverted);
 }
+/* The footer closes the page: the room the floating bottom menu needs is
+   inside it (its dark runs to the edge), not a strip of canvas under it. */
 .home-footer {
+  padding-bottom: var(--bar-bottom);
   background: #17142b;
   color: #fff;
+}
+@media (min-width: 1024px) {
+  .home-footer {
+    padding-bottom: 0;
+  }
 }
 .home-footer__share {
   display: inline-flex;

@@ -68,7 +68,7 @@ useHead(() => ({
 </script>
 
 <template>
-  <div class="flex-1 min-h-0 overflow-y-auto pad-bar-top pad-bar-bottom">
+  <div class="flex-1 min-h-0 overflow-y-auto pad-bar-top pad-reading-bottom">
     <div class="mx-auto w-full max-w-[44rem] px-4 pt-2 pb-6">
       <div class="flex items-center gap-3 rounded-2xl bg-aqua-50 text-aqua-800 px-4 py-3 text-sm dark:bg-aqua-950 dark:text-aqua-200">
         <UIcon name="i-tabler-info-circle" class="size-5 shrink-0" />
