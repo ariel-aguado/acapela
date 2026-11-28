@@ -424,6 +424,118 @@ Object.assign(SCENES, {
     ${glow(1500, 260, 420, "#efe8ff", 0.8)}
     ${glow(300, 900, 380, "#e6f4f6", 0.8)}
     ${finishLight}`,
+
+  // A second light one for each moment, pairing the dark gallery.
+  "claro-cena-trigo-uvas": () => {
+    const r = rng(43)
+    let stalks = ""
+    for (let i = 0; i < 9; i++)
+      stalks += wheat(40 + i * 34 + r() * 20, 1100, 330 + r() * 180, 60 + r() * 80, "#c9a265", 0.5 + r() * 0.2)
+    let grapes = ""
+    const g = rng(47)
+    const widths = [4, 5, 5, 4, 4, 3, 2, 1]
+    widths.forEach((n, row) => {
+      for (let k = 0; k < n; k++) {
+        const cx = 1700 + (k - (n - 1) / 2) * 40 + (g() - 0.5) * 10 + row * 4
+        const cy = 760 + row * 34 + (g() - 0.5) * 8
+        grapes += `<circle cx="${cx.toFixed(0)}" cy="${cy.toFixed(0)}" r="${(21 + g() * 4).toFixed(0)}" fill="#b58aa8" opacity="${(0.45 + g() * 0.2).toFixed(2)}" stroke="#8d5f80" stroke-width="2" stroke-opacity="0.35"/>`
+      }
+    })
+    return `
+    <defs>${defsLight}${linear("bg", [[0, "#fbf7f2"], [1, "#f1e6ee"]], 1, 1)}</defs>
+    <rect width="${W}" height="${H}" fill="url(#bg)"/>
+    ${glow(960, 420, 460, "#ffffff", 0.8)}
+    ${glow(1760, 820, 320, "#f0d6e6", 0.7)}
+    ${stalks}
+    <path d="M1712 744 C1650 690 1600 700 1560 650 C1625 640 1700 660 1740 735 Z" fill="#a9c49a" opacity="0.7"/>
+    <path d="M1712 744 C1716 712 1730 690 1752 672" stroke="#a88a6a" stroke-width="6" fill="none" opacity="0.7"/>
+    ${grapes}
+    ${finishLight}`
+  },
+
+  "claro-ofrenda-brote": () => `
+    <defs>${defsLight}${linear("bg", [[0, "#f6fbf3"], [1, "#e6f2e0"]])}${linear("soil", [[0, "#e4d7c2"], [1, "#d6c6aa"]])}</defs>
+    <rect width="${W}" height="${H}" fill="url(#bg)"/>
+    ${glow(960, 820, 320, "#ffffff", 0.9)}
+    ${bokeh(53, 14, [200, 200, 1720, 760], ["#cfeab0", "#c6eef5", "#ffffff"])}
+    <path d="M0 930 Q480 880 960 905 T1920 915 V1080 H0 Z" fill="url(#soil)"/>
+    <path d="M960 905 C958 860 962 820 960 770" stroke="#7fae63" stroke-width="7" fill="none" stroke-linecap="round"/>
+    <path d="M960 800 C915 760 860 770 838 742 C880 732 935 745 960 800 Z" fill="#8fc172"/>
+    <path d="M961 785 C1000 735 1060 735 1086 705 C1040 700 985 725 961 785 Z" fill="#a6d388"/>
+    <ellipse cx="960" cy="912" rx="30" ry="9" fill="#b8a080" opacity="0.7"/>
+    ${finishLight}`,
+
+  "claro-palabra-lampara": () => `
+    <defs>${defsLight}${linear("bg", [[0, "#fbf6ea"], [1, "#f3e8d2"]], 1, 0)}</defs>
+    <rect width="${W}" height="${H}" fill="url(#bg)"/>
+    ${glow(462, 640, 420, "#ffe2b0", 0.8)}
+    ${glow(462, 680, 90, "#ffd27a", 0.6, "blur60")}
+    <path d="M454 718 C434 686 448 654 462 628 C476 654 490 686 470 718 Z" fill="#f4b45a"/>
+    <path d="M458 715 C450 698 456 684 462 672 C468 684 473 698 466 715 Z" fill="#ffe6b0"/>
+    <g fill="none" stroke="#9c7440" stroke-width="5" opacity="0.7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M170 772 C170 728 250 706 330 712 C380 716 420 724 452 716 L470 726 C440 752 400 770 350 784 C280 804 170 808 170 772 Z"/>
+      <path d="M176 760 C130 760 122 712 160 716"/>
+      <path d="M250 812 L370 812 L350 790 L270 790 Z"/>
+    </g>
+    <rect x="0" y="830" width="${W}" height="${H - 830}" fill="#eadcc0" opacity="0.55"/>
+    ${finishLight}`,
+
+  "claro-lectura-rollo": () => `
+    <defs>${defsLight}
+      <filter id="paperRoll"><feTurbulence type="fractalNoise" baseFrequency="0.005" numOctaves="4" seed="12"/><feColorMatrix type="matrix" values="0 0 0 0 0.6  0 0 0 0 0.48  0 0 0 0 0.3  0 0 0 0.14 0"/></filter>
+      ${linear("rod", [[0, "#d9c29a"], [0.5, "#f3e6cc"], [1, "#c9ae80"]], 1, 0)}
+    </defs>
+    <rect width="${W}" height="${H}" fill="#f6eedc"/>
+    <rect width="${W}" height="${H}" filter="url(#paperRoll)"/>
+    ${glow(960, 540, 560, "#fffaf0", 0.7)}
+    <rect x="40" y="0" width="70" height="${H}" fill="url(#rod)" opacity="0.8"/>
+    <rect x="${W - 110}" y="0" width="70" height="${H}" fill="url(#rod)" opacity="0.8"/>
+    <path d="M110 0 V${H} M${W - 110} 0 V${H}" stroke="#a88a5c" stroke-width="3" opacity="0.4"/>
+    ${finishLight}`,
+
+  "claro-bienvenida-puerta": () => `
+    <defs>${defsLight}${linear("bg", [[0, "#f7f3ee"], [1, "#ece4da"]])}${linear("door", [[0, "#fffaf0"], [1, "#ffe7c2"]])}${linear("spill", [[0, "#ffe2b0", 0.7], [1, "#ffe2b0", 0]])}</defs>
+    <rect width="${W}" height="${H}" fill="url(#bg)"/>
+    ${glow(1430, 600, 380, "#fff1d6", 0.9)}
+    <rect x="1310" y="250" width="240" height="640" fill="url(#door)"/>
+    <path d="M1310 250 L1250 210 L1250 930 L1310 890 Z" fill="#d9c8b2" opacity="0.8"/>
+    <path d="M1310 890 L1550 890 L1900 1080 L1080 1080 Z" fill="url(#spill)" filter="url(#blur20)"/>
+    <rect x="1300" y="240" width="260" height="660" fill="none" stroke="#a88a6a" stroke-width="10" opacity="0.6"/>
+    ${finishLight}`,
+
+  "claro-oracion-vela": () => `
+    <defs>${defsLight}${radial("bg", [[0, "#fbf6ef"], [1, "#ebe4f3"]], "50%", "70%", "75%")}${linear("wax", [[0, "#ffffff"], [1, "#e6dccb"]], 1, 0)}</defs>
+    <rect width="${W}" height="${H}" fill="url(#bg)"/>
+    ${glow(960, 800, 380, "#ffe7c0", 0.8)}
+    ${glow(960, 820, 110, "#ffd889", 0.5, "blur60")}
+    <rect x="928" y="870" width="64" height="230" rx="6" fill="url(#wax)" stroke="#bba98c" stroke-width="3"/>
+    <path d="M948 868 C928 830 942 788 960 760 C978 788 992 830 972 868 Z" fill="#f6b44e"/>
+    <path d="M953 866 C944 842 951 818 960 800 C969 818 976 842 967 866 Z" fill="#ffe3a6"/>
+    <path d="M960 870 L960 856" stroke="#6a5240" stroke-width="3"/>
+    ${finishLight}`,
+
+  "claro-anuncios-lineas": () => {
+    let lines = ""
+    for (let i = 0; i < 22; i++) {
+      const y = 620 + i * 18
+      lines += `<path d="M-50 ${y} C 400 ${y - 180 + i * 6}, 900 ${y + 160 - i * 4}, 1350 ${y - 60} S 1800 ${y - 200 + i * 5}, 1980 ${y - 120}" stroke="#2aa3bf" stroke-width="2" fill="none" opacity="${(0.08 + i * 0.01).toFixed(3)}"/>`
+    }
+    return `
+    <defs>${defsLight}${linear("bg", [[0, "#ffffff"], [1, "#e9f6f9"]], 0.6, 1)}</defs>
+    <rect width="${W}" height="${H}" fill="url(#bg)"/>
+    ${glow(1500, 700, 420, "#cdeef5", 0.8)}
+    ${lines}
+    ${finishLight}`
+  },
+
+  "claro-despedida-camino": () => `
+    <defs>${defsLight}${linear("sky", [[0, "#eef2fa"], [0.6, "#f6ecf0"], [1, "#fbe3d6"]])}${linear("road", [[0, "#efe2d6"], [1, "#dccab8"]])}</defs>
+    <rect width="${W}" height="${H}" fill="url(#sky)"/>
+    ${glow(960, 720, 320, "#fff1dc", 0.9)}
+    <path d="M0 700 Q480 650 960 720 T1920 690 V1080 H0 Z" fill="#dbe5d2"/>
+    <path d="M948 722 L972 722 L1420 1080 L500 1080 Z" fill="url(#road)"/>
+    <path d="M960 740 L960 1080" stroke="#ffffff" stroke-width="6" stroke-dasharray="40 50" opacity="0.8"/>
+    ${finishLight}`,
 })
 
 // ------------------------------------------------------------ rendering

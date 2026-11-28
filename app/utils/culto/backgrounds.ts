@@ -140,6 +140,54 @@ export const GALLERY: GalleryBackground[] = [
     for: [],
     light: true,
   },
+  {
+    id: "claro-cena-trigo-uvas",
+    label: "Trigo y uvas, claro",
+    for: ["supper"],
+    light: true,
+  },
+  {
+    id: "claro-ofrenda-brote",
+    label: "Brote",
+    for: ["offering"],
+    light: true,
+  },
+  {
+    id: "claro-palabra-lampara",
+    label: "Lámpara, clara",
+    for: ["sermon", "reading"],
+    light: true,
+  },
+  {
+    id: "claro-lectura-rollo",
+    label: "Rollo",
+    for: ["reading", "sermon"],
+    light: true,
+  },
+  {
+    id: "claro-bienvenida-puerta",
+    label: "Puerta, clara",
+    for: ["welcome"],
+    light: true,
+  },
+  {
+    id: "claro-oracion-vela",
+    label: "Vela, clara",
+    for: ["prayer"],
+    light: true,
+  },
+  {
+    id: "claro-anuncios-lineas",
+    label: "Líneas claras",
+    for: ["notices"],
+    light: true,
+  },
+  {
+    id: "claro-despedida-camino",
+    label: "Camino claro",
+    for: ["farewell"],
+    light: true,
+  },
 ];
 
 /** Whether a gallery background is light (its text goes dark). */
