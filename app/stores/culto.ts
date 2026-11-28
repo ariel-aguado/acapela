@@ -116,7 +116,8 @@ export const SCREEN_TEMPLATES: { label: string; item: Omit<ScreenItem, "id"> }[]
   },
 ];
 
-function nextSunday(): string {
+/** The coming Sunday (today, if it is one), yyyy-mm-dd. */
+export function nextSunday(): string {
   const d = new Date();
   d.setDate(d.getDate() + ((7 - d.getDay()) % 7));
   return toIsoDate(d);
@@ -258,22 +259,39 @@ export const useCultoStore = defineStore("culto", () => {
     return culto;
   }
 
-  /** Same order and content, for the next service; drops what was inserted live. */
-  function duplicate(id: string): Culto | null {
+  /**
+   * The name a copy gets on a day: a name Acapela gave follows the day and
+   * time again; one written by hand is kept.
+   */
+  function copyTitle(source: Pick<Culto, "title">, date: string, time?: string): string {
+    return isDefaultTitle(source.title)
+      ? distinctTitle(date, time)
+      : source.title;
+  }
+
+  /**
+   * Same order and content, for another service (by default the coming
+   * Sunday, at the same time); drops what was inserted live.
+   */
+  function duplicate(id: string, to: { date?: string; time?: string | null; title?: string } = {}): Culto | null {
     const source = cultos.value.find(c => c.id === id);
     if (!source)
       return null;
-    const date = nextSunday();
+    const date = to.date ?? nextSunday();
+    const time = to.time === undefined
+      ? source.time
+      : to.time ?? undefined;
     // A plain deep copy: structuredClone fails on the reactive items.
     const copy: Culto = {
       ...JSON.parse(JSON.stringify(source)) as Culto,
       id: nanoid(10),
-      title: isDefaultTitle(source.title)
-        ? distinctTitle(date, source.time)
-        : source.title,
+      title: to.title?.trim() || copyTitle(source, date, time),
       date,
+      time,
       updatedAt: Date.now(),
     };
+    if (!copy.time)
+      delete copy.time;
     const newIds = new Map<string, string>();
     copy.items = copy.items.filter(i => !i.inserted).map((i) => {
       const fresh = nanoid(8);
@@ -759,6 +777,7 @@ export const useCultoStore = defineStore("culto", () => {
     currentId,
     create,
     duplicate,
+    copyTitle,
     remove,
     select,
     ensureCurrent,

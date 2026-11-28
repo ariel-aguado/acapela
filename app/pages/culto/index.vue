@@ -6,7 +6,7 @@ import { VueDraggable } from "vue-draggable-plus";
 
 import type { ItemScreens } from "~/composables/use-culto-screens";
 import type { BibleBook } from "~~/lib/bible";
-import type { CultoItem, CultoSection, ScreenItem } from "~~/lib/culto";
+import type { Culto, CultoItem, CultoSection, ScreenItem } from "~~/lib/culto";
 
 import { cultoWhen, formatCultoDate, partOfDay, SCREEN_TEMPLATES } from "~/stores/culto";
 import { fetchBooks } from "~/utils/bible/books";
@@ -104,16 +104,30 @@ const cultoItems = computed(() => {
   ]);
 });
 
-/** The list of services, by day and time, to switch to another one. */
-const switchItems = computed(() => cultoItems.value.map(group => group.map(entry => "value" in entry
-  ? {
-      label: entry.label,
-      icon: entry.value === current.value?.id
-        ? "i-tabler-check"
-        : undefined,
-      onSelect: () => culto.select(entry.value),
-    }
-  : entry)));
+/** All the services, to find, filter, group and sort them. */
+const showList = ref(false);
+/**
+ * The list of services, by day and time, to switch to another one; the
+ * whole list, to find, filter and sort them, at its foot.
+ */
+const switchItems = computed(() => [
+  ...cultoItems.value.map(group => group.map(entry => "value" in entry
+    ? {
+        label: entry.label,
+        icon: entry.value === current.value?.id
+          ? "i-tabler-check"
+          : undefined,
+        onSelect: () => culto.select(entry.value),
+      }
+    : entry)),
+  [
+    {
+      label: "Ver y organizar todos…",
+      icon: "i-tabler-layout-list",
+      onSelect: () => (showList.value = true),
+    },
+  ],
+]);
 
 /** "Dom 29 nov · 19:00 · noche": when it is, short, for its button. */
 function whenShort(c: { date: string; time?: string }) {
@@ -310,26 +324,57 @@ async function openFile(file: File) {
 }
 
 /**
- * A new service, empty or a copy of this one, is opened; the one being
- * edited stays in the list, and the notice says so and leads back to it.
+ * A new service, empty or a copy, is opened; the one being edited stays in
+ * the list, and the notice says so and leads back to it.
  */
-function leaveFor(how: "new" | "copy") {
-  const previous = current.value;
-  if (how === "copy" && !previous)
-    return;
-  const made = how === "new"
-    ? culto.create()
-    : culto.duplicate(previous!.id);
-  if (!made || !previous)
+function announceLeave(made: Culto, previous: Culto | null, how: "new" | "copy") {
+  if (!previous)
     return;
   const name = `«${previous.title} · ${cultoWhen(previous)}»`;
   toast(how === "new"
-    ? `Se creó un culto nuevo. ${name} sigue guardado en la lista de arriba.`
-    : `Se duplicó para ${formatCultoDate(made.date)}. ${name} sigue guardado en la lista de arriba.`, {
+    ? `Se creó un culto nuevo. ${name} sigue guardado en la lista.`
+    : `Se duplicó para ${formatCultoDate(made.date)}. ${name} sigue guardado en la lista.`, {
     label: "Volver al anterior",
     run: () => culto.select(previous.id),
   }, 9000);
 }
+function createNew() {
+  const previous = current.value;
+  announceLeave(culto.create(), previous, "new");
+}
+
+// Duplicating: from the menu (this one) or from the list (any one); the
+// day, time and name are chosen first. Cancelled from the list, back to it.
+const showDuplicate = ref(false);
+const duplicateSource = ref<Culto | null>(null);
+const duplicateFromList = ref(false);
+function startDuplicate(id?: string) {
+  const source = id
+    ? culto.cultos.find(c => c.id === id)
+    : current.value;
+  if (!source)
+    return;
+  duplicateSource.value = source;
+  duplicateFromList.value = !!id && showList.value;
+  showList.value = false;
+  showDuplicate.value = true;
+}
+const duplicated = ref(false);
+const previousOpen = ref<Culto | null>(null);
+function onDuplicated(copy: Culto, source: Culto) {
+  duplicated.value = true;
+  // From the list it was not the one open: lead back to what was.
+  announceLeave(copy, duplicateFromList.value ? previousOpen.value : source, "copy");
+}
+watch(showDuplicate, (value, was) => {
+  if (value) {
+    duplicated.value = false;
+    previousOpen.value = current.value;
+  }
+  else if (was && !duplicated.value && duplicateFromList.value) {
+    showList.value = true;
+  }
+});
 
 const cultoMenu = computed(() => [
   [
@@ -348,12 +393,17 @@ const cultoMenu = computed(() => [
     {
       label: "Nuevo culto",
       icon: "i-tabler-plus",
-      onSelect: () => leaveFor("new"),
+      onSelect: createNew,
     },
     {
-      label: "Duplicar para otro día",
+      label: "Duplicar…",
       icon: "i-tabler-copy",
-      onSelect: () => leaveFor("copy"),
+      onSelect: () => startDuplicate(),
+    },
+    {
+      label: "Todos los cultos…",
+      icon: "i-tabler-layout-list",
+      onSelect: () => (showList.value = true),
     },
   ],
   [
@@ -821,7 +871,7 @@ onMounted(() => {
             aria-label="Nombre del culto"
             title="Cambiar el nombre"
           />
-          <UDropdownMenu v-if="sorted.length > 1" :items="switchItems">
+          <UDropdownMenu :items="switchItems">
             <UButton
               color="neutral"
               variant="ghost"
@@ -829,7 +879,7 @@ onMounted(() => {
               square
               icon="i-tabler-chevron-down"
               aria-label="Elegir otro culto"
-              :title="`${sorted.length} cultos guardados`"
+              :title="sorted.length > 1 ? `${sorted.length} cultos guardados` : 'Todos los cultos'"
             />
           </UDropdownMenu>
         </div>
@@ -1246,6 +1296,8 @@ onMounted(() => {
 
     <CultoThemeDialog v-model:open="showTheme" />
     <CultoMessagesDialog v-model:open="showMessages" :entries="entries" />
+    <CultoListDialog v-model:open="showList" @duplicate="startDuplicate" />
+    <CultoDuplicateDialog v-model:open="showDuplicate" :source="duplicateSource" @done="onDuplicated" />
     <input
       ref="importFile"
       type="file"
