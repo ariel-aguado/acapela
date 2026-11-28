@@ -246,6 +246,157 @@ export type CultoSection = {
   title: string;
 };
 
+/**
+ * A message laid over whatever is projected, without touching the slide:
+ * an alert, a notice, a congratulation… Launched live from the console, or
+ * hung on an element of the order so it shows when that element goes on air.
+ */
+export type MessageKind = "alert" | "notice" | "notification" | "congrats" | "welcome" | "prayer" | "countdown" | "ticker";
+/** Nine places on the screen, or a band across its top or bottom. */
+export type MessagePosition = "top-start" | "top" | "top-end" | "start" | "center" | "end" | "bottom-start" | "bottom" | "bottom-end" | "band-top" | "band-bottom";
+export type MessageAnimation = "fade" | "slide" | "bounce" | "pulse" | "marquee" | "none";
+export type MessageSize = "s" | "m" | "l" | "xl";
+
+export type ScreenMessage = {
+  id: string;
+  kind: MessageKind;
+  /** Small, on top ("ATENCIÓN"); may be empty. */
+  title: string;
+  text: string;
+  position: MessagePosition;
+  size: MessageSize;
+  /** One of the projection fonts; "theme": the church's. */
+  font: ProjectionFont | "theme";
+  animation: MessageAnimation;
+  /** Seconds on screen; 0: until it is taken off. A countdown counts these down. */
+  duration: number;
+  /** Shown by itself when this element goes on air, `delay` seconds later. */
+  trigger?: { itemId: string; delay: number };
+};
+
+export const MESSAGE_KIND_LABELS: Record<MessageKind, string> = {
+  alert: "Alerta",
+  notice: "Aviso",
+  notification: "Notificación",
+  congrats: "Felicitación",
+  welcome: "Bienvenida",
+  prayer: "Pedido de oración",
+  countdown: "Cuenta regresiva",
+  ticker: "Cinta de anuncios",
+};
+
+/** What each kind starts with: its place, look and motion. */
+export const MESSAGE_TEMPLATES: Record<MessageKind, Omit<ScreenMessage, "id" | "kind" | "trigger"> & { hint: string }> = {
+  alert: {
+    hint: "Urgente: arriba, a lo ancho, en rojo.",
+    title: "Atención",
+    text: "Se solicita al dueño del auto gris acercarse a la entrada.",
+    position: "band-top",
+    size: "m",
+    font: "roboto",
+    animation: "slide",
+    duration: 30,
+  },
+  notice: {
+    hint: "Abajo a la izquierda, discreto.",
+    title: "Hoy",
+    text: "Estudio bíblico a las 19:00.",
+    position: "bottom-start",
+    size: "m",
+    font: "theme",
+    animation: "slide",
+    duration: 10,
+  },
+  notification: {
+    hint: "Una tarjeta pequeña en la esquina.",
+    title: "Guardería",
+    text: "Los padres de Sofía, por favor acérquense.",
+    position: "top-end",
+    size: "s",
+    font: "theme",
+    animation: "fade",
+    duration: 10,
+  },
+  congrats: {
+    hint: "Al centro, con rebote: para celebrar.",
+    title: "¡Feliz cumpleaños!",
+    text: "Que el Señor te bendiga.",
+    position: "center",
+    size: "l",
+    font: "literata",
+    animation: "bounce",
+    duration: 10,
+  },
+  welcome: {
+    hint: "Una banda abajo, para las visitas.",
+    title: "¡Bienvenidos!",
+    text: "Nos alegra que nos visites hoy.",
+    position: "band-bottom",
+    size: "m",
+    font: "literata",
+    animation: "slide",
+    duration: 10,
+  },
+  prayer: {
+    hint: "Sereno, abajo al centro.",
+    title: "Oremos",
+    text: "Por los hermanos enfermos.",
+    position: "bottom",
+    size: "m",
+    font: "literata",
+    animation: "fade",
+    duration: 30,
+  },
+  countdown: {
+    hint: "Cuenta los minutos que faltan; late suave.",
+    title: "El culto comienza en",
+    text: "",
+    position: "center",
+    size: "xl",
+    font: "theme",
+    animation: "pulse",
+    duration: 300,
+  },
+  ticker: {
+    hint: "Texto que corre abajo, sin tapar la letra.",
+    title: "Avisos",
+    text: "Cena fraternal el sábado a las 20:00 · Ensayo de canto el jueves",
+    position: "band-bottom",
+    size: "s",
+    font: "theme",
+    animation: "marquee",
+    duration: 0,
+  },
+};
+
+export const MESSAGE_POSITION_LABELS: Record<MessagePosition, string> = {
+  "top-start": "Arriba a la izquierda",
+  "top": "Arriba al centro",
+  "top-end": "Arriba a la derecha",
+  "start": "Al centro a la izquierda",
+  "center": "En el centro",
+  "end": "Al centro a la derecha",
+  "bottom-start": "Abajo a la izquierda",
+  "bottom": "Abajo al centro",
+  "bottom-end": "Abajo a la derecha",
+  "band-top": "Banda arriba",
+  "band-bottom": "Banda abajo",
+};
+export const MESSAGE_ANIMATION_LABELS: Record<MessageAnimation, string> = {
+  fade: "Aparecer",
+  slide: "Deslizar",
+  bounce: "Rebote",
+  pulse: "Latido",
+  marquee: "Marquesina",
+  none: "Sin animación",
+};
+export const MESSAGE_SIZE_LABELS: Record<MessageSize, string> = {
+  s: "Pequeño",
+  m: "Mediano",
+  l: "Grande",
+  xl: "Enorme",
+};
+
 export type Culto = {
   id: string;
   title: string;
@@ -255,6 +406,8 @@ export type Culto = {
   time?: string;
   items: CultoItem[];
   sections?: CultoSection[];
+  /** Messages over the screen, ready to be launched or hung on an element. */
+  messages?: ScreenMessage[];
   updatedAt: number;
   /**
    * The free projection ("Proyectar himno"): hymns projected one after the

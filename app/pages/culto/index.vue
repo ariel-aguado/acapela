@@ -211,6 +211,16 @@ const isBlank = computed(() => {
 });
 
 const showTheme = ref(false);
+const showMessages = ref(false);
+/** How many messages show by themselves with each element. */
+const messagesByItem = computed(() => {
+  const counts: Record<string, number> = {};
+  for (const m of current.value?.messages ?? []) {
+    if (m.trigger)
+      counts[m.trigger.itemId] = (counts[m.trigger.itemId] ?? 0) + 1;
+  }
+  return counts;
+});
 
 // ------------------------------------------------------------ another device
 // A file with the service, its theme and images (utils/culto/transfer.ts).
@@ -327,6 +337,11 @@ const cultoMenu = computed(() => [
       label: "Tema de la iglesia…",
       icon: "i-tabler-palette",
       onSelect: () => (showTheme.value = true),
+    },
+    {
+      label: "Mensajes sobre la pantalla…",
+      icon: "i-tabler-message-2",
+      onSelect: () => (showMessages.value = true),
     },
   ],
   [
@@ -860,6 +875,14 @@ onMounted(() => {
         </UPopover>
         <div class="flex items-center gap-2">
           <UButton
+            color="neutral"
+            variant="outline"
+            size="xl"
+            icon="i-tabler-message-2"
+            :label="current?.messages?.length ? `Mensajes (${current.messages.length})` : 'Mensajes'"
+            @click="showMessages = true"
+          />
+          <UButton
             to="/culto/vivo"
             size="xl"
             icon="i-tabler-player-play-filled"
@@ -1014,6 +1037,7 @@ onMounted(() => {
                 :can-down="flatIds.at(-1) !== block.entry.item.id"
                 handle="block-handle"
                 :flash="flashId === block.entry.item.id"
+                :messages="messagesByItem[block.entry.item.id] ?? 0"
                 @choose="choose(block.entry.item.id)"
                 @step="d => step(block.entry.item.id, d)"
               />
@@ -1095,6 +1119,7 @@ onMounted(() => {
                       :can-down="true"
                       handle="item-handle"
                       :flash="flashId === entry.item.id"
+                      :messages="messagesByItem[entry.item.id] ?? 0"
                       @choose="choose(entry.item.id)"
                       @step="d => step(entry.item.id, d)"
                     />
@@ -1220,6 +1245,7 @@ onMounted(() => {
     </div>
 
     <CultoThemeDialog v-model:open="showTheme" />
+    <CultoMessagesDialog v-model:open="showMessages" :entries="entries" />
     <input
       ref="importFile"
       type="file"

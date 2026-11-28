@@ -1,5 +1,16 @@
 import type { Screen } from "~/utils/culto/screens";
-import type { ScreenTransition } from "~~/lib/culto";
+import type { ScreenMessage, ScreenTransition } from "~~/lib/culto";
+
+/** A message over the screen, as it is on air. */
+export type ProjectorMessage = {
+  message: ScreenMessage;
+  /** A new key replays its entrance. */
+  key: string;
+  /** Date.now() when it went on air (a countdown counts from it). */
+  startedAt: number;
+  /** CSS font-family of the church's theme. */
+  themeFont: string;
+};
 
 /**
  * What the projector window needs to draw: nothing else crosses the channel.
@@ -13,6 +24,8 @@ export type ProjectorState = {
   key?: string;
   /** How it gives way to the next one. */
   transition?: ScreenTransition;
+  /** A message over whatever is projected. */
+  message?: ProjectorMessage | null;
 };
 
 type Message

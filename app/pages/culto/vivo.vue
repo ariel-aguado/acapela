@@ -1,9 +1,9 @@
 <script lang="ts" setup>
 import type { ShortcutGroup } from "~/components/app/shortcuts-help.vue";
 import type { InsertWhere } from "~/components/culto/insert-dialog.vue";
-import type { ProjectorState } from "~/composables/use-projector-channel";
+import type { ProjectorMessage, ProjectorState } from "~/composables/use-projector-channel";
 import type { Screen } from "~/utils/culto/screens";
-import type { CultoItem, ScreenTransition } from "~~/lib/culto";
+import type { CultoItem, MessageKind, ScreenMessage, ScreenTransition } from "~~/lib/culto";
 
 import { QUICK_POSITION_KEY } from "~/composables/use-project-hymn";
 import { PROJECTOR_WINDOW_NAME } from "~/composables/use-projector-channel";
@@ -12,7 +12,7 @@ import { SCALE_MAX, SCALE_MIN, SCALE_STEP } from "~/stores/presentation";
 import { resolveLook } from "~/utils/culto/look";
 import { momentTone } from "~/utils/culto/moment";
 import { blocksOf } from "~/utils/culto/sections";
-import { DEFAULT_TRANSITIONS } from "~~/lib/culto";
+import { DEFAULT_TRANSITIONS, MESSAGE_KIND_LABELS, PROJECTION_FONTS } from "~~/lib/culto";
 
 // The live console of a service: every screen of every element in order,
 // so → goes from the last verse of a hymn to the next reading without
@@ -352,6 +352,123 @@ watch(onAirKey, (key) => {
 /** The operator asked for less motion: the console cuts (the projector does not). */
 const reducedMotion = usePreferredReducedMotion();
 
+// ------------------------------------------------------------ messages
+// Alerts, notices, congratulations… over whatever is projected. Launched
+// here (Mostrar, or written at once with M), or hung on an element of the
+// order: they show by themselves when it goes on air. One at a time; each
+// leaves after its time, or with «Quitar» (X).
+const messages = computed<ScreenMessage[]>(() => liveCulto.value?.messages ?? []);
+const onAirMessage = ref<{ id: string; key: string; startedAt: number } | null>(null);
+let messageTimer: ReturnType<typeof setTimeout> | null = null;
+let triggerTimers: ReturnType<typeof setTimeout>[] = [];
+
+const themeFont = computed(() => PROJECTION_FONTS.find(f => f.id === culto.theme.font)?.css ?? "\"Inter\", sans-serif");
+/** On air, with its current words (an edit shows at once). */
+const liveMessage = computed<ProjectorMessage | null>(() => {
+  const on = onAirMessage.value;
+  const message = on && messages.value.find(m => m.id === on.id);
+  return on && message
+    ? {
+        message,
+        key: on.key,
+        startedAt: on.startedAt,
+        themeFont: themeFont.value,
+      }
+    : null;
+});
+
+function showMessage(id: string) {
+  const message = messages.value.find(m => m.id === id);
+  if (!message)
+    return;
+  if (messageTimer)
+    clearTimeout(messageTimer);
+  const startedAt = Date.now();
+  onAirMessage.value = { id, key: `${id}:${startedAt}`, startedAt };
+  messageTimer = message.duration > 0
+    ? setTimeout(hideMessage, message.duration * 1000 + (message.kind === "countdown"
+        ? 1000
+        : 0))
+    : null;
+}
+function hideMessage() {
+  if (messageTimer)
+    clearTimeout(messageTimer);
+  messageTimer = null;
+  onAirMessage.value = null;
+}
+
+// Hung on an element: shown when it goes on air (not on a reload).
+watch(() => live.value?.itemId, (id, old) => {
+  if (!id || id === old)
+    return;
+  triggerTimers.forEach(clearTimeout);
+  triggerTimers = messages.value
+    .filter(m => m.trigger?.itemId === id)
+    .map(m => setTimeout(showMessage, (m.trigger?.delay ?? 0) * 1000, m.id));
+});
+onBeforeUnmount(() => {
+  hideMessage();
+  triggerTimers.forEach(clearTimeout);
+});
+
+const MESSAGE_ICONS: Record<MessageKind, string> = {
+  alert: "i-tabler-alert-triangle",
+  notice: "i-tabler-speakerphone",
+  notification: "i-tabler-bell",
+  congrats: "i-tabler-confetti",
+  welcome: "i-tabler-heart-handshake",
+  prayer: "i-tabler-pray",
+  countdown: "i-tabler-clock",
+  ticker: "i-tabler-news",
+};
+function messageLabel(m: ScreenMessage) {
+  return m.kind === "countdown"
+    ? `${m.title || MESSAGE_KIND_LABELS.countdown} · ${Math.round(m.duration / 60)} min`
+    : [m.title, m.text].filter(Boolean).join(" · ") || MESSAGE_KIND_LABELS[m.kind];
+}
+function triggerLabel(m: ScreenMessage) {
+  const entry = m.trigger && entries.value.find(e => e.item.id === m.trigger!.itemId);
+  if (!entry)
+    return "";
+  return m.trigger!.delay
+    ? `Con «${entry.label}», a los ${m.trigger!.delay} s`
+    : `Con «${entry.label}»`;
+}
+
+const showMessageDialog = ref(false);
+const editingMessage = ref<ScreenMessage | null>(null);
+function newMessage() {
+  editingMessage.value = null;
+  showMessageDialog.value = true;
+}
+function editMessage(m: ScreenMessage) {
+  editingMessage.value = m;
+  showMessageDialog.value = true;
+}
+function saveMessage(m: ScreenMessage, show: boolean) {
+  if (!liveCulto.value)
+    return;
+  culto.saveMessage(m, liveCulto.value.id);
+  if (show)
+    showMessage(m.id);
+}
+function removeMessage(id: string) {
+  if (!liveCulto.value)
+    return;
+  if (onAirMessage.value?.id === id)
+    hideMessage();
+  const cultoId = liveCulto.value.id;
+  const removed = culto.removeMessage(id, cultoId);
+  if (removed) {
+    toast("Se eliminó el mensaje.", {
+      label: "Deshacer",
+      run: () => culto.saveMessage(removed, cultoId),
+    });
+  }
+}
+const messageItems = computed(() => entries.value.map(e => ({ id: e.item.id, label: e.label })));
+
 // ------------------------------------------------------------ correcting live
 // Any element (a passage, a hymn, a screen's texts and look) is corrected
 // right here (C, or the pencil in the order), over a copy until applied.
@@ -414,6 +531,7 @@ const liveState = computed<ProjectorState>(() => ({
   black: black.value,
   key: onAirKey.value,
   transition: onAirTransition.value,
+  message: liveMessage.value,
 }));
 const { connected } = useProjectorSender(liveState);
 
@@ -443,6 +561,16 @@ const startedAt = computed<number>({
       : serviceStartedAt).value = value;
   },
 });
+/** How long the message on air has left, for the operator. */
+const messageLeft = computed(() => {
+  const on = liveMessage.value;
+  if (!on)
+    return "";
+  if (!on.message.duration)
+    return "en pantalla";
+  const left = Math.max(0, on.message.duration - Math.floor((now.value.getTime() - on.startedAt) / 1000));
+  return `${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}`;
+});
 const clock = computed(() => now.value.toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" }));
 const elapsed = computed(() => {
   if (!startedAt.value)
@@ -458,7 +586,7 @@ const elapsed = computed(() => {
 function blocked(e: KeyboardEvent) {
   const t = e.target as HTMLElement | null;
   const typing = !!t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable);
-  return typing || showInsert.value || showGoTo.value || showHelp.value || showFix.value || e.ctrlKey || e.metaKey || e.altKey;
+  return typing || showInsert.value || showGoTo.value || showHelp.value || showFix.value || showMessageDialog.value || e.ctrlKey || e.metaKey || e.altKey;
 }
 function keys(list: string[], run: () => void) {
   onKeyStroke(list, (e) => {
@@ -493,6 +621,8 @@ keys(["-", "_"], () => changeScale(-SCALE_STEP));
 keys(["f", "F"], () => toggleFullscreen());
 keys(["?"], () => (showHelp.value = true));
 keys(["c", "C"], () => fix(live.value?.itemId));
+keys(["m", "M"], newMessage);
+keys(["x", "X"], hideMessage);
 
 const serviceShortcuts: ShortcutGroup[] = [
   {
@@ -539,6 +669,14 @@ const serviceShortcuts: ShortcutGroup[] = [
       {
         keys: ["L"],
         label: "Logo de la iglesia / volver",
+      },
+      {
+        keys: ["M"],
+        label: "Escribir un mensaje sobre la pantalla",
+      },
+      {
+        keys: ["X"],
+        label: "Quitar el mensaje que está en pantalla",
       },
       {
         keys: ["+", "−"],
@@ -844,6 +982,7 @@ function saveAsService() {
                 :screen-key="onAirKey"
                 :transition="onAirTransition"
                 :animate="reducedMotion !== 'reduce'"
+                :message="liveMessage"
               />
               <div v-if="black && !isFullscreen" class="absolute inset-0 grid place-items-center text-white/80 text-sm font-semibold pointer-events-none">
                 Pantalla en negro · B para volver
@@ -963,6 +1102,64 @@ function saveAsService() {
         </CultoPanel>
 
         <CultoPanel
+          title="Mensajes"
+          icon="i-tabler-message-2"
+          body-class="flex flex-col gap-1 p-2"
+        >
+          <template #actions>
+            <UButton
+              color="neutral"
+              variant="soft"
+              size="sm"
+              icon="i-tabler-plus"
+              @click="newMessage"
+            >
+              Nuevo <UKbd value="M" size="sm" />
+            </UButton>
+          </template>
+          <p v-if="!messages.length" class="px-2 py-1.5 text-sm text-muted">
+            Alertas, avisos o felicitaciones encima de la pantalla, sin cambiarla.
+          </p>
+          <div
+            v-for="m in messages"
+            :key="m.id"
+            class="flex items-center gap-2 rounded-xl px-2 py-1.5"
+            :class="onAirMessage?.id === m.id ? 'bg-error/10 ring-1 ring-error/40' : 'hover:bg-elevated'"
+          >
+            <UIcon :name="MESSAGE_ICONS[m.kind]" class="size-5 shrink-0 text-primary" />
+            <button
+              type="button"
+              class="flex min-w-0 flex-1 flex-col text-start"
+              :aria-label="`Editar: ${messageLabel(m)}`"
+              @click="editMessage(m)"
+            >
+              <span class="truncate text-sm font-semibold">{{ messageLabel(m) }}</span>
+              <span class="truncate text-xs text-muted">
+                {{ MESSAGE_KIND_LABELS[m.kind] }}<template v-if="triggerLabel(m)"> · {{ triggerLabel(m) }}</template>
+              </span>
+            </button>
+            <template v-if="onAirMessage?.id === m.id">
+              <span class="text-xs font-bold tabular-nums text-error" role="status">{{ messageLeft }}</span>
+              <UButton
+                color="neutral"
+                variant="outline"
+                size="sm"
+                label="Quitar"
+                @click="hideMessage"
+              />
+            </template>
+            <UButton
+              v-else
+              size="sm"
+              icon="i-tabler-player-play-filled"
+              label="Mostrar"
+              :aria-label="`Mostrar: ${messageLabel(m)}`"
+              @click="showMessage(m.id)"
+            />
+          </div>
+        </CultoPanel>
+
+        <CultoPanel
           v-if="liveEntry?.item.notes"
           title="Notas para quien dirige"
           icon="i-tabler-notes"
@@ -1062,6 +1259,15 @@ function saveAsService() {
       @go="insertHymn"
     />
     <AppShortcutsHelp v-model:open="showHelp" :groups="shortcutGroups" />
+    <CultoMessageDialog
+      v-model:open="showMessageDialog"
+      :message="editingMessage"
+      :items="quick ? undefined : messageItems"
+      :screen="onAir"
+      live
+      @save="saveMessage"
+      @remove="removeMessage"
+    />
   </div>
 </template>
 

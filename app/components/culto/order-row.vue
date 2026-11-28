@@ -15,6 +15,8 @@ const props = defineProps<{
   handle: string;
   /** Just added: lit for a moment. */
   flash?: boolean;
+  /** Messages over the screen that show by themselves with it. */
+  messages?: number;
 }>();
 const emit = defineEmits<{
   choose: [];
@@ -55,6 +57,7 @@ const missingPassage = computed(() => props.entry.item.kind === "reading" && !pr
           <template v-if="entry.status === 'ready'"> · {{ entry.screens.length }} {{ entry.screens.length === 1 ? 'pantalla' : 'pantallas' }}</template>
           <template v-if="missingPassage"> · elige la cita</template>
           <template v-if="entry.item.inserted"> · insertado en vivo</template>
+          <template v-if="messages"> · {{ messages === 1 ? '1 mensaje' : `${messages} mensajes` }}</template>
         </span>
       </span>
       <UIcon
