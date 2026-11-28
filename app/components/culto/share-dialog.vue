@@ -19,8 +19,8 @@ const building = ref(false);
 const url = ref("");
 const shortUrl = ref("");
 const qr = ref("");
-/** The room got the program: the QR works. */
-const online = ref(false);
+/** Whether the room got the program (then the QR works). */
+const relay = ref<"pending" | "ok" | "failed">("pending");
 const failed = ref<string[]>([]);
 const error = ref("");
 
@@ -32,7 +32,7 @@ async function build() {
   error.value = "";
   failed.value = [];
   url.value = "";
-  online.value = false;
+  relay.value = "pending";
   try {
     const { encoded, failed: missing } = await programShare.build(c);
     failed.value = missing;
@@ -48,9 +48,9 @@ async function build() {
           url.value = `${shortUrl.value}#${encoded}`;
           qr.value = qrSvg(shortUrl.value);
         }
-        online.value = true;
+        relay.value = "ok";
       })
-      .catch(() => (online.value = false));
+      .catch(() => (relay.value = "failed"));
   }
   catch (err) {
     error.value = err instanceof Error
@@ -204,7 +204,7 @@ async function share() {
             </p>
           </div>
         </div>
-        <div v-if="url && qr" class="flex items-center gap-4 rounded-xl ring-1 ring-default p-3">
+        <div v-if="url && qr" class="flex items-center gap-4 rounded-xl ring-1 ring-default p-3" :data-relay="relay">
           <div
             class="share-qr size-32 shrink-0 overflow-hidden rounded-lg bg-white"
             role="img"
@@ -222,7 +222,7 @@ async function share() {
             <p class="truncate font-mono text-xs text-muted">
               {{ shortUrl.replace(/^https?:\/\//, "") }}
             </p>
-            <p v-if="!online" class="text-xs text-warning">
+            <p v-if="relay === 'failed'" class="text-xs text-warning">
               Sin conexión con el servidor de salas: el QR funcionará cuando la consola se conecte.
             </p>
           </div>

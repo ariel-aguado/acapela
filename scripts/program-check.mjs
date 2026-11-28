@@ -307,9 +307,10 @@ try {
   const code = /sala=([A-Z2-9]{6})/.exec(full)?.[1]
   check(!!code && full.includes("#v1."), `el enlace nombra la sala (${code}) y sigue llevando el programa`)
   check(await pc2.evaluate("!!document.querySelector('[data-program-qr] svg')"), "la ventana muestra el código QR de la sala")
-  await pc2.waitFor(`fetch('/sala/${code}').then(r => r.ok)`, 10000)
-  pass("el programa quedó en la sala: el QR funciona")
-  check(!(await pc2.evaluate("document.querySelector('[role=dialog]').innerText.includes('Sin conexión con el servidor')")), "sin aviso de falta de conexión")
+  await pc2.waitFor("document.querySelector('[data-relay=ok]')", 15000)
+  check(!(await pc2.evaluate("document.querySelector('[role=dialog]').innerText.includes('Sin conexión con el servidor')")), "el servidor de salas confirmó: sin aviso de falta de conexión")
+  const relayBase = ORIGIN.includes("staging.acapela.app") ? "https://acapela.app/sala" : `${ORIGIN}/sala`
+  check(await fetch(`${relayBase}/${code}`).then(r => r.ok), "el programa quedó en la sala: el QR funciona")
   await shot(pc2, "programa-compartir-qr")
 
   const phone2 = await isolatedPage(`${ORIGIN}/`)
