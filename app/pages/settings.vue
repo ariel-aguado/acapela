@@ -47,103 +47,108 @@ const songbookItems = computed(() => manifest.value.map((sb) => {
 
 <template>
   <div class="page-scroll">
-    <!-- Desktop: the app's container, the sections in two columns. -->
+    <!-- Desktop: the app's container in two columns that each run on their
+      own (no row lines them up, so no gap opens under a short section):
+      the hymnal, the Bibles and the app on the left, the appearance on the
+      right. On the phone: hymnal, appearance, app. -->
     <div class="w-full max-w-2xl lg:max-w-7xl mx-auto px-4 py-4 flex flex-col gap-8 lg:grid lg:grid-cols-2 lg:gap-x-12 lg:items-start">
-      <!-- Himnario -->
-      <fieldset class="flex flex-col gap-2">
-        <legend class="font-medium mb-2">
-          Himnario
-        </legend>
-        <URadioGroup
-          :model-value="currentId"
-          :items="songbookItems"
-          variant="table"
-          size="lg"
-          :disabled="status === 'loading'"
-          :ui="{ item: 'min-h-16 items-center', label: 'font-semibold' }"
-          @update:model-value="v => choose(String(v))"
-        >
-          <template #label="{ item }">
-            <span class="inline-flex items-center gap-2">
-              {{ item.label }}
-              <UIcon
-                v-if="status === 'loading' && item.value === currentId"
-                name="i-tabler-loader-2"
-                class="size-4 animate-spin"
-                aria-label="Cargando"
+      <div class="contents lg:flex lg:flex-col lg:gap-8">
+        <!-- Himnario -->
+        <fieldset class="order-1 lg:order-none flex flex-col gap-2">
+          <legend class="font-medium mb-2">
+            Himnario
+          </legend>
+          <URadioGroup
+            :model-value="currentId"
+            :items="songbookItems"
+            variant="table"
+            size="lg"
+            :disabled="status === 'loading'"
+            :ui="{ item: 'min-h-16 items-center', label: 'font-semibold' }"
+            @update:model-value="v => choose(String(v))"
+          >
+            <template #label="{ item }">
+              <span class="inline-flex items-center gap-2">
+                {{ item.label }}
+                <UIcon
+                  v-if="status === 'loading' && item.value === currentId"
+                  name="i-tabler-loader-2"
+                  class="size-4 animate-spin"
+                  aria-label="Cargando"
+                />
+              </span>
+            </template>
+          </URadioGroup>
+          <p class="text-sm opacity-70">
+            Tus favoritos y el último himno abierto se guardan por separado en cada himnario.
+          </p>
+        </fieldset>
+
+        <AppBibleVersions v-if="isLarge" />
+
+        <!-- App -->
+        <section class="order-3 lg:order-none flex flex-col gap-2" aria-labelledby="s-app">
+          <h2 id="s-app" class="font-medium">
+            Aplicación
+          </h2>
+          <div class="rounded-2xl bg-default shadow-card divide-y divide-default overflow-hidden">
+            <div class="flex items-center gap-3 px-4 min-h-16 py-3">
+              <AppIcon class="size-10" />
+              <div class="flex-1 flex flex-col">
+                <span class="font-semibold">Instalar en este dispositivo</span>
+                <span class="text-sm opacity-70">
+                  <template v-if="isInstalled">Ya está instalada. Funciona sin conexión.</template>
+                  <template v-else-if="canInstall">Abre más rápido y funciona sin conexión.</template>
+                  <template v-else-if="isIos">En Safari, toca <em>Compartir</em> y luego <em>Agregar a pantalla de inicio</em>.</template>
+                  <template v-else>Abre el menú del navegador y elige <em>Instalar app</em> o <em>Agregar a la pantalla de inicio</em>.</template>
+                </span>
+              </div>
+              <UButton
+                v-if="canInstall && !isInstalled"
+                size="lg"
+                label="Instalar"
+                @click="install"
               />
-            </span>
-          </template>
-        </URadioGroup>
-        <p class="text-sm opacity-70">
-          Tus favoritos y el último himno abierto se guardan por separado en cada himnario.
-        </p>
-      </fieldset>
+            </div>
+            <button type="button" class="w-full flex items-center gap-3 px-4 min-h-14 text-start hover:bg-muted" @click="shareApp">
+              <Icon
+                name="tabler:share"
+                size="22"
+                class="opacity-70 shrink-0"
+                aria-hidden="true"
+              />
+              <span class="flex-1 flex flex-col">
+                <span class="font-semibold">Compartir Acapela</span>
+                <span class="text-sm opacity-70">Envía el enlace a quien quieras.</span>
+              </span>
+            </button>
+            <NuxtLink to="/about" class="flex items-center gap-3 px-4 min-h-14 hover:bg-muted">
+              <Icon
+                name="tabler:info-circle"
+                size="22"
+                class="opacity-70 shrink-0"
+                aria-hidden="true"
+              />
+              <span class="flex-1 font-semibold">Acerca de Acapela</span>
+              <Icon
+                name="tabler:chevron-right"
+                size="20"
+                class="opacity-50"
+                aria-hidden="true"
+              />
+            </NuxtLink>
+          </div>
+        </section>
+      </div>
 
       <!-- Apariencia: the same controls as the reading view's "Aa" sheet -->
-      <section class="flex flex-col gap-4" aria-labelledby="s-appearance">
+      <section class="order-2 lg:order-none flex flex-col gap-2" aria-labelledby="s-appearance">
         <h2 id="s-appearance" class="font-medium">
           Apariencia
         </h2>
         <div class="rounded-2xl bg-default shadow-card p-4 flex flex-col gap-6">
           <AppReadingSettings />
           <AppThemeControl />
-        </div>
-      </section>
-
-      <AppBibleVersions v-if="isLarge" />
-
-      <!-- App -->
-      <section class="flex flex-col gap-2" aria-labelledby="s-app">
-        <h2 id="s-app" class="font-medium">
-          Aplicación
-        </h2>
-        <div class="rounded-2xl bg-default shadow-card divide-y divide-default overflow-hidden">
-          <div class="flex items-center gap-3 px-4 min-h-16 py-3">
-            <AppIcon class="size-10" />
-            <div class="flex-1 flex flex-col">
-              <span class="font-semibold">Instalar en este dispositivo</span>
-              <span class="text-sm opacity-70">
-                <template v-if="isInstalled">Ya está instalada. Funciona sin conexión.</template>
-                <template v-else-if="canInstall">Abre más rápido y funciona sin conexión.</template>
-                <template v-else-if="isIos">En Safari, toca <em>Compartir</em> y luego <em>Agregar a pantalla de inicio</em>.</template>
-                <template v-else>Abre el menú del navegador y elige <em>Instalar app</em> o <em>Agregar a la pantalla de inicio</em>.</template>
-              </span>
-            </div>
-            <UButton
-              v-if="canInstall && !isInstalled"
-              size="lg"
-              label="Instalar"
-              @click="install"
-            />
-          </div>
-          <button type="button" class="w-full flex items-center gap-3 px-4 min-h-14 text-start hover:bg-muted" @click="shareApp">
-            <Icon
-              name="tabler:share"
-              size="22"
-              class="opacity-70 shrink-0"
-              aria-hidden="true"
-            />
-            <span class="flex-1 flex flex-col">
-              <span class="font-semibold">Compartir Acapela</span>
-              <span class="text-sm opacity-70">Envía el enlace a quien quieras.</span>
-            </span>
-          </button>
-          <NuxtLink to="/about" class="flex items-center gap-3 px-4 min-h-14 hover:bg-muted">
-            <Icon
-              name="tabler:info-circle"
-              size="22"
-              class="opacity-70 shrink-0"
-              aria-hidden="true"
-            />
-            <span class="flex-1 font-semibold">Acerca de Acapela</span>
-            <Icon
-              name="tabler:chevron-right"
-              size="20"
-              class="opacity-50"
-              aria-hidden="true"
-            />
-          </NuxtLink>
         </div>
       </section>
     </div>
