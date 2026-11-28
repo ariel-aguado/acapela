@@ -3,7 +3,7 @@ import type { Room } from "~/utils/culto/relay";
 import type { Culto } from "~~/lib/culto";
 
 import { buildProgram, encodeProgram, passageKey, readingsOf } from "~/utils/culto/program";
-import { newRoom, publishProgram, RoomTakenError } from "~/utils/culto/relay";
+import { newKey, newRoom, publishProgram, RoomTakenError } from "~/utils/culto/relay";
 
 /**
  * The service's program for the congregation, and its room on the relay:
@@ -74,5 +74,21 @@ export function useProgramShare() {
     return !!rooms.value[cultoId];
   }
 
-  return { build, roomFor, hasRoom, publish };
+  /** A new remote key for the service's room (it unpairs the previous phone once sent). */
+  function newControl(cultoId: string): Room {
+    const room = {
+      ...roomFor(cultoId),
+      control: newKey(),
+    };
+    rooms.value = { ...rooms.value, [cultoId]: room };
+    return room;
+  }
+
+  return {
+    build,
+    roomFor,
+    hasRoom,
+    publish,
+    newControl,
+  };
 }

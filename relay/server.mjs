@@ -10,9 +10,15 @@
 //   POST /sala/:code/ahora    Bearer token  {itemId, key, index, black}
 //   GET  /sala/:code                         → {program, rev}
 //   GET  /sala/:code/eventos                 Server-Sent Events: program {rev}, now {...}
+//   PUT  /sala/:code/mando          Bearer token  {key}        pairs a remote (a new key unpairs the old)
+//   POST /sala/:code/mando          Bearer key    {cmd, itemId} a command from the presenter's phone
+//   PUT  /sala/:code/mando/estado   Bearer token  {sealed}     the remote's private state, encrypted with its key
+//   GET  /sala/:code/mando/eventos                 Server-Sent Events: cmd {...}, privado {sealed}, reset
 //   GET  /sala/healthz
 // The first PUT to a code claims it with its token; only that token
 // publishes there afterwards. Codes and tokens are made by the console.
+// The remote's key travels to the phone after the «#» of its pairing link:
+// the relay only keeps its hash, and the notes it relays are encrypted.
 //
 // Run: node relay/server.mjs   (PORT, default 8090)
 
@@ -31,7 +37,7 @@ const MAX_BODY = 512 * 1024;
 const CODE = /^[A-HJ-NP-Z2-9]{6}$/;
 const ORIGINS = [/^https:\/\/(?:www\.|staging\.)?acapela\.app$/, /^http:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/];
 
-/** @type {Map<string, {hash: Buffer | null, program: string | null, rev: number, now: object | null, clients: Set<import("node:http").ServerResponse>, touched: number}>} */
+/** @type {Map<string, {hash: Buffer | null, control: Buffer | null, program: string | null, rev: number, now: object | null, sealed: string | null, clients: Set<import("node:http").ServerResponse>, mando: Set<import("node:http").ServerResponse>, touched: number}>} */
 const rooms = new Map();
 let clients = 0;
 
@@ -46,10 +52,13 @@ function room(code, create = false) {
       return null;
     r = {
       hash: null,
+      control: null,
       program: null,
       rev: 0,
       now: null,
+      sealed: null,
       clients: new Set(),
+      mando: new Set(),
       touched: Date.now(),
     };
     rooms.set(code, r);
@@ -66,14 +75,36 @@ function sweep(pressed = false) {
     ? 60 * 60 * 1000
     : ROOM_TTL_MS;
   for (const [code, r] of rooms) {
-    if (!r.clients.size && now - r.touched > limit)
+    if (!r.clients.size && !r.mando.size && now - r.touched > limit)
       rooms.delete(code);
   }
 }
 setInterval(sweep, 10 * 60 * 1000).unref();
 
+function bearer(req) {
+  return /^Bearer (\S{16,128})$/.exec(req.headers.authorization ?? "")?.[1] ?? null;
+}
+
+/** The paired remote's key. */
+function remoteAuthorized(r, req) {
+  const key = bearer(req);
+  return !!key && !!r.control && timingSafeEqual(r.control, sha(key));
+}
+
+const COMMANDS = new Set([
+  "next",
+  "prev",
+  "black",
+  "logo",
+  "content",
+  "goto",
+  "qr",
+  "hello",
+]);
+
+/** The console's token: the first one claims the room. */
 function authorized(r, req) {
-  const token = /^Bearer (\S{16,128})$/.exec(req.headers.authorization ?? "")?.[1];
+  const token = bearer(req);
   if (!token)
     return false;
   const hash = sha(token);
@@ -125,15 +156,15 @@ function readBody(req) {
   });
 }
 
-function send(r, event, data) {
+function send(r, event, data, to = r.clients) {
   const line = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
-  for (const res of r.clients)
+  for (const res of to)
     res.write(line);
 }
 
-function listen(req, res, code) {
+function listen(req, res, code, channel = "clients") {
   const r = room(code, true);
-  if (!r || clients >= MAX_CLIENTS || r.clients.size >= MAX_ROOM_CLIENTS)
+  if (!r || clients >= MAX_CLIENTS || r[channel].size >= MAX_ROOM_CLIENTS)
     return json(res, 503, { error: "full" });
   res.writeHead(200, {
     "content-type": "text/event-stream; charset=utf-8",
@@ -142,16 +173,22 @@ function listen(req, res, code) {
     "x-accel-buffering": "no",
   });
   res.write("retry: 3000\n\n");
-  if (r.program)
-    res.write(`event: program\ndata: ${JSON.stringify({ rev: r.rev })}\n\n`);
-  if (r.now)
-    res.write(`event: now\ndata: ${JSON.stringify(r.now)}\n\n`);
-  r.clients.add(res);
+  if (channel === "mando") {
+    if (r.sealed)
+      res.write(`event: privado\ndata: ${JSON.stringify({ sealed: r.sealed })}\n\n`);
+  }
+  else {
+    if (r.program)
+      res.write(`event: program\ndata: ${JSON.stringify({ rev: r.rev })}\n\n`);
+    if (r.now)
+      res.write(`event: now\ndata: ${JSON.stringify(r.now)}\n\n`);
+  }
+  r[channel].add(res);
   clients++;
   const ping = setInterval(() => res.write(": ping\n\n"), 25000);
   req.on("close", () => {
     clearInterval(ping);
-    if (r.clients.delete(res))
+    if (r[channel].delete(res))
       clients--;
     r.touched = Date.now();
   });
@@ -186,10 +223,56 @@ const server = createServer(async (req, res) => {
   const code = parts[1] ?? "";
   if (!CODE.test(code))
     return json(res, 404, { error: "not found" });
-  const action = parts[2] ?? "";
+  const action = parts.slice(2).join("/");
   try {
     if (req.method === "GET" && action === "eventos")
       return listen(req, res, code);
+    if (req.method === "GET" && action === "mando/eventos")
+      return listen(req, res, code, "mando");
+    if (req.method === "PUT" && action === "mando") {
+      const body = await readBody(req);
+      if (typeof body.key !== "string" || !/^\S{16,128}$/.test(body.key))
+        return json(res, 400, { error: "bad key" });
+      const r = room(code, true);
+      if (!r)
+        return json(res, 503, { error: "full" });
+      if (!authorized(r, req))
+        return json(res, 403, { error: "taken" });
+      const fresh = sha(body.key);
+      if (!r.control || !timingSafeEqual(r.control, fresh)) {
+        r.control = fresh;
+        r.sealed = null;
+        send(r, "reset", {}, r.mando);
+      }
+      return json(res, 200, { ok: true });
+    }
+    if (req.method === "POST" && action === "mando") {
+      const r = room(code);
+      if (!r || !remoteAuthorized(r, req))
+        return json(res, 403, { error: "not paired" });
+      const body = await readBody(req);
+      if (!COMMANDS.has(body.cmd))
+        return json(res, 400, { error: "bad command" });
+      send(r, "cmd", {
+        cmd: body.cmd,
+        itemId: typeof body.itemId === "string"
+          ? body.itemId.slice(0, 64)
+          : "",
+        at: Date.now(),
+      }, r.mando);
+      return json(res, 200, { ok: true });
+    }
+    if (req.method === "PUT" && action === "mando/estado") {
+      const body = await readBody(req);
+      const r = room(code);
+      if (!r || !authorized(r, req))
+        return json(res, 403, { error: "taken" });
+      if (typeof body.sealed !== "string" || body.sealed.length > 64 * 1024)
+        return json(res, 400, { error: "bad state" });
+      r.sealed = body.sealed;
+      send(r, "privado", { sealed: r.sealed }, r.mando);
+      return json(res, 200, { ok: true });
+    }
     if (req.method === "GET" && !action) {
       const r = room(code);
       return r?.program
@@ -234,7 +317,10 @@ server.listen(PORT, () => console.log(`acapela relay on :${PORT}`));
 for (const signal of ["SIGTERM", "SIGINT"]) {
   process.on(signal, () => {
     for (const r of rooms.values()) {
-      for (const res of r.clients)
+      for (const res of [
+        ...r.clients,
+        ...r.mando,
+      ])
         res.end();
     }
     server.close(() => process.exit(0));
