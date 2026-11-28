@@ -472,7 +472,7 @@ const OWN = [
                 <span class="text-xs">2 Corintios 9:7</span>
               </div>
               <figcaption class="text-sm text-muted">
-                Una foto de fondo
+                Una imagen de fondo
               </figcaption>
             </figure>
           </div>
