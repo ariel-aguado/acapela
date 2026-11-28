@@ -1,10 +1,13 @@
 import type { PageItem } from "~/utils/culto/paginate";
+import type { SharedPassage } from "~/utils/culto/program";
 import type { Screen } from "~/utils/culto/screens";
+import type { VerseRow } from "~~/lib/bible";
 import type { CultoItem, MomentPart, ProjectionTheme, ReadingItem, ScreenItem } from "~~/lib/culto";
 import type { Song } from "~~/lib/types";
 
 import { resolveLook } from "~/utils/culto/look";
 import { paginate } from "~/utils/culto/paginate";
+import { passageKey } from "~/utils/culto/program";
 import { PAGE_BODY_PX, renderPage, textPieces, versePieces } from "~/utils/culto/screens";
 import { SCREEN_LAYOUT_LABELS } from "~~/lib/culto";
 
@@ -263,15 +266,35 @@ async function screenPages(item: ScreenItem, theme: ProjectionTheme, prefix = ""
   }));
 }
 
-async function readingPages(item: ReadingItem, theme: ProjectionTheme, prefix = ""): Promise<Natural> {
+/** Passages given with the service (a shared program): no Bible is read. */
+type Passages = Record<string, SharedPassage> | undefined;
+
+async function readPassage(item: ReadingItem, given: Passages): Promise<{ label: string; version: string; verses: VerseRow[] } | null> {
+  if (given) {
+    const shared = given[passageKey(item.reference, item.versionId || undefined)];
+    if (!shared)
+      throw new Error(`«${item.reference}» no vino con el programa.`);
+    return shared;
+  }
   const bible = useBibleStore();
   const passage = await bible.passage(item.reference, item.versionId || undefined);
+  return passage
+    ? {
+        label: passage.label,
+        version: bible.versions.find(v => v.id === passage.versionId)?.label ?? "",
+        verses: passage.verses,
+      }
+    : null;
+}
+
+async function readingPages(item: ReadingItem, theme: ProjectionTheme, prefix = "", given?: Passages): Promise<Natural> {
+  const passage = await readPassage(item, given);
   if (!passage || !passage.verses.length) {
     throw new Error(item.reference.trim()
       ? `No reconozco la cita «${item.reference}».`
       : "Elige la cita.");
   }
-  const version = bible.versions.find(v => v.id === passage.versionId)?.label ?? "";
+  const version = passage.version;
   const base: PageScreen = {
     type: "page",
     layout: "text",
@@ -316,7 +339,7 @@ async function readingPages(item: ReadingItem, theme: ProjectionTheme, prefix = 
  * that cannot be read is left out and reported, so one wrong reference does
  * not take the Lord's supper off the screen.
  */
-async function momentPages(item: ScreenItem, theme: ProjectionTheme): Promise<Omit<Natural, "label">> {
+async function momentPages(item: ScreenItem, theme: ProjectionTheme, given?: Passages): Promise<Omit<Natural, "label">> {
   const screens: Natural["screens"] = [
     ...await screenPages(item, theme),
   ];
@@ -325,7 +348,7 @@ async function momentPages(item: ScreenItem, theme: ProjectionTheme): Promise<Om
     const prefix = `${part.id}:`;
     try {
       const pages = part.kind === "reading"
-        ? (await readingPages(partAsReading(item, part), theme, prefix)).screens
+        ? (await readingPages(partAsReading(item, part), theme, prefix, given)).screens
         : await screenPages(partAsScreen(item, part), theme, prefix);
       screens.push(...pages);
     }
@@ -446,13 +469,21 @@ function signature(item: CultoItem, theme: ProjectionTheme): string {
  * and readings are paginated at projection size. Hand-made order and
  * hidden screens are applied on top, without measuring again.
  */
-export function useCultoScreens(items: MaybeRefOrGetter<CultoItem[]>) {
+export function useCultoScreens(items: MaybeRefOrGetter<CultoItem[]>, options: {
+  /** Another church's look (a shared program); none: this device's. */
+  theme?: MaybeRefOrGetter<ProjectionTheme>;
+  /** The readings' text, given (a shared program); none: read from the Bible. */
+  passages?: MaybeRefOrGetter<Passages>;
+} = {}) {
   const songStore = useSongStore();
   const songbookStore = useSongbookStore();
   const presentation = usePresentationStore();
   const { songs } = storeToRefs(songStore);
   const { currentId: songbookId, manifest } = storeToRefs(songbookStore);
-  const { theme } = storeToRefs(useCultoStore());
+  const { theme: ownTheme } = storeToRefs(useCultoStore());
+  const theme = computed(() => options.theme
+    ? toValue(options.theme)
+    : ownTheme.value);
   // The hymn sizes are measured again once the web fonts are in.
   const fontsTick = ref(0);
   if (import.meta.client) {
@@ -575,8 +606,8 @@ export function useCultoScreens(items: MaybeRefOrGetter<CultoItem[]>) {
       return;
     pending.add(sig);
     const run: Promise<Natural> = item.kind === "reading"
-      ? readingPages(item, theme.value)
-      : momentPages(item, theme.value).then(result => ({
+      ? readingPages(item, theme.value, "", toValue(options.passages))
+      : momentPages(item, theme.value, toValue(options.passages)).then(result => ({
           label: labelOf(item),
           ...result,
         }));
