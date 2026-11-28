@@ -38,6 +38,7 @@ onMounted(pokeHint);
         :screen-key="state.key"
         :transition="state.transition"
         :message="state.message"
+        :qr="state.qr"
       />
       <div v-else class="aspect-video grid place-items-center text-white/80 text-center px-6">
         <div class="flex flex-col items-center gap-3">

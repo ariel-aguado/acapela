@@ -3,12 +3,16 @@
 // makes a link with the order and the readings' text, and no notes,
 // messages or images; the link opens on a phone, without the computer's
 // data, as text and as screens; it is kept, the home page shows it, and a
-// newer link of the same service replaces it.
+// newer link of the same service replaces it. Then live, with the room
+// relay (relay/server.mjs, started here behind /sala): the console publishes
+// the program and what is on air, a phone in a separate browser context
+// opens the room's short link (the QR's), marks what is projected, gets a
+// change of the order by itself, and the QR goes on the screen with Q.
 
 import { spawn } from "node:child_process"
 import { createReadStream, rmSync, writeFileSync } from "node:fs"
 import { stat } from "node:fs/promises"
-import { createServer } from "node:http"
+import { createServer, request } from "node:http"
 import path from "node:path"
 import process from "node:process"
 import { setTimeout as sleep } from "node:timers/promises"
@@ -29,7 +33,22 @@ function fail(msg) {
 // files from .output/public, unknown paths fall back to the SPA shell.
 const PUBLIC = path.resolve(".output/public")
 const TYPES = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/javascript", ".css": "text/css", ".json": "application/json", ".wasm": "application/wasm", ".webmanifest": "application/manifest+json", ".svg": "image/svg+xml", ".png": "image/png", ".txt": "text/plain; charset=utf-8" }
+// The room relay, as in production behind acapela.app/sala.
+const RELAY_PORT = PORT + 5
+const relay = spawn(process.execPath, ["relay/server.mjs"], { env: { ...process.env, PORT: String(RELAY_PORT) }, stdio: "ignore" })
+function proxy(req, res) {
+  const up = request({ host: "127.0.0.1", port: RELAY_PORT, path: req.url, method: req.method, headers: req.headers }, (r) => {
+    res.writeHead(r.statusCode ?? 502, r.headers)
+    r.pipe(res)
+  })
+  up.on("error", () => res.writeHead(502).end())
+  req.pipe(up)
+  res.on("close", () => up.destroy())
+}
+
 const server = createServer(async (req, res) => {
+  if (req.url?.startsWith("/sala"))
+    return proxy(req, res)
   const urlPath = decodeURIComponent(new URL(req.url, ORIGIN).pathname)
   let file = path.join(PUBLIC, urlPath)
   if (!file.startsWith(PUBLIC))
@@ -192,7 +211,7 @@ try {
   await pc.waitFor("document.querySelectorAll('ol li').length === 3", 20000)
   check(await clickText(pc, "Compartir"), "el editor tiene «Compartir»")
   const link = await pc.waitFor(`document.querySelector('[data-program-link] input')?.value || document.querySelector('input[data-program-link]')?.value`, 30000)
-  check(link.includes("/programa#v1."), `el enlace lleva el programa en el «#» (${Math.round(link.length / 1024)} KB)`)
+  check(/\/programa\?sala=[A-Z2-9]{6}#v1\./.test(link), `el enlace lleva el programa en el «#» (${Math.round(link.length / 1024)} KB)`)
   check(await pc.evaluate(`document.querySelector('[role=dialog]').innerText.includes('1 lectura con su texto')`), "dice qué va: la lectura con su texto")
   await shot(pc, "programa-compartir")
 
@@ -247,11 +266,101 @@ try {
   await phone.goto(`${ORIGIN}/programa#v1.roto`)
   await sleep(1200)
   check(await phone.evaluate("document.body.innerText.includes('Culto cambiado')"), "un enlace roto no borra lo guardado")
+
+  // ------------------------------------------------------------ live
+  // The phone in its own browser context: its own storage, as another device.
+  async function isolatedPage(url) {
+    const { webSocketDebuggerUrl } = await fetch(`http://localhost:${PORT + 1}/json/version`).then(r => r.json())
+    const ws = new WebSocket(webSocketDebuggerUrl)
+    await new Promise(r => ws.addEventListener("open", r, { once: true }))
+    let id = 0
+    const call = (method, params = {}) => new Promise((resolve) => {
+      const msgId = ++id
+      const onMsg = (e) => {
+        const msg = JSON.parse(e.data)
+        if (msg.id === msgId) {
+          ws.removeEventListener("message", onMsg)
+          resolve(msg.result)
+        }
+      }
+      ws.addEventListener("message", onMsg)
+      ws.send(JSON.stringify({ id: msgId, method, params }))
+    })
+    const { browserContextId } = await call("Target.createBrowserContext")
+    const { targetId } = await call("Target.createTarget", { url: "about:blank", browserContextId })
+    const list = await fetch(`http://localhost:${PORT + 1}/json/list`).then(r => r.json())
+    const page = await connect(list.find(t => t.id === targetId).webSocketDebuggerUrl)
+    await page.goto(url)
+    return page
+  }
+
+  // The first phone shares this storage: closed, so it does not write it back.
+  await phone.send("Page.close").catch(() => {})
+  await sleep(500)
+  const pc2 = await newPage(`${ORIGIN}/`)
+  await pc2.send("Emulation.setDeviceMetricsOverride", { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false })
+  await pc2.evaluate(`localStorage.clear(); localStorage.setItem('songbookId', ${JSON.stringify(sb.id)}); localStorage.setItem('cultos', ${JSON.stringify(JSON.stringify([culto]))}); localStorage.setItem('cultoId', 'prog'); localStorage.setItem('cultoTheme', JSON.stringify({ churchName: 'Iglesia de Prueba', background: { kind: 'acapela' }, accent: '#ffffff', font: 'inter' }))`)
+  await pc2.goto(`${ORIGIN}/culto`)
+  await pc2.waitFor("document.querySelectorAll('ol li').length === 3", 20000)
+  await clickText(pc2, "Compartir")
+  const full = await pc2.waitFor(`document.querySelector('[data-program-link] input')?.value || document.querySelector('input[data-program-link]')?.value`, 30000)
+  const code = /sala=([A-Z2-9]{6})/.exec(full)?.[1]
+  check(!!code && full.includes("#v1."), `el enlace nombra la sala (${code}) y sigue llevando el programa`)
+  check(await pc2.evaluate("!!document.querySelector('[data-program-qr] svg')"), "la ventana muestra el código QR de la sala")
+  await pc2.waitFor("document.querySelector('[data-relay=ok]')", 15000)
+  check(!(await pc2.evaluate("document.querySelector('[role=dialog]').innerText.includes('Sin conexión con el servidor')")), "el servidor de salas confirmó: sin aviso de falta de conexión")
+  const relayBase = ORIGIN.includes("staging.acapela.app") ? "https://acapela.app/sala" : `${ORIGIN}/sala`
+  check(await fetch(`${relayBase}/${code}`).then(r => r.ok), "el programa quedó en la sala: el QR funciona")
+  await shot(pc2, "programa-compartir-qr")
+
+  const phone2 = await isolatedPage(`${ORIGIN}/`)
+  await phone2.send("Emulation.setDeviceMetricsOverride", { width: 390, height: 844, deviceScaleFactor: 2, mobile: true })
+  await phone2.evaluate(`localStorage.setItem('songbookId', ${JSON.stringify(sb.id)})`)
+  await phone2.goto(`${ORIGIN}/programa?sala=${code}`)
+  await phone2.waitFor("document.querySelectorAll('[data-program-item]').length === 3", 30000)
+  pass("el enlace corto del QR abre el programa desde la sala, en otro dispositivo")
+  await phone2.waitFor("document.querySelector('[data-program-live]')?.innerText.includes('esperando')", 10000)
+  pass("conectado a la sala, esperando que empiece")
+
+  await pc2.goto(`${ORIGIN}/culto/vivo`)
+  await pc2.waitFor(`document.querySelector('#v-live')?.innerText.toUpperCase().includes('NOS ALEGRA')`, 20000)
+  await pc2.waitFor("/1 teléfono siguiendo/.test(document.querySelector('[data-phones]')?.textContent ?? '')", 15000)
+  pass("la consola cuenta «1 teléfono»")
+  await phone2.waitFor("document.querySelector('[data-on-air]')?.getAttribute('data-program-item') === 'screen'", 10000)
+  check((await phone2.evaluate("document.querySelector('[data-program-live]').innerText")).includes("En vivo"), "el teléfono marca «Ahora» la bienvenida, en vivo")
+  await shot(phone2, "programa-en-vivo")
+
+  await pc2.send("Page.bringToFront")
+  await right(pc2)
+  await phone2.waitFor("document.querySelector('[data-on-air]')?.getAttribute('data-program-item') === 'hymn'", 10000)
+  pass("→ en la consola: el teléfono pasa al himno")
+  await phone2.waitFor("document.querySelector('[data-on-air-piece]')", 5000)
+  pass("y resalta la estrofa que se canta")
+  await clickText(phone2, "Pantallas")
+  await phone2.waitFor("document.querySelector('[data-on-air-screen]')", 5000)
+  pass("en «Pantallas», la pantalla al aire")
+  await shot(phone2, "programa-en-vivo-pantallas")
+
+  await key(pc2, "q")
+  await pc2.waitFor("document.querySelector('[data-live-qr] svg')", 5000)
+  pass("Q: el QR sale sobre la pantalla")
+  await shot(pc2, "consola-qr")
+  await key(pc2, "q")
+
+  await pc2.evaluate("document.querySelector('#__nuxt').__vue_app__.config.globalProperties.$pinia._s.get('culto').patch({ title: 'Culto cambiado en vivo' })")
+  await phone2.waitFor("document.body.innerText.includes('Culto cambiado en vivo')", 15000)
+  pass("un cambio en la consola llega solo al teléfono")
+
+  await pc2.send("Page.bringToFront")
+  await key(pc2, "b")
+  await phone2.waitFor("document.querySelector('[data-program-live]')?.innerText.includes('negro') && !document.querySelector('[data-on-air]')", 10000)
+  pass("B: el teléfono dice «pantalla en negro» y no marca nada")
 }
 catch (e) {
   fail(e.stack ?? String(e))
 }
 finally {
   chrome.kill()
+  relay.kill()
   server.close()
 }

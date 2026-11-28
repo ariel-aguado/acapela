@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import type { ProjectorMessage } from "~/composables/use-projector-channel";
+import type { ProjectorMessage, ProjectorQr } from "~/composables/use-projector-channel";
 import type { Screen } from "~/utils/culto/screens";
 import type { ScreenTransition } from "~~/lib/culto";
 
@@ -20,8 +20,11 @@ const props = withDefaults(defineProps<{
   animate?: boolean;
   /** A message over the screen (hidden while the screen is black). */
   message?: ProjectorMessage | null;
+  /** The room's QR, in a corner (hidden while the screen is black). */
+  qr?: ProjectorQr | null;
 }>(), {
   message: null,
+  qr: null,
   black: false,
   screenKey: "",
   transition: undefined,
@@ -73,6 +76,17 @@ watch(shownKey, () => {
         :theme-font="message.themeFont"
       />
     </Transition>
+    <Transition name="cmsg">
+      <div v-if="qr && !black" class="live-qr-layer" data-live-qr>
+        <div class="live-qr">
+          <div class="live-qr__code" v-html="qr.svg" />
+          <div class="live-qr__text">
+            <strong>Sigue el culto en tu teléfono</strong>
+            <span>{{ qr.url }}</span>
+          </div>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -87,6 +101,54 @@ watch(shownKey, () => {
 .live-screen__layer {
   grid-area: 1 / 1;
   min-width: 0;
+}
+/* The room's QR: a white card in the bottom right corner, sized to the
+   screen (container units), large enough to scan from the pews. */
+.live-qr-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  container-type: size;
+}
+.live-qr {
+  position: absolute;
+  right: 3cqw;
+  bottom: 4cqw;
+  display: flex;
+  align-items: center;
+  gap: 1.6cqw;
+  padding: 1.2cqw 2cqw 1.2cqw 1.2cqw;
+  border-radius: 1.6cqw;
+  background: #fff;
+  color: #17142b;
+  box-shadow: 0 1cqw 3cqw rgb(0 0 0 / 0.35);
+  font-family: Inter, sans-serif;
+}
+.live-qr__code {
+  width: 15cqw;
+  aspect-ratio: 1;
+}
+.live-qr__code svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.live-qr__text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5cqw;
+  max-width: 24cqw;
+}
+.live-qr__text strong {
+  font-size: 2.1cqw;
+  line-height: 1.15;
+}
+.live-qr__text span {
+  font-size: 1.3cqw;
+  color: #4b36c4;
+  font-weight: 600;
+  overflow-wrap: anywhere;
 }
 
 .t-fade-enter-active,

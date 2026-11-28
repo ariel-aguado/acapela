@@ -26,6 +26,15 @@ export type ProjectorState = {
   transition?: ScreenTransition;
   /** A message over whatever is projected. */
   message?: ProjectorMessage | null;
+  /** The room's QR in a corner, to follow the service on the phone. */
+  qr?: ProjectorQr | null;
+};
+
+export type ProjectorQr = {
+  /** SVG markup of the code. */
+  svg: string;
+  /** The short link, written under it ("acapela.app/programa?sala=K7M2QX"). */
+  url: string;
 };
 
 type Message

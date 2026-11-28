@@ -36,6 +36,8 @@ export type Program = {
   sections?: CultoSection[];
   /** By passageKey(reference, versionId). */
   passages: Record<string, SharedPassage>;
+  /** The room it came with, on this phone (not part of the link's data). */
+  sala?: string;
 };
 
 export function passageKey(reference: string, versionId: string | undefined): string {

@@ -1,11 +1,13 @@
 <script lang="ts" setup>
 import type { ItemScreens } from "~/composables/use-culto-screens";
 import type { Program } from "~/utils/culto/program";
+import type { RelayNow } from "~/utils/culto/relay";
 import type { Screen } from "~/utils/culto/screens";
 import type { CultoItem } from "~~/lib/culto";
 
 import { cultoWhen } from "~/stores/culto";
 import { decodeProgram, passageKey } from "~/utils/culto/program";
+import { fetchRoomProgram, followRoom } from "~/utils/culto/relay";
 import { blocksOf } from "~/utils/culto/sections";
 import { DEFAULT_THEME } from "~~/lib/culto";
 
@@ -13,7 +15,9 @@ import { DEFAULT_THEME } from "~~/lib/culto";
 // order, and each element as text to read (the hymn's lyric, the reading,
 // what the screens say) or as the screens themselves, as projected. Kept on
 // the phone and readable offline; opening a newer link of the same service
-// replaces it.
+// replaces it. With a room (?sala=…, from the link or the QR on the screen)
+// it follows the service live: what is on air is marked and kept in view,
+// and a change of the order arrives by itself.
 useHead({ title: "Programa del culto" });
 
 const route = useRoute();
@@ -27,18 +31,42 @@ const { show: toast } = useUndoToast();
 const failed = ref(false);
 const receiving = ref(false);
 
-async function receiveFromHash() {
+/** The program of a room, from the relay. */
+async function fromRoom(code: string): Promise<Program | null> {
+  try {
+    const found = await fetchRoomProgram(code);
+    return found
+      ? await decodeProgram(`#${found.program}`)
+      : null;
+  }
+  catch {
+    return null;
+  }
+}
+
+/** A link opened: its program (in the «#», or the room's), kept on the phone. */
+async function receiveFromLink() {
   const hash = window.location.hash;
-  if (!hash.startsWith("#v"))
+  const sala = typeof route.query.sala === "string" && /^[A-Z2-9]{6}$/.test(route.query.sala)
+    ? route.query.sala
+    : undefined;
+  if (!hash.startsWith("#v") && !sala)
     return;
   receiving.value = true;
-  const program = await decodeProgram(hash);
+  let program = hash.startsWith("#v")
+    ? await decodeProgram(hash)
+    : null;
+  if (!program && sala) {
+    program = await fromRoom(sala)
+      // Offline, a program already received from this room still opens.
+      ?? programs.programs.find(p => p.sala === sala) ?? null;
+  }
   receiving.value = false;
   if (!program) {
     failed.value = true;
     return;
   }
-  const { program: kept, replaced, stale } = programs.receive(program);
+  const { program: kept, replaced, stale } = programs.receive(program, sala);
   // The program is kept: the link's data leaves the address bar.
   await router.replace({
     path: "/programa",
@@ -64,10 +92,90 @@ const { entries } = useCultoScreens(items, {
   passages: () => program.value?.passages ?? {},
 });
 const byId = computed(() => new Map(entries.value.map(e => [e.item.id, e])));
-const blocks = computed(() => blocksOf(items.value, program.value?.sections ?? []));
 
 /** Text to read or the screens as projected; kept for next time. */
 const view = useLocalStorage<"text" | "screens">("programView", "text");
+
+// ------------------------------------------------------------ live
+
+/** What is on air, while connected to this program's room. */
+const onAir = ref<RelayNow | null>(null);
+const connected = ref(false);
+/** Keep what is on air in view; a scroll by hand stops it until asked again. */
+const follow = ref(true);
+
+let stop: (() => void) | null = null;
+watch(() => program.value?.sala, (sala) => {
+  stop?.();
+  stop = null;
+  onAir.value = null;
+  connected.value = false;
+  if (!sala || !import.meta.client)
+    return;
+  stop = followRoom(sala, {
+    status: value => (connected.value = value),
+    now: (now) => {
+      onAir.value = now;
+    },
+    program: async (rev) => {
+      const current = program.value;
+      if (!current || rev <= current.rev)
+        return;
+      const newer = await fromRoom(sala);
+      if (newer && newer.id === current.id && newer.rev > current.rev) {
+        programs.receive(newer, sala);
+        toast("El orden del culto se actualizó.");
+      }
+    },
+  });
+}, { immediate: true });
+onBeforeUnmount(() => stop?.());
+
+const live = computed(() => !!onAir.value && !onAir.value.black && !!onAir.value.itemId);
+function isOnAir(itemId: string) {
+  return live.value && onAir.value!.itemId === itemId;
+}
+function isScreenOnAir(itemId: string, key: string | undefined) {
+  return live.value && onAir.value!.key === `${itemId}:${key}`;
+}
+/** In the text, the stanza on air (the chorus, wherever it is sung). */
+function isPieceOnAir(entry: ItemScreens, screen: Screen) {
+  if (!isOnAir(entry.item.id) || screen.type !== "lyric")
+    return false;
+  const at = entry.keys.findIndex(k => onAir.value!.key === `${entry.item.id}:${k}`);
+  const shown = entry.screens[at];
+  return shown?.type === "lyric" && shown.slide.html === screen.slide.html;
+}
+
+function scrollToOnAir() {
+  if (!live.value)
+    return;
+  const target = document.querySelector("[data-on-air-screen]")
+    ?? document.querySelector("[data-on-air-piece]")
+    ?? document.getElementById(`p-${onAir.value!.itemId}`);
+  target?.scrollIntoView({
+    behavior: "smooth",
+    block: target.hasAttribute("id")
+      ? "start"
+      : "center",
+  });
+}
+watch(() => [onAir.value?.key, onAir.value?.black, view.value], async () => {
+  if (!follow.value)
+    return;
+  await nextTick();
+  scrollToOnAir();
+});
+function resumeFollow() {
+  follow.value = true;
+  scrollToOnAir();
+}
+/** A scroll by hand (a finger or the wheel) means: let me read. */
+function scrolledByHand() {
+  if (live.value)
+    follow.value = false;
+}
+const blocks = computed(() => blocksOf(items.value, program.value?.sections ?? []));
 
 /** A hymn's chorus is projected after every stanza: read once. */
 function textScreens(entry: ItemScreens): Screen[] {
@@ -104,12 +212,12 @@ function removeProgram(p: Program) {
 
 onMounted(() => {
   songStore.getSongs();
-  receiveFromHash();
+  receiveFromLink();
 });
 </script>
 
 <template>
-  <div class="page-scroll">
+  <div class="page-scroll" @wheel.passive="scrolledByHand" @touchmove.passive="scrolledByHand">
     <div class="mx-auto flex w-full max-w-2xl flex-col gap-5 px-4 py-4">
       <div v-if="receiving" class="flex justify-center py-16">
         <UIcon name="i-tabler-loader-2" class="size-10 animate-spin text-primary" aria-label="Abriendo el programa" />
@@ -146,8 +254,18 @@ onMounted(() => {
           <p class="text-white/75 first-letter:uppercase">
             {{ cultoWhen(program) }}
           </p>
-          <p class="mt-1 text-sm text-white/60">
-            {{ items.length }} {{ items.length === 1 ? "elemento" : "elementos" }}
+          <p class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-white/60">
+            <span>{{ items.length }} {{ items.length === 1 ? "elemento" : "elementos" }}</span>
+            <span
+              v-if="program.sala"
+              class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold"
+              :class="live ? 'bg-[#f4b740] text-[#17142b]' : connected ? 'bg-white/15 text-white' : 'bg-white/10 text-white/60'"
+              role="status"
+              data-program-live
+            >
+              <span class="size-1.5 rounded-full" :class="live ? 'bg-[#17142b] animate-pulse' : connected ? 'bg-white' : 'bg-white/50'" />
+              {{ live ? "En vivo: siguiendo la pantalla" : connected ? (onAir?.black ? "En vivo: pantalla en negro" : "Conectado: esperando que empiece") : "Sin conexión en vivo" }}
+            </span>
           </p>
         </header>
 
@@ -190,7 +308,9 @@ onMounted(() => {
               v-if="byId.get(item.id)"
               :id="`p-${item.id}`"
               class="program-item scroll-mt-28 rounded-3xl bg-default p-4 shadow-card"
+              :class="{ 'program-item--live': isOnAir(item.id) }"
               :data-program-item="item.kind"
+              :data-on-air="isOnAir(item.id) || undefined"
             >
               <header class="mb-3 flex items-center gap-3">
                 <CultoMomentTile :item="item" />
@@ -202,6 +322,7 @@ onMounted(() => {
                     {{ passageOf(item)!.version }}
                   </p>
                 </div>
+                <span v-if="isOnAir(item.id)" class="shrink-0 rounded-full bg-[#f4b740] px-2.5 py-0.5 text-xs font-bold text-[#17142b]">Ahora</span>
               </header>
 
               <div v-if="byId.get(item.id)!.status === 'loading' && !byId.get(item.id)!.screens.length" class="flex justify-center py-6">
@@ -223,7 +344,13 @@ onMounted(() => {
                   </span>
                 </p>
                 <template v-else>
-                  <div v-for="(screen, i) in textScreens(byId.get(item.id)!)" :key="i" class="program-piece">
+                  <div
+                    v-for="(screen, i) in textScreens(byId.get(item.id)!)"
+                    :key="i"
+                    class="program-piece"
+                    :class="{ 'program-piece--live': isPieceOnAir(byId.get(item.id)!, screen) }"
+                    :data-on-air-piece="isPieceOnAir(byId.get(item.id)!, screen) || undefined"
+                  >
                     <template v-if="screen.type === 'lyric'">
                       <p class="program-label">
                         {{ screen.slide.label }}
@@ -255,7 +382,12 @@ onMounted(() => {
                   <div v-if="screen.type === 'image'" class="grid aspect-video place-items-center rounded-xl bg-elevated text-center text-sm text-muted">
                     Diapositiva {{ i + 1 }}: se ve en la pantalla del templo.
                   </div>
-                  <div v-else class="overflow-hidden rounded-xl">
+                  <div
+                    v-else
+                    class="overflow-hidden rounded-xl"
+                    :class="{ 'program-screen--live': isScreenOnAir(item.id, byId.get(item.id)!.keys[i]) }"
+                    :data-on-air-screen="isScreenOnAir(item.id, byId.get(item.id)!.keys[i]) || undefined"
+                  >
                     <CultoScreen :screen="screen" />
                   </div>
                 </template>
@@ -290,6 +422,15 @@ onMounted(() => {
         <p class="px-1 pb-2 text-center text-xs text-muted">
           Los programas se guardan en este teléfono y se borran solos dos semanas después del culto.
         </p>
+        <button
+          v-if="live && !follow"
+          type="button"
+          class="program-resume fixed left-1/2 z-20 flex -translate-x-1/2 items-center gap-2 rounded-full bg-[#17142b] px-4 py-2.5 text-sm font-semibold text-white shadow-lg"
+          @click="resumeFollow"
+        >
+          <UIcon name="i-tabler-player-play-filled" class="size-4 text-[#f4b740]" />
+          Seguir la pantalla
+        </button>
       </template>
     </div>
   </div>
@@ -301,6 +442,23 @@ onMounted(() => {
 }
 .program-map {
   scrollbar-width: none;
+}
+.program-item--live {
+  outline: 3px solid #f4b740;
+  outline-offset: 2px;
+}
+.program-piece--live {
+  border-radius: 0.75rem;
+  background: color-mix(in oklab, #f4b740 18%, transparent);
+  margin-inline: -0.5rem;
+  padding: 0.25rem 0.5rem;
+}
+.program-screen--live {
+  outline: 3px solid #f4b740;
+  outline-offset: 2px;
+}
+.program-resume {
+  bottom: calc(var(--bar-bottom) + 0.75rem);
 }
 .program-text {
   line-height: var(--reading-line-height, 1.6);

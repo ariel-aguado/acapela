@@ -33,15 +33,27 @@ export const useProgramsStore = defineStore("programs", () => {
    * Keeps a received program. An older version of the same service is
    * replaced; an even older link opened later does not undo a newer one.
    */
-  function receive(program: Program): { program: Program; replaced: boolean; stale: boolean } {
-    const known = programs.value.find(p => p.id === program.id);
-    if (known && known.rev > program.rev)
+  function receive(received: Program, sala?: string): { program: Program; replaced: boolean; stale: boolean } {
+    const known = programs.value.find(p => p.id === received.id);
+    // Its room stays known, whichever link brings it.
+    const program = { ...received, sala: sala ?? received.sala ?? known?.sala };
+    if (!program.sala)
+      delete program.sala;
+    if (known && known.rev > program.rev) {
+      if (program.sala && !known.sala) {
+        programs.value = programs.value.map(p => p.id === known.id
+          ? { ...known, sala: program.sala }
+          : p);
+      }
       return { program: known, replaced: false, stale: true };
+    }
+    // The same version again: nothing to say.
+    const same = !!known && known.rev === program.rev;
     programs.value = [
       ...programs.value.filter(p => p.id !== program.id),
       program,
     ];
-    return { program, replaced: !!known, stale: false };
+    return { program, replaced: !!known && !same, stale: false };
   }
 
   function remove(id: string) {

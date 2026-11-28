@@ -11,6 +11,7 @@ import { cultoWhen } from "~/stores/culto";
 import { SCALE_MAX, SCALE_MIN, SCALE_STEP } from "~/stores/presentation";
 import { resolveLook } from "~/utils/culto/look";
 import { momentTone } from "~/utils/culto/moment";
+import { publishNow, qrSvg, roomUrl } from "~/utils/culto/relay";
 import { blocksOf } from "~/utils/culto/sections";
 import { DEFAULT_TRANSITIONS, MESSAGE_KIND_LABELS, PROJECTION_FONTS } from "~~/lib/culto";
 
@@ -526,12 +527,95 @@ function applyFix(changes: Partial<CultoItem>, show: "now" | "later" | "none") {
   });
 }
 
+// ------------------------------------------------------------ phones
+// The congregation's phones follow the service through its room on the
+// relay: the program (again when it changes) and what is on air. Only a
+// prepared service that was shared, or whose QR was shown, has a room.
+const share = useProgramShare();
+const roomCode = ref<string | null>(null);
+/** Phones following, as the relay last said; null: not connected to it. */
+const phones = ref<number | null>(null);
+const showQr = ref(false);
+
+function syncRoom() {
+  const c = liveCulto.value;
+  roomCode.value = c && !quick.value && share.hasRoom(c.id)
+    ? share.roomFor(c.id).code
+    : null;
+}
+
+async function publishProgramToRoom() {
+  const c = liveCulto.value;
+  if (!c || !roomCode.value)
+    return;
+  try {
+    const { encoded } = await share.build(c);
+    const { room, listeners } = await share.publish(c.id, encoded, c.updatedAt);
+    roomCode.value = room.code;
+    phones.value = listeners;
+    publishOnAir();
+  }
+  catch {
+    phones.value = null;
+  }
+}
+
+let onAirTimer: ReturnType<typeof setTimeout> | null = null;
+function publishOnAir() {
+  const c = liveCulto.value;
+  if (!c || !roomCode.value)
+    return;
+  if (onAirTimer)
+    clearTimeout(onAirTimer);
+  // A burst of → → → sends only where it stops.
+  onAirTimer = setTimeout(() => {
+    publishNow(share.roomFor(c.id), {
+      itemId: showLogo.value
+        ? ""
+        : live.value?.itemId ?? "",
+      key: onAirKey.value,
+      index: live.value?.index ?? 0,
+      black: black.value,
+    })
+      .then(n => (phones.value = n))
+      .catch(() => (phones.value = null));
+  }, 150);
+}
+
+watch([onAirKey, black], publishOnAir);
+// The order changed during the service: the phones get it again.
+watchDebounced(() => liveCulto.value?.updatedAt, publishProgramToRoom, { debounce: 1500 });
+// Someone else's changes are seen on the next contact; keep the count fresh.
+useIntervalFn(() => {
+  if (roomCode.value)
+    publishOnAir();
+}, 30000);
+
+function toggleQr() {
+  const c = liveCulto.value;
+  if (!c || quick.value)
+    return;
+  if (!showQr.value && !roomCode.value) {
+    share.roomFor(c.id);
+    syncRoom();
+    publishProgramToRoom();
+  }
+  showQr.value = !showQr.value;
+}
+const qr = computed(() => showQr.value && roomCode.value
+  ? {
+      svg: qrSvg(roomUrl(roomCode.value)),
+      url: roomUrl(roomCode.value).replace(/^https?:\/\//, ""),
+    }
+  : null);
+
 const liveState = computed<ProjectorState>(() => ({
   screen: onAir.value,
   black: black.value,
   key: onAirKey.value,
   transition: onAirTransition.value,
   message: liveMessage.value,
+  qr: qr.value,
 }));
 const { connected } = useProjectorSender(liveState);
 
@@ -623,6 +707,7 @@ keys(["?"], () => (showHelp.value = true));
 keys(["c", "C"], () => fix(live.value?.itemId));
 keys(["m", "M"], newMessage);
 keys(["x", "X"], hideMessage);
+keys(["q", "Q"], toggleQr);
 
 const serviceShortcuts: ShortcutGroup[] = [
   {
@@ -679,6 +764,10 @@ const serviceShortcuts: ShortcutGroup[] = [
         label: "Quitar el mensaje que está en pantalla",
       },
       {
+        keys: ["Q"],
+        label: "Código QR para seguir el culto en el teléfono / quitarlo",
+      },
+      {
         keys: ["+", "−"],
         label: "Agrandar / achicar el texto de este elemento",
       },
@@ -723,6 +812,8 @@ onMounted(() => {
     bible.refresh();
   if (!startedAt.value)
     startedAt.value = Date.now();
+  syncRoom();
+  publishProgramToRoom();
 });
 
 function leave() {
@@ -811,6 +902,31 @@ function saveAsService() {
         @click="saveAsService"
       />
       <span class="flex-1" />
+      <UButton
+        v-if="!quick"
+        :color="showQr ? 'primary' : 'neutral'"
+        :variant="showQr ? 'soft' : 'outline'"
+        size="lg"
+        icon="i-tabler-qrcode"
+        :aria-pressed="showQr"
+        :aria-label="showQr ? 'Quitar el código QR de la pantalla' : 'Mostrar el código QR en la pantalla'"
+        :title="showQr ? 'Quitar el código QR de la pantalla' : 'Mostrar en la pantalla el código QR para seguir el culto en el teléfono'"
+        @click="toggleQr"
+      >
+        <UKbd value="Q" />
+      </UButton>
+      <span
+        v-if="roomCode"
+        class="inline-flex items-center gap-1.5 text-sm font-semibold"
+        :class="phones !== null ? 'text-primary' : 'opacity-60'"
+        role="status"
+        data-phones
+        :title="phones !== null ? `${phones === 1 ? '1 teléfono sigue' : `${phones} teléfonos siguen`} el culto (sala ${roomCode})` : 'Sin conexión con el servidor de salas: los teléfonos siguen con el programa, sin la marca de lo que se proyecta'"
+      >
+        <UIcon name="i-tabler-device-mobile" class="size-4" />
+        <span class="tabular-nums">{{ phones ?? '–' }}</span>
+        <span class="sr-only">{{ phones === null ? 'Teléfonos sin conexión' : phones === 1 ? '1 teléfono siguiendo el culto' : `${phones} teléfonos siguiendo el culto` }}</span>
+      </span>
       <span
         class="inline-flex items-center gap-1.5 text-sm font-semibold"
         :class="connected ? 'text-success' : 'opacity-60'"
@@ -983,6 +1099,7 @@ function saveAsService() {
                 :transition="onAirTransition"
                 :animate="reducedMotion !== 'reduce'"
                 :message="liveMessage"
+                :qr="qr"
               />
               <div v-if="black && !isFullscreen" class="absolute inset-0 grid place-items-center text-white/80 text-sm font-semibold pointer-events-none">
                 Pantalla en negro · B para volver
