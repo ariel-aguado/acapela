@@ -11,7 +11,7 @@ import { cultoWhen } from "~/stores/culto";
 import { SCALE_MAX, SCALE_MIN, SCALE_STEP } from "~/stores/presentation";
 import { resolveLook } from "~/utils/culto/look";
 import { momentTone } from "~/utils/culto/moment";
-import { publishNow, qrSvg, roomUrl } from "~/utils/culto/relay";
+import { followRemote, pairRemote, publishNow, publishPrivate, qrSvg, remoteUrl, roomUrl } from "~/utils/culto/relay";
 import { blocksOf } from "~/utils/culto/sections";
 import { DEFAULT_TRANSITIONS, MESSAGE_KIND_LABELS, PROJECTION_FONTS } from "~~/lib/culto";
 
@@ -579,6 +579,7 @@ function publishOnAir() {
     })
       .then(n => (phones.value = n))
       .catch(() => (phones.value = null));
+    publishRemoteState();
   }, 150);
 }
 
@@ -608,6 +609,98 @@ const qr = computed(() => showQr.value && roomCode.value
       url: roomUrl(roomCode.value).replace(/^https?:\/\//, ""),
     }
   : null);
+
+// ------------------------------------------------------------ the remote
+// The presenter's phone as a remote control («Mando»): paired with a key
+// (a QR in a dialog here, never on the screen), it sends next, back, black,
+// logo, QR or an element; it reads the notes of what is on air, encrypted.
+const showRemote = ref(false);
+const remoteKey = ref<string | null>(null);
+const remoteSeenAt = ref(0);
+const remoteFailed = ref(false);
+const remoteClock = useNow({ interval: 5000 });
+const remoteConnected = computed(() => remoteClock.value.getTime() - remoteSeenAt.value < 45000);
+const remoteLink = computed(() => roomCode.value && remoteKey.value
+  ? remoteUrl(roomCode.value, remoteKey.value)
+  : "");
+
+let stopRemote: (() => void) | null = null;
+function listenRemote() {
+  stopRemote?.();
+  stopRemote = null;
+  if (!roomCode.value || !remoteKey.value)
+    return;
+  stopRemote = followRemote(roomCode.value, {
+    cmd: (cmd, itemId) => {
+      remoteSeenAt.value = Date.now();
+      if (cmd === "next")
+        next();
+      else if (cmd === "prev")
+        prev();
+      else if (cmd === "black")
+        projectorMode.value = black.value ? "content" : "black";
+      else if (cmd === "logo")
+        projectorMode.value = showLogo.value ? "content" : "logo";
+      else if (cmd === "content")
+        projectorMode.value = "content";
+      else if (cmd === "goto" && itemId)
+        goToItem(itemId);
+      else if (cmd === "qr")
+        toggleQr();
+      else if (cmd === "hello")
+        publishRemoteState();
+    },
+  });
+}
+onBeforeUnmount(() => stopRemote?.());
+
+/** Pairs the phone (again after the relay restarted) and listens to it. */
+async function pairRemoteNow() {
+  const c = liveCulto.value;
+  if (!c || !remoteKey.value)
+    return;
+  try {
+    await pairRemote(share.roomFor(c.id), remoteKey.value);
+    remoteFailed.value = false;
+    listenRemote();
+    publishRemoteState();
+  }
+  catch {
+    remoteFailed.value = true;
+  }
+}
+
+async function openRemote(fresh = false) {
+  const c = liveCulto.value;
+  if (!c || quick.value)
+    return;
+  showRemote.value = true;
+  if (!roomCode.value) {
+    share.roomFor(c.id);
+    syncRoom();
+  }
+  if (fresh || !share.roomFor(c.id).control)
+    share.newControl(c.id);
+  remoteKey.value = share.roomFor(c.id).control ?? null;
+  remoteSeenAt.value = 0;
+  await publishProgramToRoom();
+  await pairRemoteNow();
+}
+
+function publishRemoteState() {
+  const c = liveCulto.value;
+  if (!c || !roomCode.value || !remoteKey.value)
+    return;
+  const itemId = live.value?.itemId ?? "";
+  const item = entries.value.find(e => e.item.id === itemId)?.item;
+  publishPrivate(share.roomFor(c.id), remoteKey.value, {
+    itemId,
+    notes: item?.notes?.trim() ?? "",
+    logo: showLogo.value,
+    qr: showQr.value,
+  }).catch(() => {});
+}
+watch([showLogo, showQr], publishRemoteState);
 
 const liveState = computed<ProjectorState>(() => ({
   screen: onAir.value,
@@ -670,7 +763,7 @@ const elapsed = computed(() => {
 function blocked(e: KeyboardEvent) {
   const t = e.target as HTMLElement | null;
   const typing = !!t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable);
-  return typing || showInsert.value || showGoTo.value || showHelp.value || showFix.value || showMessageDialog.value || e.ctrlKey || e.metaKey || e.altKey;
+  return typing || showInsert.value || showGoTo.value || showHelp.value || showFix.value || showMessageDialog.value || showRemote.value || e.ctrlKey || e.metaKey || e.altKey;
 }
 function keys(list: string[], run: () => void) {
   onKeyStroke(list, (e) => {
@@ -814,6 +907,12 @@ onMounted(() => {
     startedAt.value = Date.now();
   syncRoom();
   publishProgramToRoom();
+  // A phone paired before (this service, this computer) keeps working.
+  const c = liveCulto.value;
+  if (c && !quick.value && share.hasRoom(c.id) && share.roomFor(c.id).control) {
+    remoteKey.value = share.roomFor(c.id).control ?? null;
+    pairRemoteNow();
+  }
 });
 
 function leave() {
@@ -904,6 +1003,19 @@ function saveAsService() {
       <span class="flex-1" />
       <UButton
         v-if="!quick"
+        color="neutral"
+        variant="outline"
+        size="lg"
+        icon="i-tabler-device-mobile-cog"
+        :aria-label="remoteConnected ? 'Mando conectado' : 'Mando en el teléfono'"
+        :title="remoteConnected ? 'Mando conectado: el teléfono de quien dirige pasa las pantallas' : 'Usar el teléfono como mando'"
+        data-remote-button
+        @click="openRemote()"
+      >
+        <span v-if="remoteConnected" class="size-2 rounded-full bg-success" />
+      </UButton>
+      <UButton
+        v-if="!quick"
         :color="showQr ? 'primary' : 'neutral'"
         :variant="showQr ? 'soft' : 'outline'"
         size="lg"
@@ -933,14 +1045,15 @@ function saveAsService() {
         role="status"
       >
         <span class="h-2.5 w-2.5 rounded-full" :class="connected ? 'bg-success' : 'bg-inverted/40'" />
-        {{ connected ? 'Proyector conectado' : 'Proyector sin conectar' }}
+        {{ connected ? 'Proyector conectado' : 'Sin proyector' }}
       </span>
       <UButton
         color="neutral"
         variant="outline"
         size="lg"
         icon="i-tabler-device-desktop-share"
-        label="Abrir ventana del proyector"
+        label="Abrir proyector"
+        title="Abrir la ventana del proyector"
         @click="openProjector"
       />
       <UButton
@@ -1376,6 +1489,13 @@ function saveAsService() {
       @go="insertHymn"
     />
     <AppShortcutsHelp v-model:open="showHelp" :groups="shortcutGroups" />
+    <CultoRemoteDialog
+      v-model:open="showRemote"
+      :url="remoteLink"
+      :connected="remoteConnected"
+      :failed="remoteFailed"
+      @rotate="openRemote(true)"
+    />
     <CultoMessageDialog
       v-model:open="showMessageDialog"
       :message="editingMessage"
