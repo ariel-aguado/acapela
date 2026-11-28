@@ -26,7 +26,8 @@
     "prepare": "husky",
     "pwa:check:bible": "node scripts/bible-check.mjs",
     "pwa:check:culto": "node scripts/culto-check.mjs",
-    "pwa:check:messages": "node scripts/messages-check.mjs"
+    "pwa:check:messages": "node scripts/messages-check.mjs",
+    "pwa:check:program": "node scripts/program-check.mjs"
   },
   "dependencies": {
     "@internationalized/date": "^3.12.4",

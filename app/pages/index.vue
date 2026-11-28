@@ -1,6 +1,8 @@
 <script lang="ts" setup>
 import type { Slide } from "~/utils/slides";
 
+import { cultoWhen } from "~/stores/culto";
+
 // Home, reached from the logo (as in Superbiblia), never from the bottom
 // menu. Acapela is the hymnal and the service: the hero says both, the
 // phone stays hymnal-first (back to singing, recents, the songbook) and the
@@ -14,6 +16,8 @@ const { status } = useSongbookWorker();
 const { show: showGoTo } = useGoToHymn();
 const { canInstall, install, isInstalled } = usePwaInstall();
 const { shareApp, shareCulto } = useShareApp();
+// A service program received from the church's group: today's, or the next one.
+const { featured: program } = storeToRefs(useProgramsStore());
 const favoritesBySongbook = useLocalStorage<Record<string, number[]>>("favoritesBySongbook", {});
 
 const hasSongbook = computed(() => !!currentId.value);
@@ -321,6 +325,23 @@ const OWN = [
 
       <!-- ===================== Phone: the hymnal ===================== -->
       <div class="lg:hidden">
+        <section v-if="program" class="pt-7" aria-labelledby="home-program">
+          <NuxtLink
+            :to="{ path: '/programa', query: { id: program.program.id } }"
+            class="flex items-center gap-4 rounded-3xl bg-[#17142b] px-5 py-4 text-white"
+            data-home-program
+          >
+            <span class="grid size-12 shrink-0 place-items-center rounded-2xl bg-[#4b36c4]">
+              <UIcon name="i-tabler-list-details" class="size-6" />
+            </span>
+            <span class="flex min-w-0 flex-1 flex-col">
+              <span id="home-program" class="text-sm font-semibold text-[#f4b740]">{{ program.today ? "Hoy en el culto" : "Próximo culto" }}</span>
+              <span class="truncate text-lg font-bold">{{ program.program.title }}</span>
+              <span class="truncate text-sm text-white/70 first-letter:uppercase">{{ cultoWhen(program.program) }}</span>
+            </span>
+            <UIcon name="i-tabler-chevron-right" class="size-5 shrink-0 text-white/70" />
+          </NuxtLink>
+        </section>
         <section v-if="recents.length" class="pt-7" aria-labelledby="home-recent">
           <h3 id="home-recent" class="home__heading">
             Recientes

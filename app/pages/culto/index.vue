@@ -226,6 +226,7 @@ const isBlank = computed(() => {
 
 const showTheme = ref(false);
 const showMessages = ref(false);
+const showShare = ref(false);
 /** How many messages show by themselves with each element. */
 const messagesByItem = computed(() => {
   const counts: Record<string, number> = {};
@@ -387,6 +388,11 @@ const cultoMenu = computed(() => [
       label: "Mensajes sobre la pantalla…",
       icon: "i-tabler-message-2",
       onSelect: () => (showMessages.value = true),
+    },
+    {
+      label: "Compartir con la congregación…",
+      icon: "i-tabler-users",
+      onSelect: () => (showShare.value = true),
     },
   ],
   [
@@ -933,6 +939,15 @@ onMounted(() => {
             @click="showMessages = true"
           />
           <UButton
+            color="neutral"
+            variant="outline"
+            size="xl"
+            icon="i-tabler-users"
+            label="Compartir"
+            title="Compartir con la congregación: un enlace para seguir el culto en el teléfono"
+            @click="showShare = true"
+          />
+          <UButton
             to="/culto/vivo"
             size="xl"
             icon="i-tabler-player-play-filled"
@@ -1296,6 +1311,7 @@ onMounted(() => {
 
     <CultoThemeDialog v-model:open="showTheme" />
     <CultoMessagesDialog v-model:open="showMessages" :entries="entries" />
+    <CultoShareDialog v-model:open="showShare" />
     <CultoListDialog v-model:open="showList" @duplicate="startDuplicate" />
     <CultoDuplicateDialog v-model:open="showDuplicate" :source="duplicateSource" @done="onDuplicated" />
     <input
